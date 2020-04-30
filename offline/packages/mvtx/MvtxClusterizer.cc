@@ -48,7 +48,6 @@
 using namespace boost;
 using namespace std;
 
-
 bool MvtxClusterizer::are_adjacent(const std::pair<TrkrDefs::hitkey, TrkrHit*> &lhs, const std::pair<TrkrDefs::hitkey, TrkrHit*> &rhs)
 {
   if (GetZClustering())
