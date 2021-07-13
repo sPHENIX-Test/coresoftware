@@ -11,6 +11,9 @@
 #include <fun4all/SubsysReco.h>
 #include <trackbase/TrkrDefs.h>
 
+#include <trackbase/ActsTrackingGeometry.h>
+#include <trackbase/ActsSurfaceMaps.h>
+
 #include <Acts/Utilities/Definitions.hpp>
 #include <Acts/Utilities/BinnedArray.hpp>                      
 #include <Acts/Utilities/Logger.hpp>                           
@@ -19,9 +22,9 @@
 #include <Acts/MagneticField/MagneticFieldContext.hpp>
 #include <Acts/Utilities/CalibrationContext.hpp>
 
-#include <ACTFW/TGeoDetector/TGeoDetector.hpp>
-#include <ACTFW/Fitting/TrkrClusterFittingAlgorithm.hpp>
-#include <ACTFW/Plugins/BField/BFieldOptions.hpp>
+#include <ActsExamples/TGeoDetector/TGeoDetector.hpp>
+#include <ActsExamples/Fitting/TrkrClusterFittingAlgorithm.hpp>
+#include <ActsExamples/Plugins/BField/BFieldOptions.hpp>
 
 #include <map>
 #include <memory>            
@@ -35,12 +38,14 @@ class TGeoManager;
 class TGeoNode;
 class TGeoVolume;
 
-namespace FW {
+namespace ActsExamples 
+{
   class IBaseDetector;
   class IContextDecorator;
 }
 
-namespace Acts {
+namespace Acts 
+{
   class Surface;
 }
 
@@ -55,7 +60,7 @@ using TrackingVolumePtr = std::shared_ptr<const Acts::TrackingVolume>;
  * This class puts several nodes on the node tree which relate Acts::Surfaces
  * to sPHENIX TGeo objects, for use in building Acts SourceLinks.
  */
-class MakeActsGeometry
+class MakeActsGeometry : public SubsysReco
 {
  public:
 
@@ -63,56 +68,58 @@ class MakeActsGeometry
   MakeActsGeometry(const std::string& name = "MakeActsGeometry");
 
   //! Destructor
-  ~MakeActsGeometry();
+  ~MakeActsGeometry() override = default;
 
-  /// Main function to build all acts geometry for use in the fitting modules
-  int buildAllGeometry(PHCompositeNode *topNode);
-  
-  /// Functions to edit TGeoManager to include TPC boxes
-  void editTPCGeometry(PHCompositeNode *topNode);
-  void addActsTpcSurfaces(TGeoVolume *tpc_gas_vol, TGeoManager *geoManager);
+  int Init(PHCompositeNode *topNode) override;
+  int InitRun(PHCompositeNode *topNode) override;
+  int process_event(PHCompositeNode *topNode) override;
+  int End(PHCompositeNode *topNode) override;
 
-  void setVerbosity(int verbosity)
-  { m_verbosity = verbosity; }
-
-  std::map<TrkrDefs::hitsetkey,Surface> getSurfaceMapSilicon()
-    { return m_clusterSurfaceMapSilicon; }
-  
-  std::map<TrkrDefs::hitsetkey, std::vector<Surface>> getSurfaceMapTpc()
-    { return m_clusterSurfaceMapTpcEdit; }
-  
-  std::map<TrkrDefs::hitsetkey, TGeoNode*> getTGeoNodeMap()
-    { return m_clusterNodeMap; }
-   
-  std::vector<std::shared_ptr<FW::IContextDecorator>> getContextDecorators()
+  std::vector<std::shared_ptr<ActsExamples::IContextDecorator>> getContextDecorators()
     { return m_contextDecorators; }
-  
-  /// Getters for acts geometry that is needed by fitter functions
-  TrackingGeometry getTGeometry(){ return m_tGeometry; }
-  FW::Options::BFieldVariant getMagField(){ return m_magneticField; }
-  Acts::MagneticFieldContext getMagFieldContext() { return m_magFieldContext; }
-  Acts::CalibrationContext getCalibContext() { return m_calibContext; }
-  Acts::GeometryContext getGeoContext() { return m_geoCtxt; }
-  
-  /// Gets tpc surface from a cluster coordinate and hitsetkey. Necessary
-  /// since there are many tpc surfaces per read out module
-  Surface getTpcSurfaceFromCoords(TrkrDefs::hitsetkey hitsetkey, 
-    std::vector<double> &world);
+
+  void setMagField(const std::string &magField)
+    {m_magField = magField;}
+  void setMagFieldRescale(double magFieldRescale)
+    {m_magFieldRescale = magFieldRescale;}
+
+  double getSurfStepPhi() {return m_surfStepPhi;}
+  double getSurfStepZ() {return m_surfStepZ;}
+
+  void add_fake_surfaces(bool add){fake_surfaces = add;}
 
  private:
-  
+  /// Main function to build all acts geometry for use in the fitting modules
+  int buildAllGeometry(PHCompositeNode *topNode);
+ 
   //! Get all the nodes
   int getNodes(PHCompositeNode*);
   
   //!Create New nodes
   int createNodes(PHCompositeNode*);
   
+  /// Functions to edit TGeoManager to include TPC boxes
+  void setPlanarSurfaceDivisions();
+  void editTPCGeometry(PHCompositeNode *topNode);
+  void addActsTpcSurfaces(TGeoVolume *tpc_gas_vol, 
+			  TGeoManager *geoManager);
+
+  /// create relevant micromegas volumes relevant for ACTS
+  /**
+   * there is one volume per micromegas tile. It is a box included inside the main G4 Micromegas cylinder
+   */
+  void addActsMicromegasSurfaces(int mm_layer, TGeoVolume *micromegas_vol, TGeoManager *geoManager);
+
   /// Silicon layers made by BuildSiliconLayers and its helper functions
   void buildActsSurfaces();
 
   /// Function that mimics ActsFW::GeometryExampleBase
-  void makeGeometry(int argc, char* argv[], FW::IBaseDetector& detector);
-  
+  void makeGeometry(int argc, char* argv[], 
+		    ActsExamples::IBaseDetector& detector);
+
+  void setMaterialResponseFile(std::string& responseFile,
+			       std::string& materialFile);
+
   /// Get hitsetkey from TGeoNode for each detector geometry
   void getInttKeyFromNode(TGeoNode *gnode);
   void getMvtxKeyFromNode(TGeoNode *gnode);
@@ -123,6 +130,9 @@ class MakeActsGeometry
   void makeMvtxMapPairs(TrackingVolumePtr &mvtxVolume);
   void makeInttMapPairs(TrackingVolumePtr &inttVolume);
   void makeTpcMapPairs(TrackingVolumePtr &tpcVolume);
+
+  /// bind micromegas surfaces to hitset id
+  void makeMmMapPairs(TrackingVolumePtr &tpcVolume);
   
   /// Get subdetector hitsetkey from the local sensor unit coordinates
   TrkrDefs::hitsetkey getMvtxHitSetKeyFromCoords(unsigned int layer, 
@@ -136,22 +146,26 @@ class MakeActsGeometry
 
   /// Makes map of TrkrHitSetKey<-->TGeoNode
   void makeTGeoNodeMap(PHCompositeNode *topNode);
+  
+  void unpackVolumes();
 
   /// Subdetector geometry containers for getting layer information
-  PHG4CylinderGeomContainer* m_geomContainerMvtx;  
-  PHG4CylinderGeomContainer* m_geomContainerIntt;
-  PHG4CylinderCellGeomContainer* m_geomContainerTpc;
+  PHG4CylinderGeomContainer* m_geomContainerMvtx = nullptr;
+  PHG4CylinderGeomContainer* m_geomContainerIntt = nullptr;
+  PHG4CylinderGeomContainer* m_geomContainerMicromegas = nullptr;
+  PHG4CylinderCellGeomContainer* m_geomContainerTpc = nullptr;
 
-  TGeoManager* m_geoManager; 
+  TGeoManager* m_geoManager = nullptr;
 
   /// Acts Context decorators, which may contain e.g. calibration information
-  std::vector<std::shared_ptr<FW::IContextDecorator> > m_contextDecorators;
+  std::vector<std::shared_ptr<ActsExamples::IContextDecorator> > 
+    m_contextDecorators;
 
   /// Several maps that connect Acts world to sPHENIX G4 world 
   std::map<TrkrDefs::hitsetkey, TGeoNode*> m_clusterNodeMap;
   std::map<TrkrDefs::hitsetkey, Surface> m_clusterSurfaceMapSilicon;
   std::map<TrkrDefs::hitsetkey, std::vector<Surface>> m_clusterSurfaceMapTpcEdit;
-  std::map<TrkrDefs::cluskey, Surface> m_clusterSurfaceMapTpc;
+  std::map<TrkrDefs::hitsetkey, Surface> m_clusterSurfaceMapMmEdit;
   
   /// These don't change, we are building the tpc this way!
   const static unsigned int m_nTpcLayers = 48;
@@ -159,17 +173,17 @@ class MakeActsGeometry
   const unsigned int m_nTpcSides = 2;
 
   /// TPC Acts::Surface subdivisions
-  double m_minSurfZ;
-  double m_maxSurfZ;
-  unsigned int m_nSurfZ;
-  unsigned int m_nSurfPhi;
-  double m_surfStepPhi;
-  double m_surfStepZ;
-  double m_moduleStepPhi;
-  double m_modulePhiStart;
+  double m_minSurfZ = 0.;
+  double m_maxSurfZ = 105.5;
+  unsigned int m_nSurfZ = 1;
+  unsigned int m_nSurfPhi = 12;
+  double m_surfStepPhi = 0;
+  double m_surfStepZ = 0;
+  double m_moduleStepPhi = 0;
+  double m_modulePhiStart = 0;
 
   /// Debugger for printing out tpc active volumes
-  int nprint_tpc;
+  int nprint_tpc = 0;
 
   /// TPC TGeoManager editing box surfaces subdivisions
   const static int m_nTpcSectors = 3;
@@ -189,13 +203,24 @@ class MakeActsGeometry
 
   /// Acts geometry objects that are needed to create (for example) the fitter
   TrackingGeometry m_tGeometry;
-  FW::Options::BFieldVariant m_magneticField;
+  ActsExamples::Options::BFieldVariant m_magneticField;
   Acts::GeometryContext  m_geoCtxt;  
   Acts::CalibrationContext m_calibContext;
   Acts::MagneticFieldContext m_magFieldContext;
 
+  /// Structs to put on the node tree which carry around ActsGeom info
+  ActsTrackingGeometry *m_actsGeometry = nullptr;
+  ActsSurfaceMaps *m_surfMaps = nullptr;
+
   /// Verbosity value handed from PHActsSourceLinks
-  int m_verbosity;
+  int m_verbosity = 0;
+
+  /// Magnetic field components to set Acts magnetic field
+  std::string m_magField ="1.4" ;
+  double m_magFieldRescale = -1.;
+
+  bool m_buildMMs = false;
+  bool fake_surfaces = true;
 };
 
 #endif

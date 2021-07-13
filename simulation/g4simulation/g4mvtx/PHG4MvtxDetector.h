@@ -27,10 +27,10 @@ class PHG4MvtxDetector : public PHG4Detector
   PHG4MvtxDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const PHParametersContainer* _paramsContainer, const std::string& dnam);
 
   //! destructor
-  virtual ~PHG4MvtxDetector() {}
+  ~PHG4MvtxDetector() override {}
 
   //! construct
-  virtual void ConstructMe(G4LogicalVolume* world);
+  void ConstructMe(G4LogicalVolume* world) override;
 
   //!@name volume accessors
   //@{
@@ -53,6 +53,10 @@ class PHG4MvtxDetector : public PHG4Detector
   void AddGeometryNode();
   int ConstructMvtx(G4LogicalVolume* sandwich);
   int ConstructMvtx_Layer(int layer, G4AssemblyVolume* stave, G4LogicalVolume*& trackerenvelope);
+  int ConstructMvtxPassiveVol(G4LogicalVolume*& lv);
+
+  G4LogicalVolume* GetMvtxOuterShell(G4LogicalVolume*& trackerenvelope);
+
   void SetDisplayProperty(G4AssemblyVolume* av);
   void SetDisplayProperty(G4LogicalVolume* lv);
   void FillPVArray(G4AssemblyVolume* av);
@@ -80,6 +84,8 @@ class PHG4MvtxDetector : public PHG4Detector
   std::string m_Detector;
   std::string m_SuperDetector;
   std::string m_StaveGeometryFile;
+  std::string m_EndWheelsSideS;
+  std::string m_EndWheelsSideN;
 };
 
 #endif

@@ -7,10 +7,13 @@
 #include <calobase/RawTowerGeom.h>
 #include <calobase/RawTowerGeomContainer.h>
 #include <calobase/RawTowerv1.h>
+#include <calobase/RawTowerv2.h>
 
 #include <fun4all/Fun4AllBase.h>  // for Fun4AllBase::VERBOSITY_MORE
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/SubsysReco.h>  // for SubsysReco
+
+#include <phparameter/PHParameters.h>
 
 #include <phool/PHCompositeNode.h>
 #include <phool/PHIODataNode.h>
@@ -30,6 +33,7 @@
 #include <iostream>
 #include <map>
 #include <stdexcept>
+#include <string>
 #include <utility>  // for pair
 
 using namespace std;
@@ -48,9 +52,12 @@ RawTowerDigitizer::RawTowerDigitizer(const std::string &name)
   , m_PhotonElecADC(NAN)
   , m_PedstalCentralADC(NAN)
   , m_PedstalWidthADC(NAN)
-  , m_ZeroSuppressionADC(0)  //default to apply no zero suppression
+  , m_pedestalFile(false)
+  , m_ZeroSuppressionADC(-1000)  //default to apply no zero suppression
+  , m_ZeroSuppressionFile(false)
   , m_TowerType(-1)
   , m_SiPMEffectivePixel(40000 * 4)  // sPHENIX EMCal default, 4x Hamamatsu S12572-015P MPPC [sPHENIX TDR]
+  , _tower_params(name)
 {
   m_RandomGenerator = gsl_rng_alloc(gsl_rng_mt19937);
   m_Seed = PHRandomSeed();  // fixed seed handled in PHRandomSeed()
@@ -123,6 +130,52 @@ int RawTowerDigitizer::process_event(PHCompositeNode *topNode)
        it != all_towers.second; ++it)
   {
     const RawTowerDefs::keytype key = it->second->get_id();
+    RawTowerDefs::CalorimeterId caloid = RawTowerDefs::decode_caloid(key);
+    const int eta = it->second->get_bineta();
+    const int phi = it->second->get_binphi();
+
+    if (caloid == RawTowerDefs::LFHCAL) 
+    {
+      const int l = it->second->get_binl();
+      if (m_ZeroSuppressionFile == true)
+      {
+        const string zsName = "ZS_ADC_eta" + to_string(eta) + "_phi" + to_string(phi) + "_l" + to_string(l);
+        m_ZeroSuppressionADC =
+          _tower_params.get_double_param(zsName);
+      }
+
+      if (m_pedestalFile == true)
+      {
+        const string pedCentralName = "PedCentral_ADC_eta" + to_string(eta) + "_phi" + to_string(phi) + "_l" + to_string(l);
+        m_PedstalCentralADC =
+          _tower_params.get_double_param(pedCentralName);
+        const string pedWidthName = "PedWidth_ADC_eta" + to_string(eta) + "_phi" + to_string(phi) + "_l" + to_string(l);
+        m_PedstalWidthADC =
+          _tower_params.get_double_param(pedWidthName);
+      }
+    }
+    else 
+    {
+      if (m_ZeroSuppressionFile == true)
+      {
+        const string zsName = "ZS_ADC_eta" + to_string(eta) + "_phi" + to_string(phi);
+        m_ZeroSuppressionADC =
+          _tower_params.get_double_param(zsName);
+      }
+
+      if (m_pedestalFile == true)
+      {
+        const string pedCentralName = "PedCentral_ADC_eta" + to_string(eta) + "_phi" + to_string(phi);
+        m_PedstalCentralADC =
+          _tower_params.get_double_param(pedCentralName);
+        const string pedWidthName = "PedWidth_ADC_eta" + to_string(eta) + "_phi" + to_string(phi);
+        m_PedstalWidthADC =
+          _tower_params.get_double_param(pedWidthName);
+      }
+    } 
+
+    
+    
     if (m_TowerType >= 0)
     {
       // Skip towers that don't match the type we are supposed to digitize
@@ -156,7 +209,7 @@ int RawTowerDigitizer::process_event(PHCompositeNode *topNode)
       // for no digitization just copy existing towers
       if (sim_tower)
       {
-        digi_tower = new RawTowerv1(*sim_tower);
+        digi_tower = new RawTowerv2(*sim_tower);
       }
     }
     else if (m_DigiAlgorithm == kSimple_photon_digitization)
@@ -225,11 +278,11 @@ RawTowerDigitizer::simple_photon_digitization(RawTower *sim_tower)
     // create new digitalizaed tower
     if (sim_tower)
     {
-      digi_tower = new RawTowerv1(*sim_tower);
+      digi_tower = new RawTowerv2(*sim_tower);
     }
     else
     {
-      digi_tower = new RawTowerv1();
+      digi_tower = new RawTowerv2();
     }
     digi_tower->set_energy((double) sum_ADC);
   }
@@ -294,11 +347,11 @@ RawTowerDigitizer::sipm_photon_digitization(RawTower *sim_tower)
     // create new digitalizaed tower
     if (sim_tower)
     {
-      digi_tower = new RawTowerv1(*sim_tower);
+      digi_tower = new RawTowerv2(*sim_tower);
     }
     else
     {
-      digi_tower = new RawTowerv1();
+      digi_tower = new RawTowerv2();
     }
     digi_tower->set_energy((double) sum_ADC);
   }

@@ -10,16 +10,15 @@
 
 //begin
 
-#include <trackbase/TrkrDefs.h>  // for cluskey
 #include "PHTrackSeeding.h"      // for PHTrackSeeding
 
-#if !defined(__CINT__) || defined(__CLING__)
+#include <trackbase/TrkrDefs.h>  // for cluskey
+
 #include <boost/geometry/geometries/box.hpp>    // for box
 #include <boost/geometry/geometries/point.hpp>  // for point
 #include <boost/geometry/index/rtree.hpp>       // for rtree
-#endif
 
-#include <stdint.h>  // for uint64_t
+#include <cstdint>  // for uint64_t
 #include <map>       // for map
 #include <string>    // for string
 #include <utility>   // for pair
@@ -49,13 +48,11 @@ class SvtxVertexMap;    // lines 206-206
 
 //end
 
-#if !defined(__CINT__) || defined(__CLING__)
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 typedef bg::model::point<float, 3, bg::cs::cartesian> point;
 typedef bg::model::box<point> box;
 typedef std::pair<point, TrkrDefs::cluskey> pointKey;
-#endif
 
 typedef uint64_t cluskey;
 
@@ -74,18 +71,18 @@ class PHRTreeSeeding : public PHTrackSeeding
   void set_phi_scale(float scale) { _phi_scale = scale; }
   void set_z_scale(float scale) { _z_scale = scale; }
 
-  virtual ~PHRTreeSeeding()
+  ~PHRTreeSeeding() override
   {
   }
 
  protected:
-  int Setup(PHCompositeNode *topNode);
+  int Setup(PHCompositeNode *topNode) override;
   int GetNodes(PHCompositeNode *topNode);
   int Process();
-  int Process(PHCompositeNode *topNode);
+  int Process(PHCompositeNode *topNode) override;
   int InitializeGeometry(PHCompositeNode *topNode);
 
-  int End();
+  int End() override;
 
  private:
   /// fetch node pointers
@@ -110,10 +107,8 @@ class PHRTreeSeeding : public PHTrackSeeding
   double costfunction(const double *xx);
   void FillTree();
 
-#if !defined(__CINT__) || defined(__CLING__)
   double pointKeyToTuple(pointKey *pK);
   void QueryTree(const bgi::rtree<pointKey, bgi::quadratic<16>> &rtree, double phimin, double etamin, double lmin, double phimax, double etamax, double lmax, std::vector<pointKey> &returned_values);
-#endif
 
  private:
   std::map<int, unsigned int> _layer_ilayer_map_all;
@@ -131,9 +126,7 @@ class PHRTreeSeeding : public PHTrackSeeding
   float _z_scale;
   //std::vector<float> _radii_all;
 
-#if !defined(__CINT__) || defined(__CLING__)
   bgi::rtree<pointKey, bgi::quadratic<16>> _rtree;
-#endif  // __CINT__
 };
 
 #endif

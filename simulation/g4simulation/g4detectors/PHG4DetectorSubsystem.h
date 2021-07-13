@@ -22,21 +22,12 @@ class PHG4DetectorSubsystem : public PHG4Subsystem
     root = 2
   };
 
-  virtual ~PHG4DetectorSubsystem() {}
+  ~PHG4DetectorSubsystem() override {}
 
-  // stupid rootcint does not support final keyword
-#if !defined(__CINT__) || defined(__CLING__)
   int Init(PHCompositeNode *) final;
   int InitRun(PHCompositeNode *) final;
-#else
-  int Init(PHCompositeNode *);
-  int InitRun(PHCompositeNode *);
-#endif
 
-  virtual int InitRunSubsystem(PHCompositeNode *)
-  {
-    return 0;
-  }
+  virtual int InitRunSubsystem(PHCompositeNode *) { return 0; }
   virtual int InitSubsystem(PHCompositeNode *) { return 0; }
 
   void OverlapCheck(const bool chk = true) { overlapcheck = chk; }
@@ -69,6 +60,8 @@ class PHG4DetectorSubsystem : public PHG4Subsystem
   void SetAbsorberActive(const int i = 1);
   void SetAbsorberTruth(const int i = 1);
   void BlackHole(const int i = 1);
+  void SetSupportActive(const int i = 1);
+
   void SuperDetector(const std::string &name);
   const std::string SuperDetector() const { return superdetector; }
 
@@ -86,16 +79,16 @@ class PHG4DetectorSubsystem : public PHG4Subsystem
   int BeginRunExecuted() const { return beginrunexecuted; }
 
  private:
-  PHParameters *params;
-  PHParametersContainer *paramscontainer;
-  PHCompositeNode *savetopNode;
-  bool overlapcheck;
-  int layer;
-  int usedb;
-  int beginrunexecuted;
-  FILE_TYPE filetype;
-  std::string superdetector;
-  std::string calibfiledir;
+  PHParameters *params = nullptr;
+  PHParametersContainer *paramscontainer = nullptr;
+  PHCompositeNode *savetopNode = nullptr;
+  bool overlapcheck = false;
+  int layer = -1;
+  int usedb = 0;
+  int beginrunexecuted = 0;
+  FILE_TYPE filetype = PHG4DetectorSubsystem::none;
+  std::string superdetector = "NONE";
+  std::string calibfiledir = "./";
 
   std::map<const std::string, double> dparams;
   std::map<const std::string, int> iparams;

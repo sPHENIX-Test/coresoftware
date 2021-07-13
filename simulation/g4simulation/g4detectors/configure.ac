@@ -7,19 +7,15 @@ LT_INIT([disable-static])
 
 case $CXX in
  clang++)
-  CXXFLAGS="$CXXFLAGS -Wall  -Werror -Wno-undefined-var-template"
+  CXXFLAGS="$CXXFLAGS -Wall -Werror -Wno-undefined-var-template -Wno-tautological-overlap-compare"
  ;;
- g++)
+ *g++)
   CXXFLAGS="$CXXFLAGS -Wall -Werror"
  ;;
 esac
 
-dnl test for root 6
-if test `root-config --version | awk '{print $1>=6.?"1":"0"}'` = 1; then
 CINTDEFS=" -noIncludePaths  -inlineInputHeader "
 AC_SUBST(CINTDEFS)
-fi
-AM_CONDITIONAL([MAKEROOT6],[test `root-config --version | awk '{print $1>=6.?"1":"0"}'` = 1])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

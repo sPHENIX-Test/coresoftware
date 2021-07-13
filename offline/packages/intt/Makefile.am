@@ -10,7 +10,8 @@ lib_LTLIBRARIES = \
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include  \
-  -I$(ROOTSYS)/include
+  -I$(ROOTSYS)/include \
+  -I$(OFFLINE_MAIN)/include/eigen3
 
 AM_LDFLAGS = \
   -L$(libdir) \
@@ -19,27 +20,18 @@ AM_LDFLAGS = \
 
 pkginclude_HEADERS = \
   InttDefs.h \
-  InttHit.h \
   InttClusterizer.h \
   CylinderGeomIntt.h
 
 ROOTDICTS = \
-  InttHit_Dict.cc \
   CylinderGeomIntt_Dict.cc
-if MAKEROOT6
-  pcmdir = $(libdir)
-  nobase_dist_pcm_DATA = \
-  InttHit_Dict_rdict.pcm \
-  CylinderGeomIntt_Dict_rdict.pcm
-else
-  ROOT5_DICTS = \
-  InttClusterizer_Dict.cc
 
-endif
+pcmdir = $(libdir)
+nobase_dist_pcm_DATA = \
+  CylinderGeomIntt_Dict_rdict.pcm
 
 # sources for intt library
 libintt_la_SOURCES = \
-  $(ROOT5_DICTS) \
   InttClusterizer.cc
 
 libintt_la_LIBADD = \
@@ -52,8 +44,7 @@ libintt_la_LIBADD = \
 libintt_io_la_SOURCES = \
   $(ROOTDICTS) \
   CylinderGeomIntt.cc \
-  InttDefs.cc \
-  InttHit.cc
+  InttDefs.cc
 
 libintt_io_la_LIBADD = \
   -lCLHEP \
@@ -65,7 +56,7 @@ libintt_io_la_LIBADD = \
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@  -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

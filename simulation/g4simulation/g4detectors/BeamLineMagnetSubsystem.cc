@@ -3,6 +3,8 @@
 #include "BeamLineMagnetDisplayAction.h"
 #include "BeamLineMagnetSteppingAction.h"
 
+#include <g4detectors/PHG4DetectorSubsystem.h>  // for PHG4DetectorSubsystem
+
 #include <phparameter/PHParameters.h>
 
 #include <g4main/PHG4DisplayAction.h>  // for PHG4DisplayAction
@@ -16,10 +18,9 @@
 #include <phool/PHObject.h>        // for PHObject
 #include <phool/getClass.h>
 
-#include <cmath>     // for NAN
 #include <iostream>  // for operator<<, endl, basic_ostream
+#include <set>       // for set
 
-class PHCompositeNode;
 class PHG4Detector;
 
 using namespace std;
@@ -54,6 +55,7 @@ int BeamLineMagnetSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
   m_Detector = new BeamLineMagnetDetector(this, topNode, GetParams(), Name(), GetLayer());
   m_Detector->SuperDetector(SuperDetector());
   m_Detector->OverlapCheck(CheckOverlap());
+  m_Detector->Verbosity(Verbosity());
   set<string> nodes;
   if (GetParams()->get_int_param("active"))
   {
@@ -153,10 +155,17 @@ void BeamLineMagnetSubsystem::SetDefaultParameters()
   set_default_double_param("field_z", 0.);
   set_default_double_param("fieldgradient", 0.);
 
+  set_default_double_param("field_global_position_x", 0.); // abs. position to world for field manager
+  set_default_double_param("field_global_position_y", 0.); // abs. position to world for field manager
+  set_default_double_param("field_global_position_z", 0.); // abs. position to world for field manager
+  set_default_double_param("field_global_rot_x", 0.); // abs. rotation to world for field manager
+  set_default_double_param("field_global_rot_y", 0.); // abs. rotation to world for field manager
+  set_default_double_param("field_global_rot_z", 0.); // abs. rotation to world for field manager
+
   set_default_double_param("length", 100);
-  set_default_double_param("place_x", 0.);
-  set_default_double_param("place_y", 0.);
-  set_default_double_param("place_z", 0.);
+  set_default_double_param("place_x", 0.); // relative position to mother vol.
+  set_default_double_param("place_y", 0.); // relative position to mother vol.
+  set_default_double_param("place_z", 0.); // relative position to mother vol.
   set_default_double_param("rot_x", 0.);
   set_default_double_param("rot_y", 0.);
   set_default_double_param("rot_z", 0.);

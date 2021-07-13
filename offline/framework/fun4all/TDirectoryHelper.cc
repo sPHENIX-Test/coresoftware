@@ -4,14 +4,15 @@
 #include <TDirectory.h>
 #include <TFile.h>
 #include <TH1.h>
-#include <TList.h>        // for TList
+#include <TList.h>  // for TList
 #include <TObject.h>
 #include <TROOT.h>
 
+#include <algorithm>  // for max
 #include <cassert>
-#include <cstddef>       // for size_t
+#include <cstddef>  // for size_t
 #include <iostream>
-#include <memory>         // for allocator_traits<>::value_type
+#include <memory>  // for allocator_traits<>::value_type
 #include <string>
 #include <vector>
 
@@ -145,7 +146,7 @@ bool TDirectoryHelper::mkpath(TDirectory* dir, const string& path)
 //_____________________________________________________________________________
 TDirectory*
 TDirectoryHelper::mkdir(TDirectory* topDir,
-                        const char* path,
+                        const string& path,
                         std::vector<std::string>* titles)
 {
   TDirectory* save = gDirectory;

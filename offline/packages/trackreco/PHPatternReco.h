@@ -1,18 +1,18 @@
 #ifndef TRACKRECO_PHPATTERNRECO_H
 #define TRACKRECO_PHPATTERNRECO_H
 
+#include "VertexFitter.h"
+
 #include <trackbase/TrkrDefs.h>
 
 // Helix Hough includes
-#if !defined(__CINT__) || defined (__CLING__)
-#include "VertexFitter.h"
 #include <HelixHough/SimpleHit3D.h>
 #include <HelixHough/SimpleTrack3D.h>
 #include <HelixHough/HelixKalmanState.h>
-#include <Eigen/Core>            // for Matrix
-#endif
 
 #include <fun4all/SubsysReco.h>
+
+#include <Eigen/Core>            // for Matrix
 
 #include <map>
 #include <string>                // for string
@@ -28,6 +28,7 @@ class HelixHoughFuncs;
 class PHCompositeNode;
 class PHTimer;
 class TrkrClusterContainer;
+class TrkrHitSetContainer;
 class SvtxTrackMap;
 class SvtxVertexMap;
 
@@ -43,12 +44,12 @@ public:
 
 	PHPatternReco(unsigned int nlayers = 7, unsigned int min_nlayers = 7,
 			const std::string &name = "PHPatternReco");
-	virtual ~PHPatternReco() ;
+	~PHPatternReco() override ;
 
-	int Init(PHCompositeNode *topNode);
-	int InitRun(PHCompositeNode *topNode);
-	int process_event(PHCompositeNode *topNode);
-	int End(PHCompositeNode *topNode);
+	int Init(PHCompositeNode *topNode) override;
+	int InitRun(PHCompositeNode *topNode) override;
+	int process_event(PHCompositeNode *topNode) override;
+	int End(PHCompositeNode *topNode) override;
 
 
 	void set_file_name(const std::string &fname){_fname = fname;}
@@ -143,7 +144,6 @@ public:
 	void set_nzooms() {nzooms = zooms_vec.size();}
 	void reset_zooms() {zooms_vec.clear();}
 
-#if !defined(__CINT__) || defined(__CLING__)
 
 private:
 
@@ -276,6 +276,7 @@ private:
 	// node pointers
 	BbcVertexMap* _bbc_vertexes;
 	TrkrClusterContainer* _clustermap;
+	TrkrHitSetContainer  *_hitsets;
 	SvtxTrackMap* _trackmap;
 	SvtxVertexMap* _vertexmap;
 	VertexFitter _vertex_finder;
@@ -320,7 +321,6 @@ private:
 	int helicity;
 	int n_vtx_tracks;
 	
-#endif // __CINT__
 };
 
 #endif // __PHPATTERNRECO_H__

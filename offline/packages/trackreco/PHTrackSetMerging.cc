@@ -1,6 +1,6 @@
 #include "PHTrackSetMerging.h"
 
-#include "AssocInfoContainer.h"
+#include "AssocInfoContainerv1.h"
 
 #include <trackbase_historic/SvtxTrackMap.h>
 #include <trackbase_historic/SvtxTrackMap_v1.h>
@@ -25,12 +25,6 @@ using namespace std;
 
 PHTrackSetMerging::PHTrackSetMerging(const std::string& name)
   : SubsysReco(name)
-  , _cluster_map(nullptr)
-  , _vertex_map(nullptr)
-  , _assoc_container(nullptr)
-  , _track_map_name_in1("SvtxTrackMap1")
-  , _track_map_name_in2("SvtxTrackMap2")
-  , _track_map_name_out("SvtxTrackMapMerged")
 {
 }
 
@@ -103,7 +97,7 @@ int PHTrackSetMerging::CreateNodes(PHCompositeNode* topNode)
     cout << "Svtx/SvtxTrackMapOut node added" << endl;
     // cout << "Svtx/" << _track_map_name << " node added" << endl;
   }
-  _assoc_container = new AssocInfoContainer;
+  _assoc_container = new AssocInfoContainerv1;
   PHIODataNode<PHObject>* assoc_node = new PHIODataNode<PHObject>(
       _assoc_container, "AssocInfoContainer", "PHObject");
   tb_node->addNode(assoc_node);

@@ -272,11 +272,25 @@ void PHG4TruthInfoContainer::delete_particle(Iterator piter)
   return;
 }
 
+void PHG4TruthInfoContainer::delete_particle(int trackid)
+{
+  Iterator it = particlemap.find(trackid);
+  if (it != particlemap.end())
+    delete_particle(it);
+}
+
 void PHG4TruthInfoContainer::delete_vtx(VtxIterator viter)
 {
   delete viter->second;
   vtxmap.erase(viter);
   return;
+}
+
+void PHG4TruthInfoContainer::delete_vtx(int vtxid)
+{
+  VtxIterator it = vtxmap.find(vtxid);
+  if (it != vtxmap.end())
+    delete_vtx(it);
 }
 
 void PHG4TruthInfoContainer::delete_shower(ShowerIterator siter)
@@ -324,11 +338,10 @@ int PHG4TruthInfoContainer::GetPrimaryVertexIndex() const
 
   int highest_embedding_ID = numeric_limits<int>::min();
   int vtx_id_for_highest_embedding_ID = 0;
-
   for (auto iter = vrange.first; iter != vrange.second; ++iter)
   {
-    //    cout <<"PHG4TruthInfoContainer::GetPrimaryVertexIndex - vertex ID "<<iter->first<<" embedding ID "<< g4truth->isEmbededVtx(iter->first) <<": "
-    //         ; iter->second->identify();
+    //        cout <<"PHG4TruthInfoContainer::GetPrimaryVertexIndex - vertex ID "<<iter->first<<" embedding ID "<< isEmbededVtx(iter->first) <<": ";
+    // iter->second->identify();
     const int embedding_ID = isEmbededVtx(iter->first);
 
     if (embedding_ID >= highest_embedding_ID)
@@ -347,4 +360,19 @@ int PHG4TruthInfoContainer::GetPrimaryVertexIndex() const
   }
 
   return vtx_id_for_highest_embedding_ID;
+}
+
+bool operator==(const PHG4TruthInfoContainer::Map::value_type& lhs, const PHG4TruthInfoContainer::Map::value_type& rhs)
+{
+  return *lhs.second == *rhs.second;
+}
+
+bool operator==(const PHG4TruthInfoContainer::VtxMap::value_type& lhs, const PHG4TruthInfoContainer::VtxMap::value_type& rhs)
+{
+  return *lhs.second == *rhs.second;
+}
+
+bool operator==(const PHG4TruthInfoContainer::ShowerMap::value_type& lhs, const PHG4TruthInfoContainer::ShowerMap::value_type& rhs)
+{
+  return *lhs.second == *rhs.second;
 }

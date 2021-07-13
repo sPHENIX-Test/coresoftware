@@ -2,21 +2,20 @@
 #define __SVTXTRACKSTATE_H__
 
 #include <phool/PHObject.h>
-
 #include <cmath>
 
 class SvtxTrackState : public PHObject
 {
  public:
-  virtual ~SvtxTrackState() {}
-
-  virtual void identify(std::ostream &os = std::cout) const
+  ~SvtxTrackState() override {}
+    
+  void identify(std::ostream &os = std::cout) const override
   {
     os << "SvtxTrackState base class" << std::endl;
   }
-  virtual void Reset() {}
-  virtual int isValid() const { return 0; }
-  virtual PHObject *CloneMe() const { return nullptr; }
+
+  int isValid() const override { return 0; }
+  PHObject *CloneMe() const override { return nullptr; }
 
   virtual float get_pathlength() const { return NAN; }
 
@@ -50,30 +49,36 @@ class SvtxTrackState : public PHObject
   virtual float get_error(unsigned int i, unsigned int j) const { return NAN; }
   virtual void set_error(unsigned int i, unsigned int j, float value) {}
 
-  virtual std::string get_name() { return ""; }
-  virtual void set_name(std::string &name) {}
+  virtual std::string get_name() const { return ""; }
+  virtual void set_name(const std::string &name) {}
 
   ///@name convenience interface, also found in Trkrcluster
   //@{
 
   /// rphi error
   virtual float get_rphi_error() const
-  { return NAN; }
+  {
+    return NAN;
+  }
 
   /// phi error
   virtual float get_phi_error() const
-  { return NAN; }
+  {
+    return NAN;
+  }
 
   /// z error
   virtual float get_z_error() const
-  { return NAN; }
+  {
+    return NAN;
+  }
 
   //@}
 
-  protected:
+ protected:
   SvtxTrackState(float pathlength = 0.0) {}
 
-  ClassDef(SvtxTrackState, 1);
+  ClassDefOverride(SvtxTrackState, 1);
 };
 
 #endif

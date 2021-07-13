@@ -13,10 +13,7 @@
 #include <utility>                 // for pair, make_pair
 #include <vector>
 
-// rootcint barfs with this header so we need to hide it
-#if !defined(__CINT__) || defined(__CLING__)
 #include <gsl/gsl_rng.h>
-#endif
 
 class PHCompositeNode;
 
@@ -24,19 +21,19 @@ class PHG4TpcDigitizer : public SubsysReco
 {
  public:
   PHG4TpcDigitizer(const std::string &name = "PHG4TpcDigitizer");
-  virtual ~PHG4TpcDigitizer();
+  ~PHG4TpcDigitizer() override;
 
   //! module initialization
-  int Init(PHCompositeNode *topNode) { return 0; }
+  int Init(PHCompositeNode *topNode) override { return 0; }
 
   //! run initialization
-  int InitRun(PHCompositeNode *topNode);
+  int InitRun(PHCompositeNode *topNode) override;
 
   //! event processing
-  int process_event(PHCompositeNode *topNode);
+  int process_event(PHCompositeNode *topNode) override;
 
   //! end of process
-  int End(PHCompositeNode *topNode) { return 0; };
+  int End(PHCompositeNode *topNode) override { return 0; };
 
   void set_adc_scale(const int layer, const unsigned int max_adc, const float energy_per_adc)
   {
@@ -73,10 +70,8 @@ class PHG4TpcDigitizer : public SubsysReco
   std::map<int, unsigned int> _max_adc;
   std::map<int, float> _energy_scale;
 
-#if !defined(__CINT__) || defined(__CLING__)
   //! random generator that conform with sPHENIX standard
   gsl_rng *RandomGenerator;
-#endif
 };
 
 #endif

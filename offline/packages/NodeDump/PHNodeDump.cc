@@ -1,10 +1,13 @@
 #include "PHNodeDump.h"
 #include "DumpObject.h"
 
+#include "DumpAssocInfoContainer.h"
 #include "DumpBbcVertexMap.h"
 #include "DumpCaloTriggerInfo.h"
+#include "DumpEventHeader.h"
 #include "DumpGlobalVertexMap.h"
 #include "DumpJetMap.h"
+#include "DumpParticleFlowElementContainer.h"
 #include "DumpPHG4BlockCellGeomContainer.h"
 #include "DumpPHG4BlockGeomContainer.h"
 #include "DumpPHG4CellContainer.h"
@@ -15,6 +18,7 @@
 #include "DumpPHG4InEvent.h"
 #include "DumpPHG4ScintillatorSlatContainer.h"
 #include "DumpPHG4TruthInfoContainer.h"
+#include "DumpPHHepMCGenEventMap.h"
 #include "DumpPdbParameterMap.h"
 #include "DumpPdbParameterMapContainer.h"
 #include "DumpRawClusterContainer.h"
@@ -26,7 +30,9 @@
 #include "DumpSyncObject.h"
 #include "DumpTowerBackground.h"
 #include "DumpTrkrClusterContainer.h"
+#include "DumpTrkrClusterHitAssoc.h"
 #include "DumpTrkrHitSetContainer.h"
+#include "DumpTrkrHitTruthAssoc.h"
 #include "DumpVariableArray.h"
 
 #include <phool/PHIODataNode.h>
@@ -166,13 +172,21 @@ int PHNodeDump::AddDumpObject(const string &NodeName, PHNode *node)
       // need a static cast since only from DST these guys are of type PHIODataNode<TObject*>
       // when created they are normally  PHIODataNode<PHObject*> but can be anything else as well
       TObject *tmp = (TObject *) (static_cast<PHIODataNode<TObject> *>(node))->getData();
-      if (tmp->InheritsFrom("BbcVertexMap"))
+      if (tmp->InheritsFrom("AssocInfoContainer"))
+      {
+        newdump = new DumpAssocInfoContainer(NodeName);
+      }
+      else if (tmp->InheritsFrom("BbcVertexMap"))
       {
         newdump = new DumpBbcVertexMap(NodeName);
       }
       else if (tmp->InheritsFrom("CaloTriggerInfo"))
       {
         newdump = new DumpCaloTriggerInfo(NodeName);
+      }
+      else if (tmp->InheritsFrom("EventHeader"))
+      {
+        newdump = new DumpEventHeader(NodeName);
       }
       else if (tmp->InheritsFrom("GlobalVertexMap"))
       {
@@ -181,6 +195,10 @@ int PHNodeDump::AddDumpObject(const string &NodeName, PHNode *node)
       else if (tmp->InheritsFrom("JetMap"))
       {
         newdump = new DumpJetMap(NodeName);
+      }
+      else if (tmp->InheritsFrom("ParticleFlowElementContainer"))
+      {
+        newdump = new DumpParticleFlowElementContainer(NodeName);
       }
       else if (tmp->InheritsFrom("PdbParameterMap"))
       {
@@ -230,6 +248,10 @@ int PHNodeDump::AddDumpObject(const string &NodeName, PHNode *node)
       {
         newdump = new DumpPHG4TruthInfoContainer(NodeName);
       }
+      else if (tmp->InheritsFrom("PHHepMCGenEventMap"))
+      {
+        newdump = new DumpPHHepMCGenEventMap(NodeName);
+      }
       else if (tmp->InheritsFrom("RawClusterContainer"))
       {
         newdump = new DumpRawClusterContainer(NodeName);
@@ -266,9 +288,17 @@ int PHNodeDump::AddDumpObject(const string &NodeName, PHNode *node)
       {
         newdump = new DumpTrkrClusterContainer(NodeName);
       }
+      else if (tmp->InheritsFrom("TrkrClusterHitAssoc"))
+      {
+        newdump = new DumpTrkrClusterHitAssoc(NodeName);
+      }
       else if (tmp->InheritsFrom("TrkrHitSetContainer"))
       {
         newdump = new DumpTrkrHitSetContainer(NodeName);
+      }
+      else if (tmp->InheritsFrom("TrkrHitTruthAssoc"))
+      {
+        newdump = new DumpTrkrHitTruthAssoc(NodeName);
       }
       else if (tmp->InheritsFrom("VariableArray"))
       {

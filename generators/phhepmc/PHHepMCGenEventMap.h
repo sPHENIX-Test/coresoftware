@@ -27,16 +27,16 @@ class PHHepMCGenEventMap : public PHObject
   typedef std::map<int, PHHepMCGenEvent*>::const_reverse_iterator ConstReverseIter;
   typedef std::map<int, PHHepMCGenEvent*>::reverse_iterator ReverseIter;
 
-  PHHepMCGenEventMap();
+  PHHepMCGenEventMap() = default;
   PHHepMCGenEventMap(const PHHepMCGenEventMap& eventmap);
   PHHepMCGenEventMap& operator=(const PHHepMCGenEventMap& eventmap);
 
-  virtual ~PHHepMCGenEventMap();
+  ~PHHepMCGenEventMap() override;
 
-  void identify(std::ostream& os = std::cout) const;
-  void Reset();
-  int isValid() const { return 1; }
-  PHHepMCGenEventMap* CloneMe() const { return new PHHepMCGenEventMap(*this); }
+  void identify(std::ostream& os = std::cout) const override;
+  void Reset() override;
+  int isValid() const override { return 1; }
+  PHHepMCGenEventMap* CloneMe() const override { return new PHHepMCGenEventMap(*this); }
   //! container service
   bool empty() const { return _map.empty(); }
   size_t size() const { return _map.size(); }
@@ -82,7 +82,7 @@ class PHHepMCGenEventMap : public PHObject
  private:
   HepMCGenEventMap _map;
 
-  ClassDef(PHHepMCGenEventMap, 4);
+  ClassDefOverride(PHHepMCGenEventMap, 4);
 };
 
 #endif
