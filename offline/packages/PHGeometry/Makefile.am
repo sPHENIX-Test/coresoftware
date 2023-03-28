@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include
+  -isystem$(ROOTSYS)/include
 
 lib_LTLIBRARIES = \
    libphgeom_io.la \
@@ -17,20 +17,12 @@ pkginclude_HEADERS = \
 
 ROOTDICTS = \
   PHGeomIOTGeo_Dict.cc
-if MAKEROOT6
-  pcmdir = $(libdir)
-  nobase_dist_pcm_DATA = \
-    PHGeomIOTGeo_Dict_rdict.pcm
-else
- ROOT5_DICTS = \
-  PHGeomTGeo_Dict.cc \
-  PHGeomFileImport_Dict.cc  \
-  PHGeomUtility_Dict.cc 
-endif
 
+pcmdir = $(libdir)
+nobase_dist_pcm_DATA = \
+    PHGeomIOTGeo_Dict_rdict.pcm
 
 libphgeom_la_SOURCES = \
-  $(ROOT5_DICTS) \
   PHGeomTGeo.cc \
   PHGeomFileImport.cc \
   PHGeomUtility.cc
@@ -46,7 +38,8 @@ AM_LDFLAGS = \
 
 libphgeom_la_LIBADD = \
   libphgeom_io.la \
-  -lSubsysReco
+  -lSubsysReco \
+  -luuid
 
 libphgeom_io_la_LIBADD = \
   -lphool \
@@ -75,7 +68,7 @@ testexternals.cc:
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

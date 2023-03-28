@@ -35,17 +35,17 @@ class PHG4GDMLDetector : public PHG4Detector
  public:
   PHG4GDMLDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const std::string& dnam, PHParameters* parameters);
 
-  virtual ~PHG4GDMLDetector();
+  ~PHG4GDMLDetector() override;
 
   //! construct
-  void ConstructMe(G4LogicalVolume* world);
+  void ConstructMe(G4LogicalVolume* world) override;
 
-  G4UserSteppingAction* GetSteppingAction()
+  G4UserSteppingAction* GetSteppingAction() override
   {
     return nullptr;
   }
 
-  void Print(const std::string& what = "ALL") const;
+  void Print(const std::string& what = "ALL") const override;
 
  private:
   void SetDisplayProperty(G4AssemblyVolume* av);
@@ -65,7 +65,7 @@ class PHG4GDMLDetector : public PHG4Detector
   int m_skipDSTGeometryExport;
 
   //! registry for volumes that should not be exported, i.e. fibers
-  PHG4GDMLConfig* gdml_config;
+  PHG4GDMLConfig* gdml_config = nullptr;
 };
 
 #endif /* PHG4GDMLDetector_H_ */

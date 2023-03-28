@@ -9,7 +9,7 @@
 
 #include "Fun4AllBase.h"
 
-#include <string>         // for string
+#include <string>  // for string
 #include <vector>
 
 class Fun4AllInputManager;
@@ -19,7 +19,7 @@ class Fun4AllSyncManager : public Fun4AllBase
 {
  public:
   Fun4AllSyncManager(const std::string &name = "SYNCMANAGERNONAME");
-  virtual ~Fun4AllSyncManager();
+  ~Fun4AllSyncManager() override;
   int registerInputManager(Fun4AllInputManager *InManager);
   Fun4AllInputManager *getInputManager(const std::string &name);
 
@@ -32,12 +32,12 @@ class Fun4AllSyncManager : public Fun4AllBase
   */
   int skip(const int nevnts = 0);
 
-  int fileopen(const std::string &managername = "NONE", const std::string &filename = "NONE");
+  int fileopen(const std::string &managername, const std::string &filename);
   int fileclose(const std::string &managername = "NONE");
   int CurrentRun() { return m_CurrentRun; }
   void CurrentRun(const int ival) { m_CurrentRun = ival; }
   void CurrentEvent(const int evt);
-  void Print(const std::string &what = "ALL") const;
+  void Print(const std::string &what = "ALL") const override;
   void SegmentNumber(const int iseg) { m_PrdfSegment = iseg; }
   int SegmentNumber() const { return m_PrdfSegment; }
   int BranchSelect(const std::string &managername, const std::string &branch, int iflag);
@@ -53,16 +53,20 @@ class Fun4AllSyncManager : public Fun4AllBase
   void PushBackInputMgrsEvents(const int i);
   int ResetEvent();
   const std::vector<Fun4AllInputManager *> GetInputManagers() const { return m_InManager; }
+  bool MixRunsOk() const {return m_MixRunsOkFlag;}
+  void MixRunsOk(bool b) {m_MixRunsOkFlag = b;}
 
  private:
+  void PrintSyncProblem() const;
   int CheckSync(unsigned i);
-  int m_PrdfSegment;
-  int m_PrdfEvents;
-  int m_EventsTotal;
-  int m_CurrentRun;
-  int m_CurrentEvent;
-  int m_Repeat;
-  SyncObject *m_MasterSync;
+  int m_PrdfSegment = 0;
+  int m_PrdfEvents = 0;
+  int m_EventsTotal = 0;
+  int m_CurrentRun = 0;
+  int m_CurrentEvent = 0;
+  int m_Repeat = 0;
+  bool m_MixRunsOkFlag = false;
+  SyncObject *m_MasterSync = nullptr;
   std::vector<Fun4AllInputManager *> m_InManager;
   std::vector<int> m_iretInManager;
 };

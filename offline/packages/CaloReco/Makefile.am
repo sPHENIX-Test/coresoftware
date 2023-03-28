@@ -7,56 +7,70 @@ AUTOMAKE_OPTIONS = foreign
 lib_LTLIBRARIES = \
   libcalo_reco.la 
 
+#
 libcalo_reco_la_LDFLAGS = \
   -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OFFLINE_MAIN)/lib64 \
+  -L$(OFFLINE_MAIN)/lib \
+  `root-config --libs`
 
+if USE_ONLINE
+
+else
 libcalo_reco_la_LIBADD = \
+  -lCLHEP \
   -lphool \
   -lSubsysReco \
   -lgsl \
   -lgslcblas \
+  -lg4vertex_io \
   -lcalo_io \
-  -lcalo_util  \
+  -lsph_onnx \
+  -lcaloCalibDBFile \
+  -lcdbobjects \
+  -ldbtools \
   -lphparameter
+endif
 
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include 
+  -isystem$(ROOTSYS)/include
 
+if USE_ONLINE
 pkginclude_HEADERS = \
+  CaloWaveformFitting.h
+
+else
+pkginclude_HEADERS = \
+  CaloWaveformFitting.h \
+  CaloWaveformProcessing.h \
+  CaloTowerBuilder.h \
+  CaloTowerCalib.h \
   RawClusterBuilderFwd.h \
   RawClusterBuilderGraph.h \
   RawClusterBuilderTopo.h \
   RawClusterBuilderTemplate.h \
   RawClusterPositionCorrection.h \
-  RawTowerCalibration.h
-
-
-if ! MAKEROOT6
-  ROOT5_DICTS = \
-  RawClusterBuilderGraph_Dict.cc \
-  RawClusterBuilderTopo_Dict.cc \
-  RawClusterBuilderTemplate_Dict.cc \
-  RawClusterBuilderFwd_Dict.cc \
-  RawClusterPositionCorrection_Dict.cc \
-  RawClusterDeadAreaMask_Dict.cc \
-  RawTowerCombiner_Dict.cc \
-  RawTowerCalibration_Dict.cc \
-  RawTowerDeadTowerInterp_Dict.cc \
-  RawTowerDeadMapLoader_Dict.cc
+  RawTowerCalibration.h 
 endif
 
-
+if USE_ONLINE
 libcalo_reco_la_SOURCES = \
-  $(ROOT5_DICTS) \
+  CaloWaveformFitting.cc
+
+else
+libcalo_reco_la_SOURCES = \
   BEmcCluster.cc \
   BEmcProfile.cc \
   BEmcRec.cc \
   BEmcRecCEMC.cc \
   BEmcRecFEMC.cc \
   BEmcRecEEMC.cc \
+  CaloWaveformFitting.cc \
+  CaloWaveformProcessing.cc \
+  CaloTowerBuilder.cc \
+  CaloTowerCalib.cc \
   RawClusterBuilderGraph.cc \
   RawClusterBuilderTopo.cc \
   RawClusterBuilderTemplate.cc \
@@ -67,11 +81,7 @@ libcalo_reco_la_SOURCES = \
   RawTowerCalibration.cc \
   RawTowerDeadTowerInterp.cc \
   RawTowerDeadMapLoader.cc
-
-# Rule for generating table CINT dictionaries.
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
+endif
 
 ################################################
 # linking tests
@@ -95,4 +105,4 @@ testexternals.cc:
 # please add new classes in alphabetical order
 
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES) *.pcm
+	rm -f $(BUILT_SOURCES)

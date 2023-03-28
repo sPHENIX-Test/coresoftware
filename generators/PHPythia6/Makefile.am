@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I`root-config --incdir`
+  -isystem`root-config --incdir`
 
 lib_LTLIBRARIES = libPHPythia6.la
 
@@ -17,29 +17,17 @@ pkginclude_HEADERS = \
 libPHPythia6_la_LDFLAGS =  \
   -L$(libdir) \
   -L$(OFFLINE_MAIN)/lib \
-  -L$(OPT_SPHENIX)/lib \
-  `root-config --libs`
+  `root-config --libs` \
+  `fastjet-config --libs`
 
 libPHPythia6_la_LIBADD = \
   -lSubsysReco \
   -lEGPythia6 \
   -lphhepmc \
   -lHepMC \
-  -lHepMCfio \
-  -lfastjet \
-  -lCGAL
-
-if ! MAKEROOT6
-ROOT5_DICTS = \
-  PHPy6ForwardElectronTrig_Dict.cc \
-  PHPy6GenTrigger_Dict.cc \
-  PHPy6JetTrigger_Dict.cc \
-  PHPy6ParticleTrigger_Dict.cc \
-  PHPythia6_Dict.cc 
-endif
+  -lHepMCfio
 
 libPHPythia6_la_SOURCES = \
-  $(ROOT5_DICTS) \
   PHPythia6.cc \
   PHPy6GenTrigger.cc \
   PHPy6JetTrigger.cc \
@@ -66,9 +54,6 @@ testexternals.cc:
 	echo "  return 0;" >> $@
 	echo "}" >> $@
 
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES)
+	rm -f $(BUILT_SOURCES)
 

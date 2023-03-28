@@ -76,16 +76,17 @@ class PHGeomUtility
     return std::string("GEOMETRY_IO");
   }
 
+  //! Base path name for temp geometry GDML file used in GenerateGeometryFileName().
+  //! User can overwrite it to e.g. local directory with  PHGeomUtility::SetGenerateGeometryFileNameBase('./');
+  static void SetGenerateGeometryFileNameBase(const std::string &base) { mg_GenerateGeometryFileNameBase = base; }
+
  private:
-#if defined(__CINT__) && !defined(__CLING__)
-  PHGeomUtility()
-  {
-  }
-  ~PHGeomUtility() {}
-#else
   PHGeomUtility() = delete;
   ~PHGeomUtility() = delete;
-#endif
+
+  //! Base path name for temp geometry GDML file used in GenerateGeometryFileName().
+  //! User can overwrite it to e.g. local directory with  PHGeomUtility::SetGenerateGeometryFileNameBase('./');
+  static std::string mg_GenerateGeometryFileNameBase;
 };
 
 #endif

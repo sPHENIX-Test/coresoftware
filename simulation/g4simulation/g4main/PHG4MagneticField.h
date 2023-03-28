@@ -24,7 +24,7 @@ class PHG4MagneticField : public G4MagneticField
 {
  public:
   PHG4MagneticField(const PHField* field);
-  virtual ~PHG4MagneticField();
+  ~PHG4MagneticField() override;
 
   const PHField* get_field() const
   {
@@ -36,9 +36,9 @@ class PHG4MagneticField : public G4MagneticField
     field_ = field;
   }
 
-  void GetFieldValue( const double Point[4],    double *Bfield ) const;
+  void GetFieldValue( const double Point[4],    double *Bfield ) const override;
 
- protected:
+ private:
   const PHField* field_;
 };
 

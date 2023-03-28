@@ -7,6 +7,7 @@
 
 #include <fun4all/SubsysReco.h>
 
+#include <cmath>
 #include <string>
 
 class PHCompositeNode;
@@ -14,37 +15,37 @@ class PHCompositeNode;
 class PHG4HcalCellReco : public SubsysReco, public PHParameterInterface
 {
  public:
-
   PHG4HcalCellReco(const std::string &name = "HcalCellReco");
 
-  virtual ~PHG4HcalCellReco(){}
-  
+  ~PHG4HcalCellReco() override {}
+
   //! module initialization
-  int InitRun(PHCompositeNode *topNode);
-  
-    //! event processing
-  int process_event(PHCompositeNode *topNode);
-  
-  //! end of process
-  int End(PHCompositeNode *topNode);
-  
-  void SetDefaultParameters();
+  int InitRun(PHCompositeNode *topNode) override;
 
-  void Detector(const std::string &d) {detector = d;}
-  void checkenergy(const int i=1) {chkenergyconservation = i;}
+  //! event processing
+  int process_event(PHCompositeNode *topNode) override;
 
-  void   set_timing_window(const double tmi, const double tma);
-  
+  void SetDefaultParameters() override;
+
+  void Detector(const std::string &d) { detector = d; }
+  void checkenergy(const int i = 1) { chkenergyconservation = i; }
+
+  void set_timing_window(const double tmi, const double tma);
+
+  void set_fixed_energy(const double efix) { m_FixedEnergy = efix; }
+
  protected:
   int CheckEnergy(PHCompositeNode *topNode);
   std::string detector;
   std::string hitnodename;
   std::string cellnodename;
 
-  int chkenergyconservation;
+  int chkenergyconservation = 0;
 
-  double tmin;
-  double tmax;
+  double tmin = NAN;
+  double tmax = NAN;
+  double m_DeltaT = NAN;
+  double m_FixedEnergy = NAN;
 };
 
 #endif

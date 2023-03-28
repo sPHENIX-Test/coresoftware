@@ -4,7 +4,7 @@ AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include  \
   -I$(G4_MAIN)/include \
-  -I`root-config --incdir`
+  -isystem`root-config --incdir`
 
 lib_LTLIBRARIES = \
    libphfield_io.la \
@@ -19,10 +19,10 @@ libphfield_io_la_LIBADD = \
 
 libphfield_la_LIBADD = \
   libphfield_io.la \
-  -lfun4all \
-  -lbmf
+  -lfun4all
 
 pkginclude_HEADERS = \
+  PHField3DCartesian.h \
   PHFieldConfig.h \
   PHFieldConfigv1.h \
   PHFieldConfigv2.h \
@@ -33,16 +33,12 @@ ROOTDICTS = \
   PHFieldConfig_Dict.cc \
   PHFieldConfigv1_Dict.cc \
   PHFieldConfigv2_Dict.cc
-if MAKEROOT6
-  pcmdir = $(libdir)
-  nobase_dist_pcm_DATA = \
+
+pcmdir = $(libdir)
+nobase_dist_pcm_DATA = \
   PHFieldConfig_Dict_rdict.pcm \
   PHFieldConfigv1_Dict_rdict.pcm \
   PHFieldConfigv2_Dict_rdict.pcm
-else
-  ROOT5_DICTS = \
-  PHFieldUtility_Dict.cc
-endif
 
 libphfield_io_la_SOURCES = \
   $(ROOTDICTS) \
@@ -51,18 +47,15 @@ libphfield_io_la_SOURCES = \
   PHFieldConfigv2.cc 
 
 libphfield_la_SOURCES = \
-  $(ROOT5_DICTS) \
   PHFieldUniform.cc \
   PHField2D.cc \
   PHField3DCylindrical.cc \
   PHField3DCartesian.cc \
-  PHFieldBeast.cc \
-  PHFieldCleo.cc \
   PHFieldUtility.cc 
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

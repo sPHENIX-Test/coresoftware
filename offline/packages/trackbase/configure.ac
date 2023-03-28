@@ -9,15 +9,17 @@ LT_INIT([disable-static])
 dnl   no point in suppressing warnings people should 
 dnl   at least see them, so here we go for g++: -Wall
 if test $ac_cv_prog_gxx = yes; then
-   CXXFLAGS="$CXXFLAGS -Wall -Werror -pedantic"
+   CXXFLAGS="$CXXFLAGS -Wall -pedantic -Wextra -Werror -Wshadow -Wno-dangling-pointer"
 fi
 
-dnl test for root 6
-if test `root-config --version | awk '{print $1>=6.?"1":"0"}'` = 1; then
-CINTDEFS=" -noIncludePaths  -inlineInputHeader"
+case $CXX in
+ clang++)
+   CXXFLAGS="$CXXFLAGS -Wno-deprecated-copy -Wno-bitwise-instead-of-logical -Wno-unknown-warning-option -Wno-deprecated-declarations"
+ ;;
+esac
+
+CINTDEFS=" -noIncludePaths  -inlineInputHeader "
 AC_SUBST(CINTDEFS)
-fi
-AM_CONDITIONAL([MAKEROOT6],[test `root-config --version | awk '{print $1>=6.?"1":"0"}'` = 1])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

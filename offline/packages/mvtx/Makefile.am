@@ -10,7 +10,7 @@ lib_LTLIBRARIES = \
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include  \
-  -I$(ROOTSYS)/include
+  -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
@@ -18,30 +18,23 @@ AM_LDFLAGS = \
   -L$(OFFLINE_MAIN)/lib
 
 pkginclude_HEADERS = \
-  MvtxDefs.h \
-  MvtxHit.h \
   MvtxClusterizer.h \
+  MvtxHitPruner.h \
   CylinderGeom_Mvtx.h \
   SegmentationAlpide.h
 
 
 ROOTDICTS = \
-  MvtxHit_Dict.cc \
   CylinderGeom_Mvtx_Dict.cc
-if MAKEROOT6
-  pcmdir = $(libdir)
-  nobase_dist_pcm_DATA = \
-    MvtxHit_Dict_rdict.pcm \
-    CylinderGeom_Mvtx_Dict_rdict.pcm
-else
-  ROOT5_DICTS = \
-    MvtxClusterizer_Dict.cc
-endif
+
+pcmdir = $(libdir)
+nobase_dist_pcm_DATA = \
+  CylinderGeom_Mvtx_Dict_rdict.pcm
 
 # sources for mvtx library
 libmvtx_la_SOURCES = \
-  $(ROOT5_DICTS) \
-  MvtxClusterizer.cc
+  MvtxClusterizer.cc \
+ MvtxHitPruner.cc
 
 libmvtx_la_LIBADD = \
   libmvtx_io.la \
@@ -53,8 +46,6 @@ libmvtx_la_LIBADD = \
 libmvtx_io_la_SOURCES = \
   $(ROOTDICTS) \
   CylinderGeom_Mvtx.cc \
-  MvtxDefs.cc \
-  MvtxHit.cc \
   SegmentationAlpide.cc
 
 libmvtx_io_la_LIBADD = \
@@ -65,7 +56,7 @@ libmvtx_io_la_LIBADD = \
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@  -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

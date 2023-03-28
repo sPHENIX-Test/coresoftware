@@ -18,6 +18,7 @@
 #include <phool/PHNodeIterator.h>  // for PHNodeIterator
 #include <phool/PHObject.h>        // for PHObject
 #include <phool/getClass.h>
+#include <phool/recoConsts.h>
 
 #include <cmath>     // for NAN
 #include <iostream>  // for operator<<, basic_ostream, endl
@@ -31,9 +32,6 @@ using namespace std;
 //_______________________________________________________________________
 PHG4CylinderSubsystem::PHG4CylinderSubsystem(const std::string &na, const int lyr)
   : PHG4DetectorSubsystem(na, lyr)
-  , m_Detector(nullptr)
-  , m_SteppingAction(nullptr)
-  , m_DisplayAction(nullptr)
 {
   m_ColorArray.fill(NAN);
   InitializeParameters();
@@ -59,6 +57,12 @@ int PHG4CylinderSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
   {
     GetParams()->set_int_param("lengthviarapidity", 0);
   }
+  // use world material if material was not set so far
+  if (GetParams()->get_string_param("material") == "WorldMaterial")
+  {
+    recoConsts *rc = recoConsts::instance();
+    GetParams()->set_string_param("material", rc->get_StringFlag("WorldMaterial"));
+  }
   // create display settings before detector
   PHG4CylinderDisplayAction *disp_action = new PHG4CylinderDisplayAction(Name(), GetParams());
   if (isfinite(m_ColorArray[0]) &&
@@ -80,8 +84,8 @@ int PHG4CylinderSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
     PHCompositeNode *dstNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "DST"));
     PHCompositeNode *runNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "RUN"));
 
-    ostringstream nodename;
-    ostringstream geonode;
+    string nodename;
+    string geonode;
     if (SuperDetector() != "NONE")
     {
       // create super detector subnodes
@@ -102,35 +106,41 @@ int PHG4CylinderSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
       }
       runNode = superSubNode;
 
-      nodename << "G4HIT_" << SuperDetector();
-      geonode << "CYLINDERGEOM_" << SuperDetector();
+      nodename = "G4HIT_" + SuperDetector();
+      geonode = "CYLINDERGEOM_" + SuperDetector();
     }
 
     else
     {
-      nodename << "G4HIT_" << Name();
-      geonode << "CYLINDERGEOM_" << Name();
+      nodename = "G4HIT_" + Name();
+      geonode = "CYLINDERGEOM_" + Name();
     }
-    PHG4HitContainer *cylinder_hits = findNode::getClass<PHG4HitContainer>(topNode, nodename.str());
+    PHG4HitContainer *cylinder_hits = findNode::getClass<PHG4HitContainer>(topNode, nodename);
     if (!cylinder_hits)
     {
-      dstNode->addNode(new PHIODataNode<PHObject>(cylinder_hits = new PHG4HitContainer(nodename.str()), nodename.str(), "PHObject"));
+      dstNode->addNode(new PHIODataNode<PHObject>(cylinder_hits = new PHG4HitContainer(nodename), nodename, "PHObject"));
     }
     cylinder_hits->AddLayer(GetLayer());
-    PHG4CylinderGeomContainer *geo = findNode::getClass<PHG4CylinderGeomContainer>(topNode, geonode.str());
+    PHG4CylinderGeomContainer *geo = findNode::getClass<PHG4CylinderGeomContainer>(topNode, geonode);
     if (!geo)
     {
       geo = new PHG4CylinderGeomContainer();
-      PHIODataNode<PHObject> *newNode = new PHIODataNode<PHObject>(geo, geonode.str(), "PHObject");
+      PHIODataNode<PHObject> *newNode = new PHIODataNode<PHObject>(geo, geonode, "PHObject");
       runNode->addNode(newNode);
     }
     PHG4CylinderGeom *mygeom = new PHG4CylinderGeomv1(GetParams()->get_double_param("radius"), GetParams()->get_double_param("place_z") - detlength / 2., GetParams()->get_double_param("place_z") + detlength / 2., GetParams()->get_double_param("thickness"));
     geo->AddLayerGeom(GetLayer(), mygeom);
-    m_SteppingAction = new PHG4CylinderSteppingAction(m_Detector, GetParams());
+    auto *tmp = new PHG4CylinderSteppingAction(this, m_Detector, GetParams());
+    tmp->HitNodeName(nodename);
+    m_SteppingAction = tmp;
   }
   else if (GetParams()->get_int_param("blackhole"))
   {
-    m_SteppingAction = new PHG4CylinderSteppingAction(m_Detector, GetParams());
+    m_SteppingAction = new PHG4CylinderSteppingAction(this, m_Detector, GetParams());
+  }
+  if (m_SteppingAction)
+  {
+    (dynamic_cast<PHG4CylinderSteppingAction *>(m_SteppingAction))->SaveAllHits(m_SaveAllHitsFlag);
   }
   return 0;
 }
@@ -158,16 +168,21 @@ void PHG4CylinderSubsystem::SetDefaultParameters()
   set_default_double_param("thickness", NAN);
   set_default_double_param("tmin", NAN);
   set_default_double_param("tmax", NAN);
-
+  set_default_double_param("rot_x", 0.);
+  set_default_double_param("rot_y", 0.);
+  set_default_double_param("rot_z", 0.);
+  set_default_double_param("start_phi_rad", 0.);
+  set_default_double_param("delta_phi_rad", M_PI * 2);
   set_default_int_param("lengthviarapidity", 1);
   set_default_int_param("lightyield", 0);
   set_default_int_param("use_g4steps", 0);
 
-  set_default_string_param("material", "G4_Galactic");
+  // place holder, will be replaced by world material if not set by other means (macro)
+  set_default_string_param("material", "WorldMaterial");
 }
 
 PHG4Detector *
-PHG4CylinderSubsystem::GetDetector(void) const
+PHG4CylinderSubsystem::GetDetector() const
 {
   return m_Detector;
 }

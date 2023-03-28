@@ -4,8 +4,8 @@
 #include "CaloTriggerInfov1.h"
 
 // sPHENIX includes
-#include <calobase/RawTower.h>
-#include <calobase/RawTowerContainer.h>
+#include <calobase/TowerInfo.h>
+#include <calobase/TowerInfoContainerv1.h>
 #include <calobase/RawTowerGeom.h>
 #include <calobase/RawTowerGeomContainer.h>
 #include <calobase/RawTowerGeomContainer_Cylinderv1.h>
@@ -31,59 +31,8 @@
 #include <utility>
 #include <vector>
 
-using namespace std;
-
 CaloTriggerSim::CaloTriggerSim(const std::string &name)
   : SubsysReco(name)
-  , m_EmulateTruncationFlag(0)
-  // initiate sizes as -1 to tell module they can be set when it sees
-  // the EMCal geometry for the first time
-  , m_EMCAL_1x1_NETA(-1)
-  , m_EMCAL_1x1_NPHI(-1)
-  , m_EMCAL_2x2_NETA(-1)
-  , m_EMCAL_2x2_NPHI(-1)
-  , m_EMCAL_4x4_NETA(-1)
-  , m_EMCAL_4x4_NPHI(-1)
-  , m_EMCAL_2x2_BEST_E(0)
-  , m_EMCAL_2x2_BEST_PHI(0)
-  , m_EMCAL_2x2_BEST_ETA(0)
-  , m_EMCAL_4x4_BEST_E(0)
-  , m_EMCAL_4x4_BEST_PHI(0)
-  , m_EMCAL_4x4_BEST_ETA(0)
-  , m_EMCAL_4x4_BEST2_E(0)
-  , m_EMCAL_4x4_BEST2_PHI(0)
-  , m_EMCAL_4x4_BEST2_ETA(0)
-  // do the same for full calo
-  , m_FULLCALO_PHI_START(0)
-  , m_FULLCALO_PHI_END(2 * M_PI)
-  , m_FULLCALO_0p1x0p1_NETA(-1)
-  , m_FULLCALO_0p1x0p1_NPHI(-1)
-  , m_FULLCALO_0p2x0p2_NETA(-1)
-  , m_FULLCALO_0p2x0p2_NPHI(-1)
-  , m_FULLCALO_0p4x0p4_NETA(-1)
-  , m_FULLCALO_0p4x0p4_NPHI(-1)
-  , m_FULLCALO_0p6x0p6_NETA(-1)
-  , m_FULLCALO_0p6x0p6_NPHI(-1)
-  , m_FULLCALO_0p8x0p8_NETA(-1)
-  , m_FULLCALO_0p8x0p8_NPHI(-1)
-  , m_FULLCALO_1p0x1p0_NETA(-1)
-  , m_FULLCALO_1p0x1p0_NPHI(-1)
-  , m_FULLCALO_0p2x0p2_BEST_E(0)
-  , m_FULLCALO_0p2x0p2_BEST_PHI(0)
-  , m_FULLCALO_0p2x0p2_BEST_ETA(0)
-  , m_FULLCALO_0p4x0p4_BEST_E(0)
-  , m_FULLCALO_0p4x0p4_BEST_PHI(0)
-  , m_FULLCALO_0p4x0p4_BEST_ETA(0)
-  , m_FULLCALO_0p6x0p6_BEST_E(0)
-  , m_FULLCALO_0p6x0p6_BEST_PHI(0)
-  , m_FULLCALO_0p6x0p6_BEST_ETA(0)
-  , m_FULLCALO_0p8x0p8_BEST_E(0)
-  , m_FULLCALO_0p8x0p8_BEST_PHI(0)
-  , m_FULLCALO_0p8x0p8_BEST_ETA(0)
-  , m_FULLCALO_1p0x1p0_BEST_E(0)
-  , m_FULLCALO_1p0x1p0_BEST_PHI(0)
-  , m_FULLCALO_1p0x1p0_BEST_ETA(0)
-
 {
   return;
 }
@@ -103,17 +52,21 @@ int CaloTriggerSim::InitRun(PHCompositeNode *topNode)
 int CaloTriggerSim::process_event(PHCompositeNode *topNode)
 {
   if (Verbosity() > 0)
+  {
     std::cout << "CaloTriggerSim::process_event: entering" << std::endl;
+  }
 
   // pull out the tower containers and geometry objects at the start
-  RawTowerContainer *towersEM3 = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_CEMC");
-  RawTowerContainer *towersIH3 = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_HCALIN");
-  RawTowerContainer *towersOH3 = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_HCALOUT");
+
+  TowerInfoContainer *towersEM3 = findNode::getClass<TowerInfoContainerv1>(topNode, "TOWERINFO_CALIB_CEMC");
+  TowerInfoContainer *towersIH3 = findNode::getClass<TowerInfoContainerv1>(topNode, "TOWERINFO_CALIB_HCALIN");
+  TowerInfoContainer *towersOH3 = findNode::getClass<TowerInfoContainerv1>(topNode, "TOWERINFO_CALIB_HCALOUT");
+
   if (Verbosity() > 0)
   {
-    std::cout << "CaloTriggerSim::process_event: " << towersEM3->size() << " TOWER_CALIB_CEMC towers" << std::endl;
-    std::cout << "CaloTriggerSim::process_event: " << towersIH3->size() << " TOWER_CALIB_HCALIN towers" << std::endl;
-    std::cout << "CaloTriggerSim::process_event: " << towersOH3->size() << " TOWER_CALIB_HCALOUT towers" << std::endl;
+    std::cout << "CaloTriggerSim::process_event: " << towersEM3->size() << " TOWERINFO_CALIB_CEMC towers" << std::endl;
+    std::cout << "CaloTriggerSim::process_event: " << towersIH3->size() << " TOWERINFO_CALIB_HCALIN towers" << std::endl;
+    std::cout << "CaloTriggerSim::process_event: " << towersOH3->size() << " TOWERINFO_CALIB_HCALOUT towers" << std::endl;
   }
 
   RawTowerGeomContainer_Cylinderv1 *geomEM = findNode::getClass<RawTowerGeomContainer_Cylinderv1>(topNode, "TOWERGEOM_CEMC");
@@ -156,40 +109,40 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset 1x1 map
-  fill(m_EMCAL_1x1_MAP.begin(), m_EMCAL_1x1_MAP.end(), vector<double>(m_EMCAL_1x1_NPHI, 0));
+  fill(m_EMCAL_1x1_MAP.begin(), m_EMCAL_1x1_MAP.end(), std::vector<double>(m_EMCAL_1x1_NPHI, 0));
 
   // iterate over EMCal towers, constructing 1x1's
-  RawTowerContainer::ConstRange begin_end = towersEM3->getTowers();
-  for (RawTowerContainer::ConstIterator rtiter = begin_end.first; rtiter != begin_end.second; ++rtiter)
-  {
-    RawTower *tower = rtiter->second;
-    RawTowerGeom *tower_geom = geomEM->get_tower_geometry(tower->get_key());
+  unsigned int ntowers_EM = towersEM3->size();
+  for (unsigned int channel = 0; channel < ntowers_EM; channel++)
+    {
+    TowerInfo *tower = towersEM3->get_tower_at_channel(channel);
 
-    double this_eta = tower_geom->get_eta();
-    double this_phi = tower_geom->get_phi();
-    int this_etabin = geomEM->get_etabin(this_eta);
-    int this_phibin = geomEM->get_phibin(this_phi);
+    // RawTowerGeom *tower_geom = geomEM->get_tower_geometry(tower->get_key());
+
+    unsigned int towerkey = towersEM3->encode_key(channel);
+    int this_etabin = towersEM3->getTowerEtaBin(towerkey);
+    int this_phibin = towersEM3->getTowerPhiBin(towerkey);
     double this_E = tower->get_energy();
 
     m_EMCAL_1x1_MAP[this_etabin][this_phibin] += this_E;
 
     if (Verbosity() > 1 && tower->get_energy() > 1)
     {
-      std::cout << "CaloTriggerSim::process_event: EMCal 1x1 tower eta ( bin ) / phi ( bin ) / E = " << std::setprecision(6) << this_eta << " ( " << this_etabin << " ) / " << this_phi << " ( " << this_phibin << " ) / " << this_E << std::endl;
+      std::cout << "CaloTriggerSim::process_event: EMCal 1x1 tower eta  bin  / phi  bin  / E = " << std::setprecision(6) << this_etabin << "  / " << this_phibin << " / " << this_E << std::endl;
     }
   }
 
   // reset 2x2 map and best
-  fill(m_EMCAL_2x2_MAP.begin(), m_EMCAL_2x2_MAP.end(), vector<double>(m_EMCAL_2x2_NPHI, 0));
+  fill(m_EMCAL_2x2_MAP.begin(), m_EMCAL_2x2_MAP.end(), std::vector<double>(m_EMCAL_2x2_NPHI, 0));
 
   m_EMCAL_2x2_BEST_E = 0;
   m_EMCAL_2x2_BEST_PHI = 0;
   m_EMCAL_2x2_BEST_ETA = 0;
 
   // now reconstruct 2x2 map from 1x1 map
-  for (int ieta = 0; ieta < m_EMCAL_2x2_NETA; ieta++)
+  for (std::vector<double>::size_type ieta = 0; ieta < m_EMCAL_2x2_NETA; ieta++)
   {
-    for (int iphi = 0; iphi < m_EMCAL_2x2_NPHI; iphi++)
+    for (std::vector<double>::size_type iphi = 0; iphi < m_EMCAL_2x2_NPHI; iphi++)
     {
       double this_sum = 0;
 
@@ -210,8 +163,14 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
       double this_eta = 0.5 * (geomEM->get_etacenter(2 * ieta) + geomEM->get_etacenter(2 * ieta + 1));
       double this_phi = 0.5 * (geomEM->get_phicenter(2 * iphi) + geomEM->get_phicenter(2 * iphi + 1));
       // wrap-around phi (apparently needed for 2D geometry?)
-      if (this_phi > M_PI) this_phi -= 2 * M_PI;
-      if (this_phi < -M_PI) this_phi += 2 * M_PI;
+      if (this_phi > M_PI)
+      {
+        this_phi -= 2 * M_PI;
+      }
+      if (this_phi < -M_PI)
+      {
+        this_phi += 2 * M_PI;
+      }
 
       if (Verbosity() > 1 && this_sum > 1)
       {
@@ -233,7 +192,7 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset 4x4 map & best
-  fill(m_EMCAL_4x4_MAP.begin(), m_EMCAL_4x4_MAP.end(), vector<double>(m_EMCAL_4x4_NPHI, 0));
+  fill(m_EMCAL_4x4_MAP.begin(), m_EMCAL_4x4_MAP.end(), std::vector<double>(m_EMCAL_4x4_NPHI, 0));
 
   m_EMCAL_4x4_BEST_E = 0;
   m_EMCAL_4x4_BEST_PHI = 0;
@@ -254,8 +213,14 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
       // first tower and add 1.5 tower widths
       double this_phi = geomEM->get_phicenter(2 * iphi) + 1.5 * (geomEM->get_phicenter(2 * iphi + 1) - geomEM->get_phicenter(2 * iphi));
       // wrap-around phi (apparently needed for 2D geometry?)
-      if (this_phi > M_PI) this_phi -= 2 * M_PI;
-      if (this_phi < -M_PI) this_phi += 2 * M_PI;
+      if (this_phi > M_PI)
+      {
+        this_phi -= 2 * M_PI;
+      }
+      if (this_phi < -M_PI)
+      {
+        this_phi += 2 * M_PI;
+      }
 
       double this_sum = 0;
 
@@ -307,13 +272,21 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
       int dphi = (iphi - emcal_4x4_best_iphi) % m_EMCAL_4x4_NPHI;
 
       if (abs(deta) < 1.5 && abs(dphi) < 1.5)
+      {
         continue;
+      }
 
       double this_eta = 0.25 * (geomEM->get_etacenter(2 * ieta) + geomEM->get_etacenter(2 * ieta + 1) + geomEM->get_etacenter(2 * ieta + 2) + geomEM->get_etacenter(2 * ieta + 3));
       double this_phi = geomEM->get_phicenter(2 * iphi) + 1.5 * (geomEM->get_phicenter(2 * iphi + 1) - geomEM->get_phicenter(2 * iphi));
 
-      if (this_phi > M_PI) this_phi -= 2 * M_PI;
-      if (this_phi < -M_PI) this_phi += 2 * M_PI;
+      if (this_phi > M_PI)
+      {
+        this_phi -= 2 * M_PI;
+      }
+      if (this_phi < -M_PI)
+      {
+        this_phi += 2 * M_PI;
+      }
 
       double this_sum = m_EMCAL_4x4_MAP[ieta][iphi];
 
@@ -395,19 +368,28 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset 0.1x0.1 map
-  fill(m_FULLCALO_0p1x0p1_MAP.begin(), m_FULLCALO_0p1x0p1_MAP.end(), vector<double>(m_FULLCALO_0p1x0p1_NPHI, 0));
+  fill(m_FULLCALO_0p1x0p1_MAP.begin(), m_FULLCALO_0p1x0p1_MAP.end(), std::vector<double>(m_FULLCALO_0p1x0p1_NPHI, 0));
 
   // iterate over EMCal towers, filling in the 0.1x0.1 region they contribute to
-  RawTowerContainer::ConstRange begin_end_EM = towersEM3->getTowers();
-  for (RawTowerContainer::ConstIterator rtiter = begin_end_EM.first; rtiter != begin_end_EM.second; ++rtiter)
+  for (unsigned int channel = 0; channel < ntowers_EM; channel++)
   {
-    RawTower *tower = rtiter->second;
-    RawTowerGeom *tower_geom = geomEM->get_tower_geometry(tower->get_key());
 
-    double this_eta = tower_geom->get_eta();
-    double this_phi = tower_geom->get_phi();
-    if (this_phi < m_FULLCALO_PHI_START) this_phi += 2 * M_PI;
-    if (this_phi > m_FULLCALO_PHI_END) this_phi -= 2 * M_PI;
+    TowerInfo *tower = towersEM3->get_tower_at_channel(channel);
+    unsigned int towerkey = towersEM3->encode_key(channel);
+    int ieta = towersEM3->getTowerEtaBin(towerkey);
+    int iphi = towersEM3->getTowerPhiBin(towerkey);
+    const RawTowerDefs::keytype key = RawTowerDefs::encode_towerid(RawTowerDefs::CalorimeterId::CEMC, ieta, iphi);
+    float this_phi = geomEM->get_tower_geometry(key)->get_phi();
+    float this_eta = geomEM->get_tower_geometry(key)->get_eta();
+
+    if (this_phi < m_FULLCALO_PHI_START)
+    {
+      this_phi += 2 * M_PI;
+    }
+    if (this_phi > m_FULLCALO_PHI_END)
+    {
+      this_phi -= 2 * M_PI;
+    }
 
     // note: look up eta/phi index based on OHCal geometry, since this
     // defines the 0.1x0.1 regions
@@ -424,16 +406,26 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // iterate over IHCal towers, filling in the 0.1x0.1 region they contribute to
-  RawTowerContainer::ConstRange begin_end_IH = towersIH3->getTowers();
-  for (RawTowerContainer::ConstIterator rtiter = begin_end_IH.first; rtiter != begin_end_IH.second; ++rtiter)
-  {
-    RawTower *tower = rtiter->second;
-    RawTowerGeom *tower_geom = geomIH->get_tower_geometry(tower->get_key());
 
-    double this_eta = tower_geom->get_eta();
-    double this_phi = tower_geom->get_phi();
-    if (this_phi < m_FULLCALO_PHI_START) this_phi += 2 * M_PI;
-    if (this_phi > m_FULLCALO_PHI_END) this_phi -= 2 * M_PI;
+  unsigned int ntowers_IH = towersIH3->size();
+  for (unsigned int channel = 0; channel < ntowers_IH; channel++)
+  {
+    TowerInfo *tower = towersIH3->get_tower_at_channel(channel);
+    unsigned int towerkey = towersIH3->encode_key(channel);
+    int ieta = towersIH3->getTowerEtaBin(towerkey);
+    int iphi = towersIH3->getTowerPhiBin(towerkey);
+    const RawTowerDefs::keytype key = RawTowerDefs::encode_towerid(RawTowerDefs::CalorimeterId::HCALIN, ieta, iphi);
+    float this_phi = geomIH->get_tower_geometry(key)->get_phi();
+    float this_eta = geomIH->get_tower_geometry(key)->get_eta();
+
+    if (this_phi < m_FULLCALO_PHI_START)
+    {
+      this_phi += 2 * M_PI;
+    }
+    if (this_phi > m_FULLCALO_PHI_END)
+    {
+      this_phi -= 2 * M_PI;
+    }
 
     // note: look up eta/phi index based on OHCal geometry, even though I
     // think it is by construction the same as the IHCal geometry...
@@ -450,16 +442,28 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // iterate over OHCal towers, filling in the 0.1x0.1 region they contribute to
-  RawTowerContainer::ConstRange begin_end_OH = towersOH3->getTowers();
-  for (RawTowerContainer::ConstIterator rtiter = begin_end_OH.first; rtiter != begin_end_OH.second; ++rtiter)
-  {
-    RawTower *tower = rtiter->second;
-    RawTowerGeom *tower_geom = geomOH->get_tower_geometry(tower->get_key());
 
-    double this_eta = tower_geom->get_eta();
-    double this_phi = tower_geom->get_phi();
-    if (this_phi < m_FULLCALO_PHI_START) this_phi += 2 * M_PI;
-    if (this_phi > m_FULLCALO_PHI_END) this_phi -= 2 * M_PI;
+  unsigned int ntowers_OH = towersOH3->size();
+  for (unsigned int channel = 0; channel < ntowers_OH; channel++)
+  {
+
+    TowerInfo *tower = towersOH3->get_tower_at_channel(channel);
+    unsigned int towerkey = towersOH3->encode_key(channel);
+    int ieta = towersOH3->getTowerEtaBin(towerkey);
+    int iphi = towersOH3->getTowerPhiBin(towerkey);
+    const RawTowerDefs::keytype key = RawTowerDefs::encode_towerid(RawTowerDefs::CalorimeterId::HCALIN, ieta, iphi);
+    float this_phi = geomIH->get_tower_geometry(key)->get_phi();
+    float this_eta = geomIH->get_tower_geometry(key)->get_eta();
+
+
+    if (this_phi < m_FULLCALO_PHI_START)
+    {
+      this_phi += 2 * M_PI;
+    }
+    if (this_phi > m_FULLCALO_PHI_END)
+    {
+      this_phi -= 2 * M_PI;
+    }
 
     // note: use the nominal eta/phi index, since the fullcalo 0.1x0.1
     // map is defined by the OHCal geometry itself
@@ -476,16 +480,16 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset 0.2x0.2 map and best
-  fill(m_FULLCALO_0p2x0p2_MAP.begin(), m_FULLCALO_0p2x0p2_MAP.end(), vector<double>(m_FULLCALO_0p2x0p2_NPHI, 0));
+  fill(m_FULLCALO_0p2x0p2_MAP.begin(), m_FULLCALO_0p2x0p2_MAP.end(), std::vector<double>(m_FULLCALO_0p2x0p2_NPHI, 0));
 
   m_FULLCALO_0p2x0p2_BEST_E = 0;
   m_FULLCALO_0p2x0p2_BEST_PHI = 0;
   m_FULLCALO_0p2x0p2_BEST_ETA = 0;
 
   // now reconstruct (non-sliding) 0.2x0.2 map from 0.1x0.1 map
-  for (int ieta = 0; ieta < m_FULLCALO_0p2x0p2_NETA; ieta++)
+  for (std::vector<double>::size_type ieta = 0; ieta < m_FULLCALO_0p2x0p2_NETA; ieta++)
   {
-    for (int iphi = 0; iphi < m_FULLCALO_0p2x0p2_NPHI; iphi++)
+    for (std::vector<double>::size_type iphi = 0; iphi < m_FULLCALO_0p2x0p2_NPHI; iphi++)
     {
       double this_sum = 0;
 
@@ -522,7 +526,7 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset fullcalo 0.4x0.4 map & best
-  fill(m_FULLCALO_0p4x0p4_MAP.begin(), m_FULLCALO_0p4x0p4_MAP.end(), vector<double>(m_FULLCALO_0p4x0p4_NPHI, 0));
+  fill(m_FULLCALO_0p4x0p4_MAP.begin(), m_FULLCALO_0p4x0p4_MAP.end(), std::vector<double>(m_FULLCALO_0p4x0p4_NPHI, 0));
 
   m_FULLCALO_0p4x0p4_BEST_E = 0;
   m_FULLCALO_0p4x0p4_BEST_PHI = 0;
@@ -572,7 +576,7 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset fullcalo 0.6x0.6 map & best
-  fill(m_FULLCALO_0p6x0p6_MAP.begin(), m_FULLCALO_0p6x0p6_MAP.end(), vector<double>(m_FULLCALO_0p6x0p6_NPHI, 0));
+  fill(m_FULLCALO_0p6x0p6_MAP.begin(), m_FULLCALO_0p6x0p6_MAP.end(), std::vector<double>(m_FULLCALO_0p6x0p6_NPHI, 0));
 
   m_FULLCALO_0p6x0p6_BEST_E = 0;
   m_FULLCALO_0p6x0p6_BEST_PHI = 0;
@@ -629,7 +633,7 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset fullcalo 0.8x0.8 map & best
-  fill(m_FULLCALO_0p8x0p8_MAP.begin(), m_FULLCALO_0p8x0p8_MAP.end(), vector<double>(m_FULLCALO_0p8x0p8_NPHI, 0));
+  fill(m_FULLCALO_0p8x0p8_MAP.begin(), m_FULLCALO_0p8x0p8_MAP.end(), std::vector<double>(m_FULLCALO_0p8x0p8_NPHI, 0));
 
   m_FULLCALO_0p8x0p8_BEST_E = 0;
   m_FULLCALO_0p8x0p8_BEST_PHI = 0;
@@ -695,7 +699,7 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
   }
 
   // reset fullcalo 1.0x1.0 map & best
-  fill(m_FULLCALO_1p0x1p0_MAP.begin(), m_FULLCALO_1p0x1p0_MAP.end(), vector<double>(m_FULLCALO_1p0x1p0_NPHI, 0));
+  fill(m_FULLCALO_1p0x1p0_MAP.begin(), m_FULLCALO_1p0x1p0_MAP.end(), std::vector<double>(m_FULLCALO_1p0x1p0_NPHI, 0));
 
   m_FULLCALO_1p0x1p0_BEST_E = 0;
   m_FULLCALO_1p0x1p0_BEST_PHI = 0;
@@ -773,7 +777,10 @@ int CaloTriggerSim::process_event(PHCompositeNode *topNode)
 
   FillNode(topNode);
 
-  if (Verbosity() > 0) std::cout << "CaloTriggerSim::process_event: exiting" << std::endl;
+  if (Verbosity() > 0)
+  {
+    std::cout << "CaloTriggerSim::process_event: exiting" << std::endl;
+  }
 
   return Fun4AllReturnCodes::EVENT_OK;
 }

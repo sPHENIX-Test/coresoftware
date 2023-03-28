@@ -17,17 +17,17 @@ class PHG4CylinderGeom_Spacalv1;
 class PHG4SpacalDisplayAction : public PHG4DisplayAction
 {
  public:
-  PHG4SpacalDisplayAction(const std::string &name);
+  explicit PHG4SpacalDisplayAction(const std::string &name);
 
-  virtual ~PHG4SpacalDisplayAction();
+  ~PHG4SpacalDisplayAction() override;
 
-  void ApplyDisplayAction(G4VPhysicalVolume *physvol);
+  void ApplyDisplayAction(G4VPhysicalVolume *physvol) override;
   void AddVolume(G4LogicalVolume *logvol, const std::string &mat) { m_LogicalVolumeMap[logvol] = mat; }
   void SetGeom(const PHG4CylinderGeom_Spacalv1 *geo) { m_Geom = geo; }
   void AddMaterial(const std::string &name, const std::string &mat) { m_MaterialMap[name] = mat; }
 
  private:
-  const PHG4CylinderGeom_Spacalv1 *m_Geom;
+  const PHG4CylinderGeom_Spacalv1 *m_Geom = nullptr;
   std::map<G4LogicalVolume *, std::string> m_LogicalVolumeMap;
   std::vector<G4VisAttributes *> m_VisAttVec;
   std::map<std::string, std::string> m_MaterialMap;

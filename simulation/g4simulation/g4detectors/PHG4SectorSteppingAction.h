@@ -16,27 +16,27 @@ class PHG4SectorSteppingAction : public PHG4SteppingAction
 {
  public:
   //! constructor
-  PHG4SectorSteppingAction(PHG4SectorDetector*);
+  explicit PHG4SectorSteppingAction(PHG4SectorDetector*);
 
   //! destructor
-  virtual ~PHG4SectorSteppingAction();
+  ~PHG4SectorSteppingAction() override;
 
   //! stepping action
-  virtual bool UserSteppingAction(const G4Step*, bool);
+  bool UserSteppingAction(const G4Step*, bool) override;
 
   //! reimplemented from base class
-  virtual void SetInterfacePointers(PHCompositeNode*);
+  void SetInterfacePointers(PHCompositeNode*) override;
 
  private:
   //! pointer to the detector
-  PHG4SectorDetector* detector_;
+  PHG4SectorDetector* detector_ = nullptr;
 
   //! pointer to hit container
-  PHG4HitContainer* hits_;
-  PHG4Hit* hit;
-  PHG4Shower* saveshower;
+  PHG4HitContainer* hits_ = nullptr;
+  PHG4Hit* hit = nullptr;
+  PHG4Shower* saveshower = nullptr;
 
-  int layer_id;
+  int layer_id = -1;
 };
 
 #endif  //__G4PHPHYTHIAREADER_H__

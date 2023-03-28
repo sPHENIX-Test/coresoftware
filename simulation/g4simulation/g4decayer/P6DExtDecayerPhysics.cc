@@ -38,14 +38,14 @@
 #include <Geant4/G4ParticleTable.hh>  // for G4ParticleTable::G4PTblDi...
 #include <Geant4/G4ProcessManager.hh>
 #include <Geant4/G4ProcessVector.hh>  // for G4ProcessVector
-#include <Geant4/G4Types.hh>          // for G4int
+#include <Geant4/G4String.hh>         // for G4String
 #include <Geant4/G4VPhysicsConstructor.hh>
 #include <Geant4/G4VProcess.hh>  // for G4VProcess
 #include <Geant4/G4Version.hh>
-#include <Geant4/G4ios.hh>  // for G4cout, G4endl
 
-#include <ostream>  // for operator<<, basic_ostream
-#include <string>   // for operator<<
+#include <cstddef>   // for size_t
+#include <iostream>  // for operator<<, endl, basic_o...
+#include <string>    // for operator<<
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 // hack for Geant 10.03.p03
@@ -100,9 +100,9 @@ void P6DExtDecayerPhysics::ConstructProcess()
 
     if (verboseLevel > 1)
     {
-      G4cout << "Setting ext decayer for: "
-             << aParticleIterator->value()->GetParticleName()
-             << G4endl;
+      std::cout << "Setting ext decayer for: "
+                << aParticleIterator->value()->GetParticleName()
+                << std::endl;
     }
 
     G4ProcessVector* processVector = pmanager->GetProcessList();
@@ -138,7 +138,7 @@ void P6DExtDecayerPhysics::ConstructProcess()
   }
   if (verboseLevel > 0)
   {
-    G4cout << "External decayer physics constructed." << G4endl;
+    std::cout << "External decayer physics constructed." << std::endl;
   }
 }
 

@@ -2,8 +2,9 @@
 
 #include <g4detectors/PHG4Cell.h>
 #include <g4detectors/PHG4CellContainer.h>
-#include <g4detectors/PHG4CylinderCellGeom.h>
-#include <g4detectors/PHG4CylinderCellGeomContainer.h>
+#include <g4detectors/PHG4CellDefs.h>  // for get_phibin
+#include <g4detectors/PHG4TpcCylinderGeom.h>
+#include <g4detectors/PHG4TpcCylinderGeomContainer.h>
 
 #include <fun4all/Fun4AllHistoManager.h>
 #include <fun4all/SubsysReco.h>  // for SubsysReco
@@ -64,7 +65,7 @@ int G4CellNtuple::process_event(PHCompositeNode *topNode)
     nodename << "G4CELL_" << *iter;
     geonodename.str("");
     geonodename << "CYLINDERCELLGEOM_" << *iter;
-    PHG4CylinderCellGeomContainer *cellgeos = findNode::getClass<PHG4CylinderCellGeomContainer>(topNode, geonodename.str());
+    PHG4TpcCylinderGeomContainer *cellgeos = findNode::getClass<PHG4TpcCylinderGeomContainer>(topNode, geonodename.str());
     if (!cellgeos)
     {
       cout << "no geometry node " << geonodename.str() << " for " << *iter << endl;
@@ -74,7 +75,7 @@ int G4CellNtuple::process_event(PHCompositeNode *topNode)
     if (cells)
     {
       int previouslayer = -1;
-      PHG4CylinderCellGeom *cellgeom = nullptr;
+      PHG4TpcCylinderGeom *cellgeom = nullptr;
       double esum = 0;
       //          double numcells = cells->size();
       //          ncells[i]->Fill(numcells);
@@ -130,7 +131,7 @@ int G4CellNtuple::process_event(PHCompositeNode *topNode)
   return 0;
 }
 
-int G4CellNtuple::End(PHCompositeNode *topNode)
+int G4CellNtuple::End(PHCompositeNode */*topNode*/)
 {
   outfile->cd();
   ntup->Write();

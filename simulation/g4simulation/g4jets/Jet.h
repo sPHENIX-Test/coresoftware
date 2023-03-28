@@ -4,7 +4,7 @@
 #include <phool/PHObject.h>
 
 #include <cmath>
-#include <cstddef>          // for size_t
+#include <cstddef>  // for size_t
 #include <iostream>
 #include <map>
 
@@ -45,6 +45,29 @@ class Jet : public PHObject
     HCALOUT_TOWER_SUB1CS = 19, /* needed for CS subtraction w/ HI jet reco */
     HEPMC_IMPORT = 20,         /*Direct import HEPMC containers, such as sHijing HIJFRG truth jets loaded by JetHepMCLoader*/
     HCAL_TOPO_CLUSTER = 21,    /* I+HOCal 3-D topoCluster input */
+    ECAL_TOPO_CLUSTER = 22,    /* EMCal 3-D topoCluster input */
+    EEMC_TOWER = 23,
+    EEMC_CLUSTER = 24,
+    CEMC_TOWERINFO = 25,
+    HCALIN_TOWERINFO = 26,
+    HCALOUT_TOWERINFO = 27,
+    CEMC_TOWERINFO_RETOWER = 28, /* needed for HI jet reco */
+    CEMC_TOWERINFO_SUB1 = 29,
+    HCALIN_TOWERINFO_SUB1 = 30,
+    HCALOUT_TOWERINFO_SUB1 = 31, /* needed for HI jet reco */
+
+
+  };
+
+
+  enum SORT  // used as criteria for sorting output in JetMap
+  {
+    NO_SORT = 0, // a blank input to not sort input
+    PT   = 1, // PT descending order
+    E    = 2, // E  descending order
+    P    = 3, // P descending order
+    MASS = 4, // Mass descending order
+    AREA = 5, // AREA descending order --> maybe used in future, as jets don't have area for now...
   };
 
   enum PROPERTY
@@ -63,32 +86,40 @@ class Jet : public PHObject
     //! used to tag as seed jet in 1st or 2nd iteration of UE
     //! determination
     prop_SeedItr = 4,
+
+    //! SoftDrop quantities
+    prop_zg = 5,
+    prop_Rg = 6,
+    prop_mu = 7,
+    //! photon tag property
+    prop_gamma = 8,
+    prop_JetHadronFlavor = 9,
+    prop_JetHadronZT = 10,
   };
 
   Jet() {}
-  virtual ~Jet() {}
+  ~Jet() override {}
 
-  virtual void identify(std::ostream& os = std::cout) const;
-  virtual void Reset() { return; }
-  virtual int isValid() const { return 0; }
-  virtual PHObject* CloneMe() const { return nullptr; }
+  void identify(std::ostream& os = std::cout) const override;
+  int isValid() const override { return 0; }
+  PHObject* CloneMe() const override { return nullptr; }
 
   // jet info ------------------------------------------------------------------
 
   virtual unsigned int get_id() const { return 0xFFFFFFFF; }
-  virtual void set_id(unsigned int id) { return; }
+  virtual void set_id(unsigned int) { return; }
 
   virtual float get_px() const { return NAN; }
-  virtual void set_px(float px) { return; }
+  virtual void set_px(float) { return; }
 
   virtual float get_py() const { return NAN; }
-  virtual void set_py(float py) { return; }
+  virtual void set_py(float) { return; }
 
   virtual float get_pz() const { return NAN; }
-  virtual void set_pz(float pz) { return; }
+  virtual void set_pz(float) { return; }
 
   virtual float get_e() const { return NAN; }
-  virtual void set_e(float e) { return; }
+  virtual void set_e(float) { return; }
 
   virtual float get_p() const { return NAN; }
   virtual float get_pt() const { return NAN; }
@@ -100,10 +131,10 @@ class Jet : public PHObject
 
   // extended jet info ---------------------------------------------------------
 
-  virtual bool has_property(Jet::PROPERTY prop_id) const { return false; }
-  virtual float get_property(Jet::PROPERTY prop_id) const { return NAN; }
-  virtual void set_property(Jet::PROPERTY prop_id, float value) { return; }
-  virtual void print_property(std::ostream& os) const { return; }
+  virtual bool has_property(Jet::PROPERTY /*prop_id*/) const { return false; }
+  virtual float get_property(Jet::PROPERTY /*prop_id*/) const { return NAN; }
+  virtual void set_property(Jet::PROPERTY /*prop_id*/, float /*value*/) { return; }
+  virtual void print_property(std::ostream& /*os*/) const { return; }
 
   // component id storage ------------------------------------------------------
 
@@ -119,27 +150,27 @@ class Jet : public PHObject
 
   virtual bool empty_comp() const { return true; }
   virtual size_t size_comp() const { return 0; }
-  virtual size_t count_comp(Jet::SRC source) const { return 0; }
+  virtual size_t count_comp(Jet::SRC /*source*/) const { return 0; }
 
   virtual void clear_comp() { return; }
-  virtual void insert_comp(Jet::SRC source, unsigned int compid) { return; }
-  virtual size_t erase_comp(Jet::SRC source) { return 0; }
-  virtual void erase_comp(Iter iter) { return; }
-  virtual void erase_comp(Iter first, Iter last) { return; }
+  virtual void insert_comp(Jet::SRC /*source*/, unsigned int /*compid*/) { return; }
+  virtual size_t erase_comp(Jet::SRC /*source*/) { return 0; }
+  virtual void erase_comp(Iter /*iter*/) { return; }
+  virtual void erase_comp(Iter /*first*/, Iter /*last*/) { return; }
 
-  virtual ConstIter begin_comp() const { return typ_comp_ids().end(); }
-  virtual ConstIter lower_bound_comp(Jet::SRC source) const { return typ_comp_ids().end(); }
-  virtual ConstIter upper_bound_comp(Jet::SRC source) const { return typ_comp_ids().end(); }
-  virtual ConstIter find(Jet::SRC source) const { return typ_comp_ids().end(); }
-  virtual ConstIter end_comp() const { return typ_comp_ids().end(); }
+  virtual ConstIter begin_comp() const;
+  virtual ConstIter lower_bound_comp(Jet::SRC source) const;
+  virtual ConstIter upper_bound_comp(Jet::SRC source) const;
+  virtual ConstIter find(Jet::SRC source) const;
+  virtual ConstIter end_comp() const;
 
-  virtual Iter begin_comp() { return typ_comp_ids().end(); }
-  virtual Iter lower_bound_comp(Jet::SRC source) { return typ_comp_ids().end(); }
-  virtual Iter upper_bound_comp(Jet::SRC source) { return typ_comp_ids().end(); }
-  virtual Iter find(Jet::SRC source) { return typ_comp_ids().end(); }
-  virtual Iter end_comp() { return typ_comp_ids().end(); }
+  virtual Iter begin_comp();
+  virtual Iter lower_bound_comp(Jet::SRC source);
+  virtual Iter upper_bound_comp(Jet::SRC source);
+  virtual Iter find(Jet::SRC source);
+  virtual Iter end_comp();
 
-  ClassDef(Jet, 1);
+  ClassDefOverride(Jet, 1);
 };
 
 #endif

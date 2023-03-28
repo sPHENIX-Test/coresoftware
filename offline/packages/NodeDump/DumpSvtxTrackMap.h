@@ -10,11 +10,11 @@ class PHNode;
 class DumpSvtxTrackMap : public DumpObject
 {
  public:
-  DumpSvtxTrackMap(const std::string &NodeName);
-  virtual ~DumpSvtxTrackMap() {}
+  explicit DumpSvtxTrackMap(const std::string &NodeName);
+  ~DumpSvtxTrackMap() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };
 
 #endif

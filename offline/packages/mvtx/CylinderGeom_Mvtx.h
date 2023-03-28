@@ -3,6 +3,9 @@
 
 #include <g4detectors/PHG4CylinderGeom.h>
 
+#include <trackbase/TrkrDefs.h>
+#include <trackbase/ActsGeometry.h>
+
 #include <TVector3.h>
 
 #include <iostream>
@@ -31,22 +34,24 @@ class CylinderGeom_Mvtx : public PHG4CylinderGeom
   {
   }
 
-  virtual ~CylinderGeom_Mvtx() {}
+  ~CylinderGeom_Mvtx() override {}
 
-  void identify(std::ostream& os = std::cout) const;
-  TVector3 get_local_from_world_coords(int stave, int half_stave, int module, int chip, TVector3 world_location);
-  TVector3 get_world_from_local_coords(int stave, int half_stave, int module, int chip, TVector3 sensor_local);
+  // from PHObject
+  void identify(std::ostream& os = std::cout) const override;
 
-  TVector3 get_local_from_world_coords(int stave, int chip, TVector3 world_location)
-  {
-    return get_local_from_world_coords(stave, 0, 0, chip, world_location);
-  }
+  // from base class
+  void set_layer(const int i) override { layer = i; }
+  int get_layer() const override { return layer; }
+  double get_radius() const override { return layer_radius; }
 
+  double get_pixel_x() const override { return pixel_x; }  // pitch
+  double get_pixel_z() const override { return pixel_z; }  // length
+  double get_pixel_thickness() const override { return pixel_thickness; }
 
-  TVector3 get_world_from_local_coords(int stave, int chip, TVector3 sensor_local)
-  {
-    return get_world_from_local_coords(stave, 0, 0, chip, sensor_local);
-  }
+// our own - no override
+  TVector3 get_local_from_world_coords(Surface surface, ActsGeometry *tGeometry, TVector3 world);
+  TVector3 get_world_from_local_coords(Surface surface, ActsGeometry *tGeometry, TVector2 local);
+  TVector3 get_world_from_local_coords(Surface surface, ActsGeometry *tGeometry, TVector3 local);
 
   void get_sensor_indices_from_world_coords(std::vector<double> &world, unsigned int &stave, unsigned int &chip);
 
@@ -62,20 +67,13 @@ class CylinderGeom_Mvtx : public PHG4CylinderGeom
 
   int get_pixel_number_from_xbin_zbin(int xbin, int zbin); // obsolete
 
-  double get_pixel_x() const { return pixel_x; }  // pitch
-  double get_pixel_z() const { return pixel_z; }  // length
-  double get_pixel_thickness() const { return pixel_thickness; }
-
-  void set_layer(const int i) { layer = i; }
-  int get_layer() const { return layer; }
-  double get_radius() const { return layer_radius; }
   double get_stave_phi_tilt() const { return stave_phi_tilt; }
   double get_stave_phi_0() const { return stave_phi_0; }
 
-  int get_ladder_phi_index(int stave, int half_stave, int chip) {return stave; }
-  int get_ladder_z_index(int module, int chip) { return chip; }
+  int get_ladder_phi_index(int stave, int /*half_stave*/, int /*chip*/) {return stave; }
+  int get_ladder_z_index(int /*module*/, int chip) { return chip; }
 
-  void find_sensor_center(int stave_number, int half_stave_number, int module_number, int chip_number, double location[]);
+  void find_sensor_center(Surface surface, ActsGeometry* tGeometry, double location[]);
 
   int get_N_staves() const { return N_staves; }
   int get_N_half_staves() const { return N_half_staves; }
@@ -106,7 +104,7 @@ class CylinderGeom_Mvtx : public PHG4CylinderGeom
   double pixel_z;
   double pixel_thickness;
 
-  ClassDef(CylinderGeom_Mvtx, 2)
+  ClassDefOverride(CylinderGeom_Mvtx, 2)
 };
 
 #endif

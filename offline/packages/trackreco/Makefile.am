@@ -13,8 +13,7 @@ AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
   -I${G4_MAIN}/include \
-  -I$(ROOTSYS)/include \
-  -I$(OFFLINE_MAIN)/include/eigen3 
+  -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
@@ -22,149 +21,141 @@ AM_LDFLAGS = \
   -L$(OFFLINE_MAIN)/lib64
 
 pkginclude_HEADERS = \
-  ActsTrack.h \
+  ActsAlignmentStates.h \
+  ActsPropagator.h \
+  ALICEKF.h \
   AssocInfoContainer.h \
-  CellularAutomaton.h \
-  CellularAutomaton_v1.h \
-  HelixHoughBin.h \
-  HelixHoughBin_v1.h \
-  HelixHoughFuncs.h \
-  HelixHoughFuncs_v1.h \
-  HelixHoughSpace.h \
-  HelixHoughSpace_v1.h \
-  HelixKalmanFilter.h \
+  AssocInfoContainerv1.h \
+  GPUTPCBaseTrackParam.h \
+  GPUTPCTrackLinearisation.h \
+  GPUTPCTrackParam.h \
   MakeActsGeometry.h \
+  nanoflann.hpp \
+  PHActsGSF.h \
+  PHActsKDTreeSeeding.h \
+  PHActsSiliconSeeding.h \
+  PHActsVertexPropagator.h \
+  PHActsTrkFitter.h \
+  PHActsTrackProjection.h \
+  PHActsTrackPropagator.h \
+  PHCASeeding.h \
   PHGenFitTrackProjection.h \
   PHGenFitTrkFitter.h \
-  PHActsSourceLinks.h \
-  PHActsTracks.h \
-  PHActsTrkProp.h \
-  PHActsTrkFitter.h \
-  PHGenFitTrkProp.h \
-  PHHoughSeeding.h \
-  PHRTreeSeeding.h \
-  PHCASeeding.h \
+  PHGhostRejection.h \
   PHInitVertexing.h \
-  PHInitZVertexing.h \
+  PHMicromegasTpcTrackMatching.h \
+  PHSiliconTpcTrackMatching.h \
+  PHSimpleVertexFinder.h \
+  PHTrackCleaner.h \
+  PHTrackSelector.h \
+  PHRaveVertexing.h \
+  PHSiliconHelicalPropagator.h \
+  PHSiliconSeedMerger.h \
+  PHSiliconTruthTrackSeeding.h \
+  PHSimpleKFProp.h \
+  PHTpcClusterMover.h \
+  PHTpcDeltaZCorrection.h \
+  PHTrackClusterAssociator.h \
   PHTrackPropagating.h \
   PHTrackSeeding.h \
   PHTrackFitting.h \
   PHTrackSetMerging.h \
+  PHTrackSetCopyMerging.h \
+  PHTruthClustering.h \
   PHTruthTrackSeeding.h \
+  PHTruthSiliconAssociation.h \
   PHTruthVertexing.h \
-  VertexFitter.h \
-  PHRaveVertexing.h \
-  GPUTPCBaseTrackParam.h \
-  GPUTPCTrackLinearisation.h \
-  GPUTPCTrackParam.h
+  SecondaryVertexFinder.h \
+  SvtxTrackStateRemoval.h \
+  TrackingIterationCounter.h
 
 ROOTDICTS = \
   AssocInfoContainer_Dict.cc \
-  HelixHoughSpace_Dict.cc \
-  HelixHoughSpace_v1_Dict.cc \
-  HelixHoughBin_Dict.cc \
-  HelixHoughBin_v1_Dict.cc \
-  HelixHoughFuncs_Dict.cc \
-  HelixHoughFuncs_v1_Dict.cc 
+  AssocInfoContainerv1_Dict.cc
 
-if MAKEROOT6
   pcmdir = $(libdir)
   nobase_dist_pcm_DATA = \
   AssocInfoContainer_Dict_rdict.pcm \
-  HelixHoughSpace_Dict_rdict.pcm \
-  HelixHoughSpace_v1_Dict_rdict.pcm \
-  HelixHoughBin_Dict_rdict.pcm \
-  HelixHoughBin_v1_Dict_rdict.pcm \
-  HelixHoughFuncs_Dict_rdict.pcm \
-  HelixHoughFuncs_v1_Dict_rdict.pcm 
-else
-  ROOT5_DICTS = \
-    PHInitVertexing_Dict.cc \
-    PHInitZVertexing_Dict.cc \
-    PHTrackSeeding_Dict.cc \
-    PHTrackSetMerging_Dict.cc \
-    PHTrackPropagating_Dict.cc \
-    PHTrackFitting_Dict.cc \
-    PH3DVertexing_Dict.cc \
-    PHTruthVertexing_Dict.cc \
-    PHTruthTrackSeeding_Dict.cc \
-    PHHoughSeeding_Dict.cc \
-    PHRTreeSeeding_Dict.cc \
-    PHCASeeding_Dict.cc \
-    PHGenFitTrkProp_Dict.cc \
-    PHGenFitTrkFitter_Dict.cc \
-    PHGenFitTrackProjection_Dict.cc \
-    PHRaveVertexing_Dict.cc
-endif
+  AssocInfoContainerv1_Dict_rdict.pcm
 
 libtrack_reco_io_la_SOURCES = \
   $(ROOTDICTS) \
+  AssocInfoContainerv1.cc \
   AssocInfoContainer.cc \
-  CellularAutomaton_v1.cc \
-  HelixHoughBin_v1.cc \
-  HelixHoughFuncs_v1.cc \
-  HelixHoughSpace_v1.cc \
-  HelixKalmanFilter.cc \
-  VertexFitter.cc \
   GPUTPCTrackParam.cxx
 
-if MAKE_ACTS
 ACTS_SOURCES = \
+  ActsAlignmentStates.cc \
+  ActsPropagator.cc \
   MakeActsGeometry.cc \
-  PHActsSourceLinks.cc \
-  PHActsTracks.cc \
-  PHActsTrkProp.cc \
-  PHActsTrkFitter.cc
+  PHActsGSF.cc \
+  PHActsKDTreeSeeding.cc \
+  PHActsSiliconSeeding.cc \
+  PHActsTrkFitter.cc \
+  PHActsVertexPropagator.cc \
+  PHActsTrackProjection.cc \
+  PHActsTrackPropagator.cc
+
+$OFFLINE_MAIN/share:
+dist_data_DATA = \
+  tgeo-sphenix.json \
+  tgeo-sphenix-mms.json
 
 AM_CPPFLAGS += -I$(OFFLINE_MAIN)/include/ActsFatras
 
 ACTS_LIBS = \
   -lActsCore \
-  -lActsFatras \
-  -lActsTGeoPlugin \
+  -lActsPluginTGeo \
   -lActsExamplesCommon \
-  -lActsTGeoPlugin \
-  -lActsExamplesFitting \
   -lActsExamplesDetectorTGeo \
-  -lActsExamplesFramework \
-  -lActsExamplesIoRoot \
-  -lActsExamplesMagneticField
-endif
+  -lActsExamplesFramework
 
 libtrack_reco_la_SOURCES = \
-  $(ROOT5_DICTS) \
   $(ACTS_SOURCES) \
+  ALICEKF.cc \
+  PH3DVertexing.cc \
+  PHCASeeding.cc \
+  PHGenFitTrackProjection.cc \
+  PHGenFitTrkFitter.cc \
+  PHGhostRejection.cc \
   PHInitVertexing.cc \
-  PHInitZVertexing.cc \
+  PHMicromegasTpcTrackMatching.cc \
+  PHRaveVertexing.cc \
+  PHSiliconHelicalPropagator.cc \
+  PHSiliconSeedMerger.cc \
+  PHSiliconTpcTrackMatching.cc \
+  PHSiliconTruthTrackSeeding.cc \
+  PHSimpleKFProp.cc \
+  PHSimpleVertexFinder.cc \
+  PHTpcClusterMover.cc \
+  PHTpcDeltaZCorrection.cc \
+  PHTrackCleaner.cc \
+  PHTrackClusterAssociator.cc \
   PHTrackSeeding.cc \
+  PHTrackSelector.cc \
   PHTrackSetMerging.cc \
   PHTrackPropagating.cc \
   PHTrackFitting.cc \
-  PH3DVertexing.cc \
-  PHTruthVertexing.cc \
+  PHTruthClustering.cc \
   PHTruthTrackSeeding.cc \
-  PHHoughSeeding.cc \
-  PHRTreeSeeding.cc \
-  PHCASeeding.cc \
-  PHGenFitTrkProp.cc \
-  PHGenFitTrkFitter.cc \
-  PHGenFitTrackProjection.cc \
-  PHRaveVertexing.cc 
+  PHTruthVertexing.cc \
+  PHTruthSiliconAssociation.cc \
+  SecondaryVertexFinder.cc \
+  SvtxTrackStateRemoval.cc \
+  TrackingIterationCounter.cc
 
 libtrack_reco_io_la_LIBADD = \
-  -lphool \
-  -lHelixHough
+  -lphool
 
 libtrack_reco_la_LIBADD = \
   libtrack_reco_io.la \
   $(ACTS_LIBS) \
   -lSubsysReco \
+  -lg4eval \
   -lg4testbench \
   -lg4detectors \
   -lgsl \
   -lgslcblas \
-  -lFitNewton \
-  -lSeamstress \
   -lgenfit2 \
   -lgenfit2exp \
   -lPHGenFit \
@@ -172,16 +163,19 @@ libtrack_reco_la_LIBADD = \
   -lg4tpc \
   -lg4intt \
   -lg4mvtx \
+  -lmicromegas_io \
   -lmvtx_io \
   -lintt_io \
+  -ltrack_io \
   -ltrackbase_historic_io \
   -lcalo_io \
-  -lphparameter
+  -lphparameter \
+  -ltrackeralign
 
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

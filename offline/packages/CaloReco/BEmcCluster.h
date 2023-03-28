@@ -26,15 +26,15 @@ class EmcModule
 
   virtual ~EmcModule() {}
 
-  int ich;      // module id (linear)
-  float amp;    // module signal
-  float tof;    // module time-of-flight
+  int ich;    // module id (linear)
+  float amp;  // module signal
+  float tof;  // module time-of-flight
 };
 
 // ///////////////////////////////////////////////////////////////////////////
 
 /** The 1-st level of the EMCal clustering: cluster is a set of contiguous
-    towers. 
+    towers.
 
     Only used internally by clustering routines.
     @ingroup clustering
@@ -44,11 +44,12 @@ class EmcCluster : public TObject
 {
  public:
   /// Constructor (zero Hit List)
-EmcCluster(): fOwner(nullptr)
+  EmcCluster()
+    : fOwner(nullptr)
   {
   }
 
-  EmcCluster(BEmcRec* sector)
+  explicit EmcCluster(BEmcRec* sector)
     : fOwner(sector)
   {
   }
@@ -57,12 +58,13 @@ EmcCluster(): fOwner(nullptr)
 
   EmcCluster(const std::vector<EmcModule>& hlist,
              BEmcRec* sector)
-    : fHitList(hlist), fOwner(sector)
+    : fHitList(hlist)
+    , fOwner(sector)
   {
   }
 
   ///
-  virtual ~EmcCluster()
+  ~EmcCluster() override
   {
   }
 
@@ -82,7 +84,7 @@ EmcCluster(): fOwner(nullptr)
   //  EmcModule GetImpactTower();
   /// Returns the energy of the ich-tower
   float GetTowerEnergy(int ich);
-  /// Returns the energy of the tower ix,iy 
+  /// Returns the energy of the tower ix,iy
   float GetTowerEnergy(int ix, int iy);
   /// Returns the ToF of the ich-tower
   float GetTowerToF(int ich);
@@ -106,7 +108,7 @@ EmcCluster(): fOwner(nullptr)
   /// Returns the EmcCluster position in PHENIX global coord system
   void GetGlobalPos(float& xg, float& yg, float& zg);
   /// Splits the Cluster onto SubClusters; returns list of clusters and list of peak towers corresponding to subclusters
-  int GetSubClusters(std::vector<EmcCluster>* sClList, std::vector<EmcModule>* ppeaks);
+  int GetSubClusters(std::vector<EmcCluster>& sClList, std::vector<EmcModule>& ppeaks);
   float GetProb(float& chi2, int& ndf);
 
  protected:

@@ -2,36 +2,34 @@
 
 #include <iostream>
 
-using namespace std;
-
 const RawTowerDeadMap::Map&
-RawTowerDeadMap::getDeadTowers(void) const
+RawTowerDeadMap::getDeadTowers() const
 {
   static Map tmp_map;
   return tmp_map;
 }
 
 RawTowerDeadMap::Map&
-RawTowerDeadMap::getDeadTowers(void)
+RawTowerDeadMap::getDeadTowers()
 {
   static Map tmp_map;
   return tmp_map;
 }
 
-void RawTowerDeadMap::addDeadTower(const unsigned int ieta, const int unsigned iphi)
+void RawTowerDeadMap::addDeadTower(const unsigned int /*ieta*/, const int unsigned /*iphi*/)
 {
 }
 
-void RawTowerDeadMap::addDeadTower(RawTowerDefs::keytype key)
+void RawTowerDeadMap::addDeadTower(RawTowerDefs::keytype /*key*/)
 {
 }
 
-bool RawTowerDeadMap::isDeadTower(RawTowerDefs::keytype key)
+bool RawTowerDeadMap::isDeadTower(RawTowerDefs::keytype /*key*/)
 {
   return false;
 }
 
-bool RawTowerDeadMap::isDeadTower(const unsigned int ieta, const unsigned int iphi)
+bool RawTowerDeadMap::isDeadTower(const unsigned int /*ieta*/, const unsigned int /*iphi*/)
 {
   return false;
 }

@@ -10,29 +10,27 @@
 
 // standard includes
 #include <iostream>
-#include <map>                                // for _Rb_tree_const_iterator
-#include <utility>                            // for pair
+#include <map>      // for _Rb_tree_const_iterator
+#include <utility>  // for pair
 #include <vector>
 
-using namespace std;
-
-TrackJetInput::TrackJetInput(Jet::SRC input)
-  : _verbosity(0)
+TrackJetInput::TrackJetInput(Jet::SRC input, const std::string &nodename)
+  : m_NodeName(nodename)
   , _input(input)
 {
 }
 
 void TrackJetInput::identify(std::ostream &os)
 {
-  os << "   TrackJetInput: SvtxTrackMap to Jet::TRACK" << endl;
+  os << "   TrackJetInput: SvtxTrackMap to Jet::TRACK" << std::endl;
 }
 
 std::vector<Jet *> TrackJetInput::get_input(PHCompositeNode *topNode)
 {
-  if (_verbosity > 0) cout << "TrackJetInput::process_event -- entered" << endl;
+  if (Verbosity() > 0) std::cout << "TrackJetInput::process_event -- entered" << std::endl;
 
   // Pull the reconstructed track information off the node tree...
-  SvtxTrackMap *trackmap = findNode::getClass<SvtxTrackMap>(topNode, "SvtxTrackMap");
+  SvtxTrackMap *trackmap = findNode::getClass<SvtxTrackMap>(topNode, m_NodeName);
   if (!trackmap)
   {
     return std::vector<Jet *>();
@@ -54,7 +52,7 @@ std::vector<Jet *> TrackJetInput::get_input(PHCompositeNode *topNode)
     pseudojets.push_back(jet);
   }
 
-  if (_verbosity > 0) cout << "TrackJetInput::process_event -- exited" << endl;
+  if (Verbosity() > 0) std::cout << "TrackJetInput::process_event -- exited" << std::endl;
 
   return pseudojets;
 }

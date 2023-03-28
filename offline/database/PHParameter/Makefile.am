@@ -7,18 +7,9 @@ lib_LTLIBRARIES = \
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include
-
-if ! MAKEROOT6
-ROOT5_DICTS = \
-  PHParameters_Dict.cc \
-  PHParametersContainer_Dict.cc \
-  PHParameterContainerInterface_Dict.cc \
-  PHParameterInterface_Dict.cc 
-endif
+  -isystem$(ROOTSYS)/include
 
 libphparameter_la_SOURCES = \
-  $(ROOT5_DICTS) \
   PHParameters.cc \
   PHParametersContainer.cc \
   PHParameterContainerInterface.cc \
@@ -26,18 +17,15 @@ libphparameter_la_SOURCES = \
 
 libphparameter_la_LDFLAGS = \
   -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OFFLINE_MAIN)/lib \
+  -L$(OFFLINE_MAIN)/lib64
 
 libphparameter_la_LIBADD = \
-  -L$(ROOTSYS)/lib \
-  -lphool \
+  -lboost_system \
+  -lffamodules \
   -lpdbcalBase \
-  -lboost_filesystem \
-  -lboost_system 
+  -lphool
 
-# Rule for generating table CINT dictionaries.
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 ##############################################
 # please add new classes in alphabetical order
@@ -47,17 +35,19 @@ pkginclude_HEADERS = \
   PHParameterInterface.h \
   PHParameters.h \
   PHParametersContainer.h 
-  
+
 ################################################
 # linking tests
 
+BUILT_SOURCES = testexternals.cc
+
 noinst_PROGRAMS = \
   testexternals_phparameter
-  
-testexternals_phparameter_SOURCES = testexternals.C
+
+testexternals_phparameter_SOURCES = testexternals.cc
 testexternals_phparameter_LDADD = libphparameter.la
 
-testexternals.C:
+testexternals.cc:
 	echo "//*** this is a generated file. Do not commit, do not edit" > $@
 	echo "int main()" >> $@
 	echo "{" >> $@
@@ -68,4 +58,4 @@ testexternals.C:
 # please add new classes in alphabetical order
 
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES) *.pcm
+	rm -f $(BUILT_SOURCES)

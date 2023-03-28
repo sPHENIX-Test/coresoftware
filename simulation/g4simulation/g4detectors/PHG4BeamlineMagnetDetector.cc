@@ -13,7 +13,6 @@
 #include <Geant4/G4LogicalVolume.hh>
 #include <Geant4/G4Mag_UsualEqRhs.hh>
 #include <Geant4/G4MagneticField.hh>
-#include <Geant4/G4Material.hh>
 #include <Geant4/G4PVPlacement.hh>
 #include <Geant4/G4PhysicalConstants.hh>
 #include <Geant4/G4QuadrupoleMagField.hh>
@@ -32,6 +31,7 @@
 #include <cstdlib>   // for exit
 #include <iostream>  // for operator<<, basic_ostream
 
+class G4Material;
 class G4VSolid;
 class PHCompositeNode;
 class PHG4Subsystem;
@@ -61,13 +61,7 @@ bool PHG4BeamlineMagnetDetector::IsInBeamlineMagnet(const G4VPhysicalVolume *vol
 //_______________________________________________________________
 void PHG4BeamlineMagnetDetector::ConstructMe(G4LogicalVolume *logicMother)
 {
-  G4Material *TrackerMaterial = G4Material::GetMaterial(params->get_string_param("material"));
-
-  if (!TrackerMaterial)
-  {
-    std::cout << "Error: Can not set material" << std::endl;
-    exit(-1);
-  }
+  G4Material *TrackerMaterial = GetDetectorMaterial(params->get_string_param("material"));
 
   G4VisAttributes *fieldVis = new G4VisAttributes();
   PHG4Utils::SetColour(fieldVis, "BlackHole");
@@ -149,15 +143,15 @@ void PHG4BeamlineMagnetDetector::ConstructMe(G4LogicalVolume *logicMother)
   double radius = params->get_double_param("radius") * cm;
   double thickness = params->get_double_param("thickness") * cm;
 
-  G4VSolid *magnet_solid = new G4Tubs(G4String(GetName().c_str()),
+  G4VSolid *magnet_solid = new G4Tubs(GetName(),
                                       0,
                                       radius + thickness,
                                       params->get_double_param("length") * cm / 2., 0, twopi);
 
   G4LogicalVolume *magnet_logic = new G4LogicalVolume(magnet_solid,
-                                                      G4Material::GetMaterial("G4_Galactic"),
-                                                      G4String(GetName().c_str()),
-                                                      0, 0, 0);
+                                                      GetDetectorMaterial("G4_Galactic"),
+                                                      GetName(),
+                                                      nullptr, nullptr, nullptr);
   magnet_logic->SetVisAttributes(fieldVis);
 
   /* Set field manager for logical volume */
@@ -170,22 +164,22 @@ void PHG4BeamlineMagnetDetector::ConstructMe(G4LogicalVolume *logicMother)
                                                                params->get_double_param("place_y") * cm,
                                                                params->get_double_param("place_z") * cm)),
                                    magnet_logic,
-                                   G4String(GetName().c_str()),
-                                   logicMother, 0, false, OverlapCheck());
+                                   GetName(),
+                                   logicMother, false, false, OverlapCheck());
 
   /* Add volume with solid magnet material */
-  G4VSolid *cylinder_solid = new G4Tubs(G4String(GetName().append("_Solid").c_str()),
+  G4VSolid *cylinder_solid = new G4Tubs(G4String(GetName().append("_Solid")),
                                         radius,
                                         radius + thickness,
                                         params->get_double_param("length") * cm / 2., 0, twopi);
   G4LogicalVolume *cylinder_logic = new G4LogicalVolume(cylinder_solid,
                                                         TrackerMaterial,
-                                                        G4String(GetName().c_str()),
-                                                        0, 0, 0);
+                                                        G4String(GetName()),
+                                                        nullptr, nullptr, nullptr);
   cylinder_logic->SetVisAttributes(siliconVis);
 
-  cylinder_physi = new G4PVPlacement(0, G4ThreeVector(0, 0, 0),
+  cylinder_physi = new G4PVPlacement(nullptr, G4ThreeVector(0, 0, 0),
                                      cylinder_logic,
-                                     G4String(GetName().append("_Solid").c_str()),
-                                     magnet_logic, 0, false, OverlapCheck());
+                                     G4String(GetName().append("_Solid")),
+                                     magnet_logic, false, false, OverlapCheck());
 }

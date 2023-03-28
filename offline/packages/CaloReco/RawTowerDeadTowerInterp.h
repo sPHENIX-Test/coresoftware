@@ -6,7 +6,7 @@
 #include <string>
 
 class PHCompositeNode;
-class RawTowerContainer;
+class TowerInfoContainer;
 class RawTowerGeomContainer;
 class RawTowerDeadMap;
 
@@ -15,13 +15,13 @@ class RawTowerDeadTowerInterp : public SubsysReco
 {
  public:
   RawTowerDeadTowerInterp(const std::string &name = "RawTowerDeadTowerInterp");
-  virtual ~RawTowerDeadTowerInterp()
+  ~RawTowerDeadTowerInterp() override
   {
   }
 
-  int InitRun(PHCompositeNode *topNode);
-  int process_event(PHCompositeNode *topNode);
-  int End(PHCompositeNode *topNode);
+  int InitRun(PHCompositeNode *topNode) override;
+  int process_event(PHCompositeNode *topNode) override;
+  int End(PHCompositeNode *topNode) override;
 
   void
   detector(const std::string &d)
@@ -33,13 +33,13 @@ class RawTowerDeadTowerInterp : public SubsysReco
   void
   CreateNodes(PHCompositeNode *topNode);
 
-  RawTowerContainer *m_calibTowers;
-  RawTowerGeomContainer *m_geometry;
-  RawTowerDeadMap *m_deadTowerMap;
+  TowerInfoContainer *m_calibTowers = nullptr;
+  RawTowerGeomContainer *m_geometry = nullptr;
+  RawTowerDeadMap *m_deadTowerMap = nullptr;
 
-  std::string m_detector;
+  std::string m_detector = "NONE";
 
-  std::string _calib_tower_node_prefix;
+  std::string _calib_tower_node_prefix = "CALIB";
 };
 
 #endif

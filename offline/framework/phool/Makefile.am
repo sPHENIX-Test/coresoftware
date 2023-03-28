@@ -1,16 +1,18 @@
 AUTOMAKE_OPTIONS = foreign
 
 lib_LTLIBRARIES = \
-  libphool.la
+  libphool.la \
+  libsph_onnx.la
 
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I`root-config --incdir`
+  -isystem`root-config --incdir`
 
 AM_LDFLAGS = \
   -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OFFLINE_MAIN)/lib \
+  -L$(OFFLINE_MAIN)/lib64
 
 libphool_la_LDFLAGS = \
   -L$(libdir) \
@@ -21,27 +23,15 @@ ROOTDICTS = \
   PHObject_Dict.cc \
   PHTimeStamp_Dict.cc
 
-if MAKEROOT6
 pcmdir = $(libdir)
 nobase_dist_pcm_DATA = \
   PHObject_Dict_rdict.pcm \
   PHTimeStamp_Dict_rdict.pcm
 
-else
-ROOT5DICTS = \
-  PHMessage_Dict.cc \
-  PHRandomSeed_Dict.cc \
-  PHFlag_Dict.cc \
-  PHTimeServer_Dict.cc \
-  recoConsts_Dict.cc
-endif
-
 libphool_la_SOURCES = \
-  $(ROOT5DICTS) \
   $(ROOTDICTS) \
   PHCompositeNode.cc \
   PHFlag.cc \
-  PHIOManager.cc \
   PHMessage.cc \
   PHNode.cc \
   PHNodeIOManager.cc \
@@ -49,15 +39,18 @@ libphool_la_SOURCES = \
   PHNodeIterator.cc \
   PHNodeReset.cc \
   PHObject.cc \
-  PHOperation.cc \
   PHRandomSeed.cc \
   PHTimer.cc \
   PHTimeServer.cc \
   PHTimeStamp.cc \
   recoConsts.cc
 
+libsph_onnx_la_SOURCES = \
+  onnxlib.cc
+
 pkginclude_HEADERS =  \
   getClass.h \
+  onnxlib.h \
   PHCompositeNode.h \
   PHDataNode.h \
   PHDataNodeIterator.h \
@@ -74,7 +67,6 @@ pkginclude_HEADERS =  \
   PHObject.h \
   phool.h \
   phooldefs.h \
-  PHOperation.h \
   PHRandomSeed.h \
   PHPointerList.h \
   PHPointerListIterator.h \
@@ -84,16 +76,26 @@ pkginclude_HEADERS =  \
   PHTypedNodeIterator.h \
   recoConsts.h
 
+libsph_onnx_la_LIBADD = \
+  -lonnxruntime
+
+
 BUILT_SOURCES = \
   testexternals.cc
 
 noinst_PROGRAMS = \
-  testexternals
+  testexternals_phool \
+  testexternals_sph_onnx
 
 
-testexternals_SOURCES = testexternals.cc
-testexternals_LDADD = \
+testexternals_phool_SOURCES = testexternals.cc
+testexternals_sph_onnx_SOURCES = testexternals.cc
+
+testexternals_phool_LDADD = \
   libphool.la
+
+testexternals_sph_onnx_LDADD = \
+  libsph_onnx.la
 
 testexternals.cc:
 	echo "//*** this is a generated file. Do not commit, do not edit" > $@
@@ -103,7 +105,7 @@ testexternals.cc:
 	echo "}" >> $@
 
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

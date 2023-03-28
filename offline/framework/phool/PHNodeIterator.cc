@@ -15,12 +15,12 @@
 #include "PHPointerListIterator.h"
 #include "phooldefs.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/algorithm/string.hpp>
+#pragma GCC diagnostic pop
 
-#include <utility> 
 #include <vector>
-
-using namespace std;
 
 PHNodeIterator::PHNodeIterator(PHCompositeNode* node)
   : currentNode(node)
@@ -51,7 +51,7 @@ void PHNodeIterator::print()
 }
 
 PHNode*
-PHNodeIterator::findFirst(const string& requiredType, const string& requiredName)
+PHNodeIterator::findFirst(const std::string& requiredType, const std::string& requiredName)
 {
   PHPointerListIterator<PHNode> iter(currentNode->subNodes);
   PHNode* thisNode;
@@ -71,11 +71,11 @@ PHNodeIterator::findFirst(const string& requiredType, const string& requiredName
       }
     }
   }
-  return 0;
+  return nullptr;
 }
 
 PHNode*
-PHNodeIterator::findFirst(const string& requiredName)
+PHNodeIterator::findFirst(const std::string& requiredName)
 {
   PHPointerListIterator<PHNode> iter(currentNode->subNodes);
   PHNode* thisNode;
@@ -98,10 +98,10 @@ PHNodeIterator::findFirst(const string& requiredName)
       }
     }
   }
-  return 0;
+  return nullptr;
 }
 
-bool PHNodeIterator::cd(const string& pathString)
+bool PHNodeIterator::cd(const std::string& pathString)
 {
   bool success = true;
   if (pathString.empty())
@@ -113,15 +113,15 @@ bool PHNodeIterator::cd(const string& pathString)
   }
   else
   {
-    vector<string> splitpath;
+    std::vector<std::string> splitpath;
     boost::split(splitpath, pathString, boost::is_any_of(phooldefs::nodetreepathdelim));
     bool pathFound;
     PHNode* subNode;
     int i = 0;
-    for (vector<string>::const_iterator iter = splitpath.begin(); iter != splitpath.end(); ++iter)
+    for (const auto & iter : splitpath)
     {
       i++;
-      if (*iter == "..")
+      if (iter == "..")
       {
         if (currentNode->getParent())
         {
@@ -138,7 +138,7 @@ bool PHNodeIterator::cd(const string& pathString)
         pathFound = false;
         while ((subNode = subNodeIter()))
         {
-          if (subNode->getType() == "PHCompositeNode" && subNode->getName() == *iter)
+          if (subNode->getType() == "PHCompositeNode" && subNode->getName() == iter)
           {
             currentNode = static_cast<PHCompositeNode*>(subNode);
             pathFound = true;

@@ -9,9 +9,9 @@ class PHNode;
 class DumpCaloTriggerInfo : public DumpObject
 {
  public:
-  DumpCaloTriggerInfo(const std::string &NodeName);
-  virtual ~DumpCaloTriggerInfo() {}
+  explicit DumpCaloTriggerInfo(const std::string &NodeName);
+  ~DumpCaloTriggerInfo() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };

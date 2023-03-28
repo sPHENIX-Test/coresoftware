@@ -20,29 +20,29 @@ class PHG4PSTOFSteppingAction : public PHG4SteppingAction
   PHG4PSTOFSteppingAction(PHG4PSTOFDetector*, const PHParametersContainer*);
 
   //! destructor
-  virtual ~PHG4PSTOFSteppingAction();
+  ~PHG4PSTOFSteppingAction() override;
 
   //! stepping action
-  virtual bool UserSteppingAction(const G4Step*, bool);
+  bool UserSteppingAction(const G4Step*, bool) override;
 
   //! reimplemented from base class
-  virtual void SetInterfacePointers(PHCompositeNode*);
+  void SetInterfacePointers(PHCompositeNode*) override;
 
  private:
   //! pointer to the detector
-  PHG4PSTOFDetector* detector_;
+  PHG4PSTOFDetector* detector_ = nullptr;
   //! pointer to hit container
-  PHG4HitContainer* hits_;
-  PHG4Hit* hit;
-  PHG4HitContainer *savehitcontainer;
+  PHG4HitContainer* hits_ = nullptr;
+  PHG4Hit* hit = nullptr;
+  PHG4HitContainer* savehitcontainer = nullptr;
 
-  G4VPhysicalVolume *savevolpre;
-  G4VPhysicalVolume *savevolpost;
-  int savetrackid;
-  int saveprestepstatus;
-  int savepoststepstatus;
-  double edepsum;
-  double eionsum;
+  G4VPhysicalVolume* savevolpre = nullptr;
+  G4VPhysicalVolume* savevolpost = nullptr;
+  int savetrackid = -1;
+  int saveprestepstatus = -1;
+  int savepoststepstatus = -1;
+  double edepsum = 0.;
+  double eionsum = 0.;
 };
 
 #endif  // PHG4PSTOFSteppingAction_h__

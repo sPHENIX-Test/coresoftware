@@ -19,7 +19,6 @@ class PHCompositeNode;
 class TrkrClusterContainer;
 class SvtxVertexMap;
 class SvtxTrackMap;
-class AssocInfoContainer;
 
 /// \class PHTrackPropagating
 ///
@@ -29,12 +28,13 @@ class PHTrackPropagating : public SubsysReco
 {
  public:
   PHTrackPropagating(const std::string &name = "PHTrackPropagating");
-  virtual ~PHTrackPropagating() {}
+  ~PHTrackPropagating() override = default;
 
-  int InitRun(PHCompositeNode *topNode);
-  int process_event(PHCompositeNode *topNode);
-  int End(PHCompositeNode *topNode);
+  int InitRun(PHCompositeNode *topNode) override;
+  int process_event(PHCompositeNode *topNode) override;
+  int End(PHCompositeNode *topNode) override;
   void set_track_map_name(const std::string &map_name) { _track_map_name = map_name; }
+  void SetUseTruthClusters(bool setit){_use_truth_clusters = setit;}
 
  protected:
   /// setup interface for trackers, called in InitRun, setup things like pointers to nodes.
@@ -50,12 +50,13 @@ class PHTrackPropagating : public SubsysReco
 
 
   //SvtxClusterMap *_cluster_map;
-  TrkrClusterContainer *_cluster_map;
-  SvtxVertexMap *_vertex_map;
-  SvtxTrackMap *_track_map;
-  AssocInfoContainer *_assoc_container;
+  TrkrClusterContainer *_cluster_map = nullptr;
+  SvtxVertexMap *_vertex_map = nullptr;
+  SvtxTrackMap *_track_map = nullptr;
 
-  std::string _track_map_name;
+  std::string _track_map_name = "SvtxTrackMap";
+
+  bool _use_truth_clusters = false;
 
  private:
   /// fetch node pointers

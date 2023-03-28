@@ -3,23 +3,23 @@
 #ifndef G4MVTX_PHG4MVTXDEFS_H
 #define G4MVTX_PHG4MVTXDEFS_H
 
+#include <string>
+#include <vector>
+
 namespace PHG4MvtxDefs
 {
-
-#if !defined(__CINT__) || defined(__CLING__)
   static constexpr unsigned int kNLayers = 3;
-#else
-  static const unsigned int kNLayers = 3;
-#endif
 
-  enum {
+  enum
+  {
     kRmn,
     kRmd,
     kRmx,
     kNModPerStave,
     kPhi0,
     kNStave,
-    kNPar};
+    kNPar
+  };
 
   static const double mvtxdat[kNLayers][kNPar] = {
       {24.61, 25.23, 27.93, 9., 0.285, 12.},  // for each layer: rMin, rMid, rMax, NChip/Stave, phi0, nStaves
@@ -30,10 +30,10 @@ namespace PHG4MvtxDefs
   static const int ALPIDE_SEGMENTATION = -2;
   static const int SUPPORTPARAMS = -3;
 
-// passive volume indices
+  // passive volume indices
 
-// detid of support structures
+  // detid of support structures
 
-};  // namespace PHG4MvtxDefs
+}  // namespace PHG4MvtxDefs
 
 #endif

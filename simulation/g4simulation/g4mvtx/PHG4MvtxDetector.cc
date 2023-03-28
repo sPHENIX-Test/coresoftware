@@ -2,6 +2,7 @@
 
 #include "PHG4MvtxDefs.h"
 #include "PHG4MvtxDisplayAction.h"
+#include "PHG4MvtxSupport.h"
 
 #include <mvtx/CylinderGeom_Mvtx.h>
 
@@ -12,7 +13,7 @@
 
 #include <g4main/PHG4Detector.h>       // for PHG4Detector
 #include <g4main/PHG4DisplayAction.h>  // for PHG4DisplayAction
-#include <g4main/PHG4Subsystem.h>                   // for PHG4Subsystem
+#include <g4main/PHG4Subsystem.h>      // for PHG4Subsystem
 
 #include <phool/PHCompositeNode.h>
 #include <phool/PHIODataNode.h>
@@ -22,17 +23,25 @@
 #include <phool/getClass.h>
 
 #include <Geant4/G4AssemblyVolume.hh>
-#include <Geant4/G4GDMLParser.hh>
-#include <Geant4/G4GDMLReadStructure.hh>  // for G4GDMLReadStructure
 #include <Geant4/G4LogicalVolume.hh>
 #include <Geant4/G4Material.hh>
+#include <Geant4/G4PVPlacement.hh>
+#include <Geant4/G4Polycone.hh>
 #include <Geant4/G4RotationMatrix.hh>  // for G4RotationMatrix
 #include <Geant4/G4String.hh>          // for G4String
 #include <Geant4/G4SystemOfUnits.hh>
-#include <Geant4/G4ThreeVector.hh>      // for G4ThreeVector
-#include <Geant4/G4Transform3D.hh>      // for G4Transform3D
+#include <Geant4/G4ThreeVector.hh>  // for G4ThreeVector
+#include <Geant4/G4Transform3D.hh>  // for G4Transform3D
+#include <Geant4/G4Tubs.hh>
 #include <Geant4/G4Types.hh>            // for G4double
 #include <Geant4/G4VPhysicalVolume.hh>  // for G4VPhysicalVolume
+
+// xerces has some shadowed variables
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#include <Geant4/G4GDMLParser.hh>
+#include <Geant4/G4GDMLReadStructure.hh>  // for G4GDMLReadStructure
+#pragma GCC diagnostic pop
 
 #include <cmath>
 #include <cstdio>    // for sprintf
@@ -44,14 +53,23 @@
 
 using namespace std;
 
+namespace mvtxGeomDef
+{
+  const double wrap_rmax = ( 107.7 + 0.3 ) * mm; // 300 um Marging from SB Flange
+  const double wrap_rmin = 22 * mm;
+  const double wrap_smallCylR = 55.00 * mm; // CYSS Ext Nose + 905 um
+  const double wrap_CYSSFlgN_Z = ( 177.5 + 12.5 ) * mm;
+  const double wrap_CYSSNose_Z = -245 * mm;
+  const double wrap_CYSSHead_Z = - 315 * mm;
+  const double wrap_SBCyl_Z = -1800 * mm; // SB Cyl (1650 mm + 15 cm Margin)
+}  // namespace mvtxGeomDef
+
 PHG4MvtxDetector::PHG4MvtxDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const PHParametersContainer* _paramsContainer, const std::string& dnam)
   : PHG4Detector(subsys, Node, dnam)
   , m_DisplayAction(dynamic_cast<PHG4MvtxDisplayAction*>(subsys->GetDisplayAction()))
   , m_ParamsContainer(_paramsContainer)
   , m_StaveGeometryFile(_paramsContainer->GetParameters(PHG4MvtxDefs::GLOBAL)->get_string_param("stave_geometry_file"))
 {
-  //  Verbosity(2);
-
   if (Verbosity() > 0)
     cout << "PHG4MvtxDetector constructor called" << endl;
 
@@ -68,20 +86,14 @@ PHG4MvtxDetector::PHG4MvtxDetector(PHG4Subsystem* subsys, PHCompositeNode* Node,
     m_nominal_phitilt[ilayer] = params->get_double_param("phitilt");
     m_nominal_phi0[ilayer] = params->get_double_param("phi0");
   }
-  /*
-  const PHParameters* alpide_params = m_ParamsContainer->GetParameters(PHG4MvtxDefs::ALPIDE_SEGMENTATION);
-  m_PixelX = alpide_params->get_double_param("pixel_x");
-  m_PixelZ = alpide_params->get_double_param("pixel_z");
-  m_PixelThickness = alpide_params->get_double_param("pixel_thickness");
-  */
+
   if (Verbosity() > 0)
   {
     cout << "PHG4MvtxDetector constructor: making Mvtx detector. " << endl;
   }
 }
 
-//_______________________________________________________________
-//_______________________________________________________________
+
 int PHG4MvtxDetector::IsSensor(G4VPhysicalVolume* volume) const
 {
   // Is this volume one of the sensors?
@@ -99,6 +111,7 @@ int PHG4MvtxDetector::IsSensor(G4VPhysicalVolume* volume) const
 
   return 0;
 }
+
 
 int PHG4MvtxDetector::IsInMvtx(G4VPhysicalVolume* volume, int& layer, int& stave) const
 {
@@ -124,6 +137,7 @@ int PHG4MvtxDetector::IsInMvtx(G4VPhysicalVolume* volume, int& layer, int& stave
   return 0;
 }
 
+
 int PHG4MvtxDetector::get_layer(int index) const
 {
   // Get Mvtx layer from stave index in the Mvtx
@@ -137,6 +151,7 @@ int PHG4MvtxDetector::get_layer(int index) const
   return lay;
 }
 
+
 int PHG4MvtxDetector::get_stave(int index) const
 {
   // Get stave index in the layer from stave index in the Mvtx
@@ -149,23 +164,52 @@ int PHG4MvtxDetector::get_stave(int index) const
   return index;
 }
 
+
 void PHG4MvtxDetector::ConstructMe(G4LogicalVolume* logicWorld)
 {
   // This is called from PHG4PhenixDetector::Construct()
-
   if (Verbosity() > 0)
   {
     cout << endl
          << "PHG4MvtxDetector::Construct called for Mvtx " << endl;
   }
-  // the tracking layers are placed directly in the world volume, since some layers are (touching) double layers
-  // this reads in the ITS stave geometry from a file and constructs the layer from it
-  ConstructMvtx(logicWorld);
 
-  // This object provides the strip center locations when given the ladder segment and strip internal cordinates in the sensor
+  const G4int numZPlanes = 4;
+  const G4double zPlane[numZPlanes] = { mvtxGeomDef::wrap_SBCyl_Z,
+                                        mvtxGeomDef::wrap_CYSSHead_Z,
+                                        mvtxGeomDef::wrap_CYSSNose_Z,
+                                        mvtxGeomDef::wrap_CYSSFlgN_Z};
+
+  const G4double rInner[numZPlanes] = { mvtxGeomDef::wrap_rmin, mvtxGeomDef::wrap_rmin,
+                                        mvtxGeomDef::wrap_rmin, mvtxGeomDef::wrap_rmin };
+
+  const G4double rOuter[numZPlanes] = { mvtxGeomDef::wrap_rmax, mvtxGeomDef::wrap_rmax,
+                                        mvtxGeomDef::wrap_smallCylR,
+                                        mvtxGeomDef::wrap_smallCylR };
+
+  auto mvtxWrapSol = new G4Polycone( "sol_MVTX_Wrapper", 0, 2.0 * M_PI,
+                                     numZPlanes, zPlane, rInner, rOuter );
+
+  auto world_mat = logicWorld->GetMaterial();
+
+  auto logicMVTX = new G4LogicalVolume( mvtxWrapSol, world_mat, "log_MVTX_Wrapper" );
+
+  G4RotationMatrix Ra;
+  G4ThreeVector Ta;
+  G4Transform3D Tr( Ra, Ta );
+  new G4PVPlacement( Tr, logicMVTX, "MVTX_Wrapper",
+                     logicWorld, false, 0, false );
+
+  // the tracking layers are placed directly in the world volume,
+  // since some layers are (touching) double layers
+  // this reads in the ITS stave geometry from a file and constructs the layer from it
+  ConstructMvtx( logicMVTX );
+  ConstructMvtxPassiveVol( logicMVTX );
+
   AddGeometryNode();
   return;
 }
+
 
 int PHG4MvtxDetector::ConstructMvtx(G4LogicalVolume* trackerenvelope)
 {
@@ -211,6 +255,7 @@ int PHG4MvtxDetector::ConstructMvtx(G4LogicalVolume* trackerenvelope)
   return 0;
 }
 
+
 int PHG4MvtxDetector::ConstructMvtx_Layer(int layer, G4AssemblyVolume* av_ITSUStave, G4LogicalVolume*& trackerenvelope)
 {
   //=========================================
@@ -220,7 +265,7 @@ int PHG4MvtxDetector::ConstructMvtx_Layer(int layer, G4AssemblyVolume* av_ITSUSt
   int N_staves = m_N_staves[layer];
   G4double layer_nominal_radius = m_nominal_radius[layer];
   G4double phitilt = m_nominal_phitilt[layer];
-  G4double phi0    = m_nominal_phi0[layer]; //YCM: azimuthal offset for the first stave
+  G4double phi0 = m_nominal_phi0[layer];  //YCM: azimuthal offset for the first stave
 
   if (N_staves < 0)
   {
@@ -308,6 +353,25 @@ int PHG4MvtxDetector::ConstructMvtx_Layer(int layer, G4AssemblyVolume* av_ITSUSt
   return 0;
 }
 
+
+int PHG4MvtxDetector::ConstructMvtxPassiveVol(G4LogicalVolume*& lv)
+{
+  if (Verbosity() > 0)
+  {
+    cout << " PHG4MvtxDetector::ConstructMvtxServices:" << endl;
+    cout << endl;
+  }
+
+  //Now construct EWs, service barrel, CYSS, cones and cables
+  PHG4MvtxSupport* mvtxSupportSystem = new PHG4MvtxSupport(m_DisplayAction, OverlapCheck());
+  mvtxSupportSystem->ConstructMvtxSupport(lv);
+
+  delete mvtxSupportSystem;
+
+  return 0;
+}
+
+
 void PHG4MvtxDetector::SetDisplayProperty(G4AssemblyVolume* av)
 {
   //  cout <<"SetDisplayProperty - G4AssemblyVolume w/ TotalImprintedVolumes "<<av->TotalImprintedVolumes()
@@ -326,6 +390,7 @@ void PHG4MvtxDetector::SetDisplayProperty(G4AssemblyVolume* av)
   }
 }
 
+
 void PHG4MvtxDetector::SetDisplayProperty(G4LogicalVolume* lv)
 {
   string material_name(lv->GetMaterial()->GetName());
@@ -337,7 +402,7 @@ void PHG4MvtxDetector::SetDisplayProperty(G4LogicalVolume* lv)
   }
   vector<string> matname = {"SI", "KAPTON", "ALUMINUM", "Carbon", "M60J3K", "WATER"};
   bool found = false;
-  for (string nam : matname)
+  for (const string& nam : matname)
   {
     if (material_name.find(nam) != std::string::npos)
     {
@@ -366,6 +431,7 @@ void PHG4MvtxDetector::SetDisplayProperty(G4LogicalVolume* lv)
   }
 }
 
+
 void PHG4MvtxDetector::AddGeometryNode()
 {
   int active = 0;
@@ -373,7 +439,7 @@ void PHG4MvtxDetector::AddGeometryNode()
   {
     active |= isAct;
   }
-  if (active) // At least one layer is active
+  if (active)  // At least one layer is active
   {
     ostringstream geonode;
     geonode << "CYLINDERGEOM_" << ((m_SuperDetector != "NONE") ? m_SuperDetector : m_Detector);
@@ -395,8 +461,7 @@ void PHG4MvtxDetector::AddGeometryNode()
                                                         m_nominal_radius[ilayer] / cm,
                                                         get_phistep(ilayer) / rad,
                                                         m_nominal_phitilt[ilayer] / rad,
-                                                        m_nominal_phi0[ilayer] / rad
-                                                        );
+                                                        m_nominal_phi0[ilayer] / rad);
       geo->AddLayerGeom(ilayer, mygeom);
     }  // loop per layers
     if (Verbosity())
@@ -405,6 +470,7 @@ void PHG4MvtxDetector::AddGeometryNode()
     }
   }  //is active
 }  // AddGeometryNode
+
 
 void PHG4MvtxDetector::FillPVArray(G4AssemblyVolume* av)
 {
@@ -449,6 +515,7 @@ void PHG4MvtxDetector::FillPVArray(G4AssemblyVolume* av)
     }
   }
 }
+
 
 void PHG4MvtxDetector::FindSensor(G4LogicalVolume* lv)
 {

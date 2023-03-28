@@ -15,40 +15,43 @@ AM_CPPFLAGS = \
 AM_LDFLAGS = \
   -L$(libdir) \
   -L$(ROOTSYS)/lib \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OFFLINE_MAIN)/lib \
+  -L$(OFFLINE_MAIN)/lib64
 
 pkginclude_HEADERS = \
-  TpcDefs.h \
-  TpcHit.h \
-  TpcClusterizer.h
+  TpcClusterCleaner.h \
+  TpcClusterizer.h \
+  TpcClusterMover.h \
+  TpcClusterZCrossingCorrection.h \
+  TpcDistortionCorrection.h \
+  TpcDistortionCorrectionContainer.h \
+  TpcLoadDistortionCorrection.h \
+  TpcRawWriter.h \
+  TpcSimpleClusterizer.h
 
-ROOTDICTS = \
-  TpcHit_Dict.cc
-if MAKEROOT6
-  pcmdir = $(libdir)
-  nobase_dist_pcm_DATA = \
-    TpcHit_Dict_rdict.pcm
-else
-  ROOT5_DICTS = \
-    TpcClusterizer_Dict.cc 
-endif
+pcmdir = $(libdir)
 
 # sources for tpc library
 libtpc_la_SOURCES = \
-  $(ROOT5_DICTS) \
-  TpcClusterizer.cc
-
+  TpcClusterCleaner.cc \
+  TpcClusterizer.cc \
+  TpcLoadDistortionCorrection.cc \
+  TpcRawWriter.cc \
+  TpcSimpleClusterizer.cc
 
 libtpc_la_LIBADD = \
   libtpc_io.la \
+  -lmicromegas_io \
   -lfun4all \
-  -lSpectrum
+  -lSpectrum \
+  -lpthread
 
 # sources for io library
 libtpc_io_la_SOURCES = \
   $(ROOTDICTS) \
-  TpcDefs.cc \
-  TpcHit.cc
+  TpcDistortionCorrection.cc \
+  TpcClusterMover.cc \
+  TpcClusterZCrossingCorrection.cc
 
 libtpc_io_la_LIBADD = \
   -ltrack_io \
@@ -58,7 +61,7 @@ libtpc_io_la_LIBADD = \
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@  -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

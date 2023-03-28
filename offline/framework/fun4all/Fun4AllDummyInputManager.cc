@@ -6,14 +6,24 @@
 
 #include <iostream>
 
-using namespace std;
-
-Fun4AllDummyInputManager::Fun4AllDummyInputManager(const string &name, const string &nodename)
+Fun4AllDummyInputManager::Fun4AllDummyInputManager(const std::string &name, const std::string &nodename)
   : Fun4AllInputManager(name, nodename)
-  , m_NumEvents(0)
 {
   FileName("NOFILE-0000000000-0000.root");
   return;
+}
+
+int Fun4AllDummyInputManager::ResetFileList()
+{
+  m_NumEvents = 0;
+  return 0;
+}
+
+int Fun4AllDummyInputManager::PushBackEvents(const int nevt)
+{
+  m_NumEvents -= nevt;
+  m_SumEvents -= nevt;
+  return 0;
 }
 
 void Fun4AllDummyInputManager::setSyncManager(Fun4AllSyncManager *master)
@@ -34,9 +44,16 @@ void Fun4AllDummyInputManager::setSyncManager(Fun4AllSyncManager *master)
 int Fun4AllDummyInputManager::run(const int nevents)
 {
   m_NumEvents += nevents;
+  m_SumEvents += nevents;
+  MySyncManager()->CurrentEvent(m_NumEvents);
   if (Verbosity() > 0)
   {
-    cout << "Event No: " << m_NumEvents << endl;
+    std::cout << "Event No: " << m_NumEvents;
+    if (m_SumEvents != m_NumEvents)
+    {
+      std::cout << ", Event Sum: " << m_SumEvents;
+    }
+    std::cout << std::endl;
   }
   return Fun4AllReturnCodes::EVENT_OK;
 }

@@ -10,20 +10,22 @@
 //      from this one to allow breaking out of the inner loop early
 //
 
-#include <map>
-#include <vector>
-
-//#define BOOST_NO_HASH // Our version of boost.graph is incompatible with GCC-4.3 w/o this flag
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/connected_components.hpp>
+#pragma GCC diagnostic pop
+
+#include <map>
+#include <vector>
 
 template <class Hit>
 int PHMakeGroups(std::vector<Hit>& hits,
                  std::multimap<int, Hit>& groups)
 {
-  using namespace boost;
-  typedef adjacency_list<vecS, vecS, undirectedS> Graph;
+  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS> Graph;
 
   Graph G;
 
@@ -46,9 +48,9 @@ int PHMakeGroups(std::vector<Hit>& hits,
   // Find the connections between the vertices of the graph (vertices are the rawhits,
   // connections are made when they are adjacent to one another)
   std::vector<int> component(num_vertices(G));
-  //connected_components(G, &component[0]);
+  // connected_components(G, &component[0]);
   connected_components(G, &component[0]);
-  //std::cout << "Found " << num << " groups of hits" << std::endl;
+  // std::cout << "Found " << num << " groups of hits" << std::endl;
 
   // Loop over the components(vertices) compiling a list of the unique
   // connections (ie clusters).

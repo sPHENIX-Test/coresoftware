@@ -2,154 +2,164 @@
 #define TRACKRECO_PHCASEEDING_H
 
 /*!
- *  \file CaSeeding.h
- *  \brief Progressive pattern recgnition based on GenFit Kalman filter
- *  \detail using Alan Dion's HelixHough for seeding, GenFit Kalman filter to do track propagation
- *  \author Christof Roland & Haiwang Yu
+ *  \file PHCASeeding.cc
+ *  \brief Track seeding using ALICE-style "cellular automaton" (CA) algorithm
+ *  \detail 
+ *  \author Michael Peters & Christof Roland
  */
 
 //begin
 
 #include "PHTrackSeeding.h"      // for PHTrackSeeding
+#include "ALICEKF.h"
+
+#include <tpc/TpcDistortionCorrection.h>
 
 #include <trackbase/TrkrDefs.h>  // for cluskey
-#include <trackbase/TrkrCluster.h>
+#include <trackbase/ActsGeometry.h>
 
-#if !defined(__CINT__) || defined(__CLING__)
+#include <phool/PHTimer.h>  // for PHTimer
+
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <boost/geometry/geometries/box.hpp>    // for box
+#pragma GCC diagnostic pop
+
 #include <boost/geometry/geometries/point.hpp>  // for point
 #include <boost/geometry/index/rtree.hpp>       // for ca
-#endif
 
 #include <cmath>     // for M_PI
+#include <cstdint>  // for uint64_t
 #include <map>       // for map
-#include <stdint.h>  // for uint64_t
+#include <memory>
+#include <set>
 #include <string>    // for string
 #include <utility>   // for pair
+#include <unordered_set>
 #include <vector>    // for vector
 
-// rootcint does not like M_PI in the default arguments (the dict.cc file
-// translates this into a string and does not convert M_PI to its definition)
-// This kludge defines it to Root's Pi() for rootcint use 
-#if defined(__CINT__) && ! defined(__CLING__)
-#include <TMath.h>
-#ifndef M_PI
-#define M_PI TMath::Pi()
-#endif
-#endif
- 
-class PHCompositeNode;  // lines 196-196
-class SvtxClusterMap;   // lines 202-202
-class SvtxHitMap;       // lines 211-211
-class SvtxTrackMap;     // lines 204-204
-class SvtxVertex;
-class SvtxVertexMap;    // lines 206-206
+class PHCompositeNode;  
+class PHTimer;
+class SvtxTrack_v3;
+class TpcDistortionCorrectionContainer;
+class TrkrCluster;
 
-
-//#define _USE_ALAN_FULL_VERTEXING_
-#define _USE_ALAN_TRACK_REFITTING_
-
-//#define _MEARGE_SEED_CLUSTER_
-//#define _USE_ZERO_SEED_
-
-//#define _USE_CONSTANT_SEARCH_WIN_
-
-//#define _DO_FULL_FITTING_
-
-//end
-
-#if !defined(__CINT__) || defined(__CLING__)
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
-typedef bg::model::point<float, 3, bg::cs::cartesian> point;
-typedef bg::model::box<point> box;
-typedef std::pair<point, TrkrDefs::cluskey> pointKey;
-#endif
+
+using point = bg::model::point<float, 3, bg::cs::cartesian>;
+using box = bg::model::box<point>;
+using pointKey = std::pair<point, TrkrDefs::cluskey>;
+using coordKey = std::pair<std::array<float,3>, TrkrDefs::cluskey>;
+using keylink = std::array<coordKey,2>;
+using keylist = std::vector<TrkrDefs::cluskey>;
+using PositionMap = std::map<TrkrDefs::cluskey, Acts::Vector3>;
 
 class PHCASeeding : public PHTrackSeeding
 {
  public:
   PHCASeeding(
       const std::string &name = "PHCASeeding",
-      unsigned int nlayers_maps = 3,
-      unsigned int nlayers_intt = 4,
-      unsigned int nlayers_tpc = 48,
-      unsigned int start_layer = 55,
-      float cluster_z_error = 0.015,
-      float cluster_alice_y_error = 0.015,
-      float neighbor_phi_width = M_PI/6,
-      float neighbor_eta_width = 1,
+      unsigned int start_layer = 7,
+      unsigned int end_layer = 55,
+      unsigned int min_nhits_per_cluster = 0,
+      unsigned int min_clusters_per_track = 5,
+      const unsigned int nlayers_maps = 3,
+      const unsigned int nlayers_intt = 4,
+      const unsigned int nlayers_tpc = 48,
+      float neighbor_phi_width = .02,
+      float neighbor_eta_width = .01,
       float maxSinPhi = 0.999,
-      float Bz = 14*0.000299792458f);
+      float cosTheta_limit = -0.8);
 
-#if !defined(__CINT__) || defined(__CLING__)
-  double chisq(const double *xx);
-#endif
-  void set_phi_scale(float scale) { _phi_scale = scale; }
-  void set_z_scale(float scale) { _z_scale = scale; }
+  ~PHCASeeding() override {}
+  void SetLayerRange(unsigned int layer_low, unsigned int layer_up) {_start_layer = layer_low; _end_layer = layer_up;}
+  void SetSearchWindow(float eta_width, float phi_width) {_neighbor_eta_width = eta_width; _neighbor_phi_width = phi_width;}
+  void SetMinHitsPerCluster(unsigned int minHits) {_min_nhits_per_cluster = minHits;}
+  void SetMinClustersPerTrack(unsigned int minClus) {_min_clusters_per_track = minClus;}
 
-  virtual ~PHCASeeding()
+  void set_field_dir(const double rescale)
   {
+    std::cout << "rescale: " << rescale << std::endl;
+    _fieldDir = 1;
+    if(rescale > 0)
+      _fieldDir = -1;     
   }
 
+  void useConstBField(bool opt){_use_const_field = opt;}
+  void useFixedClusterError(bool opt){_use_fixed_clus_err = opt;}
+  void setFixedClusterError(int i, double val){_fixed_clus_err.at(i) = val;}
+
  protected:
-  virtual int Setup(PHCompositeNode *topNode);
-  virtual int Process(PHCompositeNode *topNode);
+  int Setup(PHCompositeNode *topNode) override;
+  int Process(PHCompositeNode *topNode) override;
   int InitializeGeometry(PHCompositeNode *topNode);
-
-  virtual int End();
-
- private:
-  /// fetch node pointers
-
-  // node pointers
-  SvtxTrackMap *_g4tracks;
-  SvtxVertexMap *_g4vertexes;
-  //nodes to get norm vector
-  SvtxHitMap *_svtxhitsmap;
-  int *_hit_used_map;
-  int _hit_used_map_size;
-
-  //seed searching parameters
-  double phisr, etasr, phist, etast, phixt, etaxt;
-
-  std::vector<float> _radii_all;
-
-  double phiadd(double phi1, double phi2);
-  double phidiff(double phi1, double phi2);
-  void FillTree();
-
-#if !defined(__CINT__) || defined(__CLING__)
-  double pointKeyToTuple(pointKey *pK);
-  void QueryTree(const bgi::rtree<pointKey, bgi::quadratic<16>> &rtree, double phimin, double etamin, double lmin, double phimax, double etamax, double lmax, std::vector<pointKey> &returned_values);
-#endif
+  int FindSeedsLayerSkip(double cosTheta_limit);
+  int End() override;
 
  private:
-  std::map<int, unsigned int> _layer_ilayer_map_all;
-  std::map<int, unsigned int> _layer_ilayer_map;
+  
+  enum skip_layers {on, off};
+  
+  /// tpc distortion correction utility class
+  TpcDistortionCorrection m_distortionCorrection;
+
+  /// get global position for a given cluster
+  /**
+   * uses ActsTransformation to convert cluster local position into global coordinates
+   * incorporates TPC distortion correction, if present
+   */
+  Acts::Vector3 getGlobalPosition(TrkrDefs::cluskey, TrkrCluster*) const;
+
+  PositionMap FillTree();
+  int FindSeedsWithMerger(const PositionMap&);
+  std::pair<std::vector<std::unordered_set<keylink>>,std::vector<std::unordered_set<keylink>>> CreateLinks(const std::vector<coordKey>& clusters, const PositionMap& globalPositions) const;
+  std::vector<std::vector<keylink>> FindBiLinks(const std::vector<std::unordered_set<keylink>>& belowLinks, const std::vector<std::unordered_set<keylink>>& aboveLinks) const;
+  std::vector<keylist> FollowBiLinks(const std::vector<std::vector<keylink>>& bidirectionalLinks, const PositionMap& globalPositions) const;
+  void QueryTree(const bgi::rtree<pointKey, bgi::quadratic<16>> &rtree, double phimin, double etamin, double lmin, double phimax, double etamax, double lmax, std::vector<pointKey> &returned_values) const;
+  std::vector<TrackSeed_v1> RemoveBadClusters(const std::vector<keylist>& seeds, const PositionMap& globalPositions) const;
+  double getMengerCurvature(TrkrDefs::cluskey a, TrkrDefs::cluskey b, TrkrDefs::cluskey c, const PositionMap& globalPositions) const;
+  
+  void publishSeeds(const std::vector<TrackSeed_v1>& seeds);
 
   //int _nlayers_all;
   //unsigned int _nlayers_seeding;
   //std::vector<int> _seeding_layer;
-  SvtxVertex *_vertex;
 
-  unsigned int _nlayers_maps;
-  unsigned int _nlayers_intt;
-  unsigned int _nlayers_tpc;
+  const unsigned int _nlayers_maps;
+  const unsigned int _nlayers_intt;
+  const unsigned int _nlayers_tpc;
   unsigned int _start_layer;
-  float _cluster_z_error;
-  float _cluster_alice_y_error;
+  unsigned int _end_layer;
+  unsigned int _min_nhits_per_cluster;
+  unsigned int _min_clusters_per_track;
+//  float _cluster_z_error;
+//  float _cluster_alice_y_error;
   float _neighbor_phi_width;
   float _neighbor_eta_width;
   float _max_sin_phi;
-  float _Bz;
-  float _phi_scale;
-  float _z_scale;
-  //std::vector<float> _radii_all;
+  float _cosTheta_limit;
+  double _rz_outlier_threshold = 0.1;
+  double _xy_outlier_threshold = 0.1;
+  double _fieldDir = -1;
+  bool _use_const_field = false;
+  bool _use_fixed_clus_err = false;
+  std::array<double,3> _fixed_clus_err = {.1,.1,.1};
 
-#if !defined(__CINT__) || defined(__CLING__)
+  /// acts geometry
+  ActsGeometry *tGeometry{nullptr};
+
+  /// distortion correction container
+  TpcDistortionCorrectionContainer* m_dcc = nullptr;
+  
+  std::unique_ptr<ALICEKF> fitter;
+ 
+  std::unique_ptr<PHTimer> t_seed;
+  std::unique_ptr<PHTimer> t_fill;
   bgi::rtree<pointKey, bgi::quadratic<16>> _rtree;
-#endif  // __CINT__
 };
 
 #endif

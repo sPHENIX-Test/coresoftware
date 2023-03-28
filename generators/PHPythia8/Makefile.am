@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I`root-config --incdir` 
+  -isystem`root-config --incdir` 
 
 lib_LTLIBRARIES = libPHPythia8.la 
 
@@ -25,16 +25,7 @@ libPHPythia8_la_LIBADD = \
   -lphhepmc \
   -lHepMC
 
-if ! MAKEROOT6
-ROOT5_DICTS = \
-  PHPythia8_Dict.cc \
-  PHPy8GenTrigger_Dict.cc \
-  PHPy8JetTrigger_Dict.cc \
-  PHPy8ParticleTrigger_Dict.cc
-endif
-
 libPHPythia8_la_SOURCES = \
-  $(ROOT5_DICTS) \
   PHPythia8.cc \
   PHPy8GenTrigger.cc \
   PHPy8ParticleTrigger.cc \
@@ -59,9 +50,5 @@ testexternals.cc:
 	echo "  return 0;" >> $@
 	echo "}" >> $@
 
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
-
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES)
+	rm -f $(BUILT_SOURCES)

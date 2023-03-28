@@ -11,8 +11,8 @@
 #include <trackbase_historic/SvtxTrackState.h>  // for SvtxTrackState
 
 #include <calobase/RawTowerGeomContainer.h>
-#include <calobase/RawTowerContainer.h>
-#include <calobase/RawTower.h>
+#include <calobase/TowerInfoContainerv1.h>
+#include <calobase/TowerInfo.h>
 #include <calobase/RawClusterContainer.h>
 #include <calobase/RawCluster.h>
 #include <calobase/RawClusterUtility.h>
@@ -85,7 +85,7 @@ PHGenFitTrackProjection::PHGenFitTrackProjection(const string &name, const int p
 	_cal_types.push_back(SvtxTrack::HCALOUT);
 }
 
-int PHGenFitTrackProjection::Init(PHCompositeNode *topNode) {
+int PHGenFitTrackProjection::Init(PHCompositeNode */*topNode*/) {
 	return Fun4AllReturnCodes::EVENT_OK;
 }
 
@@ -176,8 +176,9 @@ int PHGenFitTrackProjection::process_event(PHCompositeNode *topNode) {
 
 		// pull the towers
 		string towernodename = "TOWER_CALIB_" + _cal_names[i];
-		RawTowerContainer *towerList = findNode::getClass<RawTowerContainer>(
+		TowerInfoContainer *towerList = findNode::getClass<TowerInfoContainerv1>(
 				topNode, towernodename.c_str());
+	         
 		if (!towerList) {
 			cerr << PHWHERE << " ERROR: Can't find node " << towernodename
 					<< endl;
@@ -188,6 +189,17 @@ int PHGenFitTrackProjection::process_event(PHCompositeNode *topNode) {
 		string clusternodename = "CLUSTER_" + _cal_names[i];
 		RawClusterContainer *clusterList = findNode::getClass<
 				RawClusterContainer>(topNode, clusternodename.c_str());
+
+		if(_use_poscalib_cemc and 
+		   _cal_names[i].compare("CEMC") == 0) {
+		  std::string nodeName = "CLUSTER_POS_COR_" + _cal_names[i];
+		  clusterList = findNode::getClass<RawClusterContainer>(	                             topNode, nodeName.c_str());
+		  
+		  if(Verbosity() > 1)
+		    std::cout << "Grabbing CEMC position recalib clusters"
+			      << std::endl;
+		}
+
 		if (!clusterList) {
 			cerr << PHWHERE << " ERROR: Can't find node " << clusternodename
 					<< endl;
@@ -198,17 +210,17 @@ int PHGenFitTrackProjection::process_event(PHCompositeNode *topNode) {
 		for (SvtxTrackMap::Iter iter = _g4tracks->begin();
 				iter != _g4tracks->end(); ++iter) {
 			SvtxTrack *track = iter->second;
+			if(!track) {
+				if(Verbosity() >= 2) LogWarning("!track");
+				continue;
+			}
+
 #ifdef DEBUG
 			cout
 			<<__LINE__
 			<<": track->get_charge(): "<<track->get_charge()
 			<<endl;
 #endif
-			if(!track) {
-				if(Verbosity() >= 2) LogWarning("!track");
-				continue;
-			}
-
 			if (Verbosity() > 1)
 				cout << "projecting track id " << track->get_id() << endl;
 
@@ -254,9 +266,9 @@ int PHGenFitTrackProjection::process_event(PHCompositeNode *topNode) {
 				//mom.SetXYZ(1,0,0);
 
 				TMatrixDSym cov(6);
-				for (int i = 0; i < 6; ++i) {
+				for (int k = 0; k < 6; ++k) {
 					for (int j = 0; j < 6; ++j) {
-						cov[i][j] = trackstate->get_error(i, j);
+						cov[k][j] = trackstate->get_error(k, j);
 					}
 				}
 
@@ -379,8 +391,8 @@ int PHGenFitTrackProjection::process_event(PHCompositeNode *topNode) {
 						continue;
 					if (ieta >= towergeo->get_etabins())
 						continue;
-
-					RawTower* tower = towerList->getTower(ieta, wrapphi);
+					unsigned int towerkey = (ieta << 16U) + wrapphi;
+					TowerInfo* tower = towerList->get_tower_at_key(towerkey);
 					if (tower) {
 
 						energy_5x5 += tower->get_energy();
@@ -459,6 +471,6 @@ int PHGenFitTrackProjection::process_event(PHCompositeNode *topNode) {
 	return Fun4AllReturnCodes::EVENT_OK;
 }
 
-int PHGenFitTrackProjection::End(PHCompositeNode *topNode) {
+int PHGenFitTrackProjection::End(PHCompositeNode */*topNode*/) {
 	return Fun4AllReturnCodes::EVENT_OK;
 }

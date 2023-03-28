@@ -10,11 +10,11 @@ class PHNode;
 class DumpVariableArray : public DumpObject
 {
  public:
-  DumpVariableArray(const std::string &NodeName);
-  virtual ~DumpVariableArray() {}
+  explicit DumpVariableArray(const std::string &NodeName);
+  ~DumpVariableArray() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };
 
 #endif

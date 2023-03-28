@@ -11,7 +11,6 @@
 #include <fun4all/SubsysReco.h>
 
 // STL includes
-#include <set>
 #include <string>
 
 // forward declarations
@@ -19,9 +18,9 @@ class PHCompositeNode;
 
 //class SvtxClusterMap;
 class TrkrClusterContainer;
+class TrkrHitSetContainer;
 class SvtxVertexMap;
 class SvtxTrackMap;
-class AssocInfoContainer;
 
 /// \class PHTrackFitting
 ///
@@ -31,11 +30,11 @@ class PHTrackFitting : public SubsysReco
 {
  public:
   PHTrackFitting(const std::string &name = "PHTrackFitting");
-  virtual ~PHTrackFitting() {}
+  ~PHTrackFitting() override {}
 
-  int Init(PHCompositeNode *topNode);
-  int InitRun(PHCompositeNode *topNode);
-  int process_event(PHCompositeNode *topNode);
+  int Init(PHCompositeNode *topNode) override;
+  int InitRun(PHCompositeNode *topNode) override;
+  int process_event(PHCompositeNode *topNode) override;
 
   //virtual const std::set<unsigned int> &get_seeding_layers() const = 0;
 
@@ -54,9 +53,9 @@ class PHTrackFitting : public SubsysReco
 
   //SvtxClusterMap *_cluster_map;
   TrkrClusterContainer *_cluster_map;
+  TrkrHitSetContainer  *_hitsets = nullptr;
   SvtxVertexMap *_vertex_map;
   SvtxTrackMap *_track_map;
-  AssocInfoContainer *_assoc_container;
 
   std::string _track_map_name;
 

@@ -10,11 +10,11 @@ class PHNode;
 class DumpPHG4CylinderCellContainer : public DumpObject
 {
  public:
-  DumpPHG4CylinderCellContainer(const std::string &NodeName);
-  virtual ~DumpPHG4CylinderCellContainer() {}
+  explicit DumpPHG4CylinderCellContainer(const std::string &NodeName);
+  ~DumpPHG4CylinderCellContainer() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };
 
 #endif

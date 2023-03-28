@@ -14,8 +14,8 @@ class PHCompositeNode;
 class PHNodeDump : public PHNodeOperation
 {
  public:
-  PHNodeDump();
-  virtual ~PHNodeDump();
+  PHNodeDump() {}
+  ~PHNodeDump() override;
   int CloseOutputFiles();
   int GetGlobalVars(PHCompositeNode *topNode);
 
@@ -24,19 +24,21 @@ class PHNodeDump : public PHNodeOperation
 
   int AddIgnore(const std::string &name);
   int Select(const std::string &name);
-  int SetOutDir(const std::string &dirname);
+  void SetOutDir(const std::string &dirname) { outdir = dirname; }
   void SetPrecision(const int digits) { fp_precision = digits; }
+  void PrintEvtSeq(const int i) { print_evtseq = i; }
 
- protected:
-  virtual void perform(PHNode *);
+ private:
+  void perform(PHNode *) override;
   int AddDumpObject(const std::string &NodeName, PHNode *node);
   std::map<std::string, DumpObject *> dumpthis;
   std::set<std::string> ignore;
   std::set<std::string> exclusive;
-  int runnumber;
-  int evtsequence;
-  int fp_precision;
-  std::string outdir;
+  int runnumber = 0;
+  int evtsequence = -9999;
+  int fp_precision = -1;
+  std::string outdir = "./";
+  int print_evtseq = 1;
 };
 
 #endif

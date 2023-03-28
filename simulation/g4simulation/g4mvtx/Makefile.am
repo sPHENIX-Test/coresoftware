@@ -1,13 +1,14 @@
 AUTOMAKE_OPTIONS = foreign
 
+AM_CXXFLAGS = `geant4-config --cflags`
+
 lib_LTLIBRARIES = \
-  libg4mvtx.la 
+  libg4mvtx.la
 
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include  \
-  -I$(ROOTSYS)/include \
-  -I$(G4_MAIN)/include
+  -isystem$(ROOTSYS)/include
 
 
 AM_LDFLAGS = \
@@ -18,40 +19,34 @@ AM_LDFLAGS = \
 libg4mvtx_la_LIBADD = \
   -lfun4all \
   -lphg4hit \
+  -lphool \
   -lg4detectors \
   -ltrack_io \
+  -lg4tracking_io \
   -lmvtx_io
 
 pkginclude_HEADERS = \
   PHG4MvtxDefs.h \
   PHG4MvtxHitReco.h \
   PHG4MvtxSubsystem.h \
-  PHG4MvtxDigitizer.h 
-
-if MAKEROOT6
-else
-  ROOT5_DICTS = \
-    PHG4MvtxHitReco_Dict.cc \
-    PHG4MvtxDefs_Dict.cc \
-    PHG4MvtxSubsystem_Dict.cc \
-    PHG4MvtxDigitizer_Dict.cc
-endif
+  PHG4EICMvtxSubsystem.h \
+  PHG4MvtxDigitizer.h \
+  TruthMvtxClusterBuilder.h
 
 libg4mvtx_la_SOURCES = \
-  $(ROOT5_DICTS) \
   PHG4MvtxHitReco.cc \
   PHG4MvtxDetector.cc \
+  PHG4EICMvtxDetector.cc \
   PHG4MvtxDisplayAction.cc \
   PHG4MvtxSteppingAction.cc \
+  PHG4EICMvtxSteppingAction.cc \
   PHG4MvtxSubsystem.cc \
-  PHG4MvtxDigitizer.cc
-
-# Rule for generating table CINT dictionaries.
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@  -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
-#just to get the dependency
-%_Dict_rdict.pcm: %_Dict.cc ;
+  PHG4EICMvtxSubsystem.cc \
+  PHG4MvtxDigitizer.cc \
+  PHG4MvtxCable.cc \
+  PHG4MvtxServiceStructure.cc \
+  PHG4MvtxSupport.cc \
+  TruthMvtxClusterBuilder.cc
 
 ################################################
 # linking tests
@@ -63,6 +58,7 @@ noinst_PROGRAMS = \
 
 testexternals_SOURCES = \
   testexternals.cc
+
 testexternals_LDADD = \
   libg4mvtx.la
 
@@ -76,4 +72,4 @@ testexternals.cc:
 ################################################
 
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES) *.pcm
+	rm -f $(BUILT_SOURCES)

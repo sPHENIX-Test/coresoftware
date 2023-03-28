@@ -3,14 +3,15 @@
 
 AUTOMAKE_OPTIONS = foreign
 
+AM_CXXFLAGS = `geant4-config --cflags`
+
 lib_LTLIBRARIES = \
   libg4tpc.la
 
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(G4_MAIN)/include \
-  -I$(ROOTSYS)/include
+  -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
@@ -19,56 +20,48 @@ AM_LDFLAGS = \
 libg4tpc_la_LIBADD = \
   -lphool \
   -lg4detectors \
+  -lg4tracking_io \
   -lphg4hit \
   -lphparameter \
   -ltpc_io
 
 pkginclude_HEADERS = \
+  PHG4TpcCentralMembrane.h \
+  TpcClusterBuilder.h \
+  PHG4TpcDigitizer.h \
+  PHG4TpcDirectLaser.h \
+  PHG4TpcDistortion.h \
   PHG4TpcElectronDrift.h \
+  PHG4TpcEndCapSubsystem.h \
+  PHG4TpcPadBaselineShift.h \
   PHG4TpcPadPlane.h \
   PHG4TpcPadPlaneReadout.h \
-  PHG4TpcDigitizer.h \
-  PHG4TpcSubsystem.h \
-  PHG4TpcDistortion.h \
-  PHG4TpcSpaceChargeDistortion.h 
-
-if MAKEROOT6
-else
-  ROOT5_DICTS = \
-    PHG4TpcElectronDrift_Dict.cc \
-    PHG4TpcPadPlane_Dict.cc \
-    PHG4TpcPadPlaneReadout_Dict.cc \
-    PHG4TpcDigitizer_Dict.cc \
-    PHG4TpcSubsystem_Dict.cc \
-    PHG4TpcDistortion_Dict.cc\
-    PHG4TpcSpaceChargeDistortion_Dict.cc 
-endif
+  PHG4TpcSubsystem.h 
 
 libg4tpc_la_SOURCES = \
-  $(ROOT5_DICTS) \
+  PHG4TpcCentralMembrane.cc \
+  TpcClusterBuilder.cc \
   PHG4TpcDetector.cc \
   PHG4TpcDigitizer.cc \
+  PHG4TpcDirectLaser.cc \
   PHG4TpcDisplayAction.cc \
   PHG4TpcDistortion.cc \
   PHG4TpcElectronDrift.cc \
+  PHG4TpcEndCapDetector.cc \
+  PHG4TpcEndCapDisplayAction.cc \
+  PHG4TpcEndCapSteppingAction.cc \
+  PHG4TpcEndCapSubsystem.cc \
+  PHG4TpcPadBaselineShift.cc \
   PHG4TpcPadPlane.cc \
   PHG4TpcPadPlaneReadout.cc \
-  PHG4TpcSpaceChargeDistortion.cc \
   PHG4TpcSteppingAction.cc \
-  PHG4TpcSubsystem.cc
-
-# Rule for generating table CINT dictionaries.
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
-#just to get the dependency
-%_Dict_rdict.pcm: %_Dict.cc ;
+  PHG4TpcSubsystem.cc 
 
 ################################################
 # linking tests
 
 noinst_PROGRAMS = \
-  testexternals 
+  testexternals
 
 BUILT_SOURCES = testexternals.cc
 
@@ -83,4 +76,4 @@ testexternals.cc:
 	echo "}" >> $@
 
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES) *.pcm
+	rm -f $(BUILT_SOURCES)

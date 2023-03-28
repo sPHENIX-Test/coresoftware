@@ -1,5 +1,7 @@
 AUTOMAKE_OPTIONS = foreign
 
+AM_CXXFLAGS = `geant4-config --cflags`
+
 lib_LTLIBRARIES = \
     libg4histos.la
 
@@ -10,20 +12,18 @@ AM_LDFLAGS = \
 libg4histos_la_LDFLAGS = \
    -L$(libdir) \
    -L$(OFFLINE_MAIN)/lib \
-   -lcalo_util \
+   -lcalo_io \
    -lfun4all \
-   -lphg4hit \
-   -lg4detectors \
-   -lg4testbench
+   -lg4detectors_io \
+   -lphg4hit
+
 
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include \
-  -I$(G4_MAIN)/include
+  -isystem$(ROOTSYS)/include
 
 noinst_HEADERS = \
-  G4EvtTree.h \
   G4RootHitContainer.h \
   G4RootRawTower.h \
   G4RootRawTowerContainer.h
@@ -31,11 +31,13 @@ noinst_HEADERS = \
 pkginclude_HEADERS = \
   G4CellNtuple.h \
   G4EdepNtuple.h \
+  G4EvtTree.h \
   G4HitNtuple.h \
   G4HitTTree.h \
   G4RawTowerTTree.h \
   G4SnglNtuple.h \
-  G4SnglTree.h
+  G4SnglTree.h \
+  G4VtxNtuple.h
 
 ROOTDICTS = \
   G4RootHitContainer_Dict.cc \
@@ -46,9 +48,8 @@ ROOTDICTS = \
   G4RootScintillatorTowerContainer_Dict.cc \
   G4RootScintillatorTower_Dict.cc
 
-if MAKEROOT6
-  pcmdir = $(libdir)
-  nobase_dist_pcm_DATA = \
+pcmdir = $(libdir)
+nobase_dist_pcm_DATA = \
   G4RootHitContainer_Dict_rdict.pcm \
   G4RootRawTowerContainer_Dict_rdict.pcm \
   G4RootRawTower_Dict_rdict.pcm \
@@ -56,23 +57,9 @@ if MAKEROOT6
   G4RootScintillatorSlat_Dict_rdict.pcm \
   G4RootScintillatorTowerContainer_Dict_rdict.pcm \
   G4RootScintillatorTower_Dict_rdict.pcm
-else
-  ROOT5_DICTS = \
-    G4CellNtuple_Dict.cc \
-    G4EdepNtuple_Dict.cc \
-    G4HitNtuple_Dict.cc \
-    G4HitTTree_Dict.cc \
-    G4RawTowerTTree_Dict.cc \
-    G4ScintillatorSlatTTree_Dict.cc \
-    G4ScintillatorTowerTTree_Dict.cc \
-    G4SnglNtuple_Dict.cc \
-    G4SnglTree_Dict.cc \
-    G4TowerNtuple_Dict.cc
-endif
 
 libg4histos_la_SOURCES = \
   $(ROOTDICTS) \
-  $(ROOT5_DICTS) \
   G4CellNtuple.cc \
   G4EdepNtuple.cc \
   G4HitNtuple.cc \
@@ -89,11 +76,12 @@ libg4histos_la_SOURCES = \
   G4ScintillatorTowerTTree.cc \
   G4SnglNtuple.cc \
   G4SnglTree.cc \
-  G4TowerNtuple.cc
+  G4TowerNtuple.cc \
+  G4VtxNtuple.cc
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
 
 #just to get the dependency
 %_Dict_rdict.pcm: %_Dict.cc ;

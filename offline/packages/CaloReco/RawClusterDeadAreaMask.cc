@@ -11,10 +11,10 @@
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/SubsysReco.h>
 
-#include <phool/getClass.h>
 #include <phool/PHCompositeNode.h>
 #include <phool/PHNode.h>
 #include <phool/PHNodeIterator.h>
+#include <phool/getClass.h>
 
 #include <cassert>
 #include <cmath>
@@ -24,10 +24,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <utility>                           // for pair
+#include <utility>  // for pair
 #include <vector>
-
-using namespace std;
 
 RawClusterDeadAreaMask::RawClusterDeadAreaMask(const std::string &name)
   : SubsysReco(name)
@@ -47,11 +45,11 @@ int RawClusterDeadAreaMask::InitRun(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
+int RawClusterDeadAreaMask::process_event(PHCompositeNode * /*topNode*/)
 {
   if (Verbosity() >= VERBOSITY_SOME)
   {
-    cout << Name() << "::" << m_detector << "::process_event - Entry" << endl;
+    std::cout << Name() << "::" << m_detector << "::process_event - Entry" << std::endl;
   }
   int nMasked = 0;
 
@@ -60,7 +58,7 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
   assert(eta_bins > 0);
   assert(phi_bins > 0);
 
-  //loop over the clusters
+  // loop over the clusters
   RawClusterContainer::ConstRange begin_end = m_rawClusters->getClusters();
   RawClusterContainer::ConstIterator iter;
 
@@ -73,7 +71,7 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
     std::vector<float> towerphis;
     std::vector<float> towerenergies;
 
-    //loop over the towers in the cluster
+    // loop over the towers in the cluster
     RawCluster::TowerConstRange towers = cluster->get_towers();
     RawCluster::TowerConstIterator toweriter;
 
@@ -88,7 +86,7 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
       int towerphi = tower->get_binphi();
       double towerenergy = tower->get_energy();
 
-      //put the etabin, phibin, and energy into the corresponding vectors
+      // put the etabin, phibin, and energy into the corresponding vectors
       toweretas.push_back(towereta);
       towerphis.push_back(towerphi);
       towerenergies.push_back(towerenergy);
@@ -97,8 +95,8 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
     int ntowers = toweretas.size();
     assert(ntowers >= 1);
 
-    //loop over the towers to determine the energy
-    //weighted eta and phi position of the cluster
+    // loop over the towers to determine the energy
+    // weighted eta and phi position of the cluster
 
     float etamult = 0;
     float etasum = 0;
@@ -114,10 +112,14 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
       int phibin = towerphis.at(j);
 
       if (phibin - towerphis.at(0) < -phi_bins / 2.0)
+      {
         phibin += phi_bins;
+      }
       else if (phibin - towerphis.at(0) > +phi_bins / 2.0)
+      {
         phibin -= phi_bins;
-      assert(abs(phibin - towerphis.at(0)) <= phi_bins / 2.0);
+      }
+      assert(std::abs(phibin - towerphis.at(0)) <= phi_bins / 2.0);
 
       energymult = towerenergies.at(j) * phibin;
       phimult += energymult;
@@ -129,8 +131,8 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
 
     if (Verbosity() > VERBOSITY_MORE)
     {
-      cout << Name() << "::" << m_detector << "::process_event - "
-           << "process cluster at average location " << avgeta << "," << avgphi << " : ";
+      std::cout << Name() << "::" << m_detector << "::process_event - "
+                << "process cluster at average location " << avgeta << "," << avgphi << " : ";
       cluster->identify();
     }
 
@@ -144,22 +146,34 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
         int ieta = search_eta;
         int iphi = search_phi;
 
-        if (ieta >= eta_bins) continue;
-        if (ieta < 0) continue;
+        if (ieta >= eta_bins)
+        {
+          continue;
+        }
+        if (ieta < 0)
+        {
+          continue;
+        }
 
-        if (iphi >= phi_bins) iphi -= phi_bins;
-        if (iphi < 0) iphi += phi_bins;
+        if (iphi >= phi_bins)
+        {
+          iphi -= phi_bins;
+        }
+        if (iphi < 0)
+        {
+          iphi += phi_bins;
+        }
 
         const bool isDead = m_deadMap->isDeadTower(ieta, iphi);
 
         // dead tower found in cluster
         if (Verbosity() > VERBOSITY_MORE)
         {
-          cout << "\t"
-               << "tower " << ieta
-               << "," << iphi
-               << (isDead ? ": is dead." : "OK")
-               << endl;
+          std::cout << "\t"
+                    << "tower " << ieta
+                    << "," << iphi
+                    << (isDead ? ": is dead." : "OK")
+                    << std::endl;
         }
 
         if (isDead)
@@ -169,16 +183,19 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
         }
       }
 
-      if (rejecCluster) break;
+      if (rejecCluster)
+      {
+        break;
+      }
     }
 
-    //container operation
+    // container operation
     if (rejecCluster)
     {
       if (Verbosity() > VERBOSITY_MORE)
       {
-        cout << Name() << "::" << m_detector << "::process_event - "
-             << "reject cluster " << cluster->get_id() << endl;
+        std::cout << Name() << "::" << m_detector << "::process_event - "
+                  << "reject cluster " << cluster->get_id() << std::endl;
         cluster->identify();
       }
 
@@ -189,8 +206,8 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
     {
       if (Verbosity() > VERBOSITY_MORE)
       {
-        cout << Name() << "::" << m_detector << "::process_event - "
-             << "keep cluster " << cluster->get_id() << endl;
+        std::cout << Name() << "::" << m_detector << "::process_event - "
+                  << "keep cluster " << cluster->get_id() << std::endl;
       }
       ++iter;
     }
@@ -199,10 +216,10 @@ int RawClusterDeadAreaMask::process_event(PHCompositeNode *topNode)
 
   if (Verbosity() >= VERBOSITY_SOME)
   {
-    cout << Name() << "::" << m_detector << "::process_event - masked "
-         << nMasked << " clusters. Final cluster containers has "
-         << m_rawClusters->size() << " clusters"
-         << endl;
+    std::cout << Name() << "::" << m_detector << "::process_event - masked "
+              << nMasked << " clusters. Final cluster containers has "
+              << m_rawClusters->size() << " clusters"
+              << std::endl;
   }
   return Fun4AllReturnCodes::EVENT_OK;
 }
@@ -211,23 +228,23 @@ void RawClusterDeadAreaMask::CreateNodeTree(PHCompositeNode *topNode)
 {
   PHNodeIterator iter(topNode);
 
-  //Get the DST Node
+  // Get the DST Node
   PHCompositeNode *dstNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "DST"));
 
-  //Check that it is there
+  // Check that it is there
   if (!dstNode)
   {
-    std::cerr << "DST Node missing, quitting" << std::endl;
+    std::cout << "DST Node missing, quitting" << std::endl;
     throw std::runtime_error("failed to find DST node in RawClusterDeadAreaMask::CreateNodeTree");
   }
 
   m_rawClusters = findNode::getClass<RawClusterContainer>(topNode, "CLUSTER_" + m_detector);
   if (!m_rawClusters)
   {
-    cout << Name() << "::" << m_detector << "::"
-         << "CreateNodeTree "
-            "No "
-         << m_detector << " Cluster Container found while in RawClusterDeadAreaMask, can't proceed!!!" << std::endl;
+    std::cout << Name() << "::" << m_detector << "::"
+              << "CreateNodeTree "
+                 "No "
+              << m_detector << " Cluster Container found while in RawClusterDeadAreaMask, can't proceed!!!" << std::endl;
     topNode->print();
     throw std::runtime_error("failed to find CLUSTER node in RawClusterDeadAreaMask::CreateNodeTree");
   }
@@ -235,34 +252,34 @@ void RawClusterDeadAreaMask::CreateNodeTree(PHCompositeNode *topNode)
   m_calibTowers = findNode::getClass<RawTowerContainer>(topNode, "TOWER_CALIB_" + m_detector);
   if (!m_calibTowers)
   {
-    cout << Name() << "::" << m_detector << "::"
-         << "CreateNodeTree "
-         << "No calibrated " << m_detector << " tower info found while in RawClusterDeadAreaMask, can't proceed!!!" << std::endl;
+    std::cout << Name() << "::" << m_detector << "::"
+              << "CreateNodeTree "
+              << "No calibrated " << m_detector << " tower info found while in RawClusterDeadAreaMask, can't proceed!!!" << std::endl;
     throw std::runtime_error("failed to find TOWER_CALIB node in RawClusterDeadAreaMask::CreateNodeTree");
   }
 
-  string towergeomnodename = "TOWERGEOM_" + m_detector;
-  m_geometry = findNode::getClass<RawTowerGeomContainer>(topNode, towergeomnodename.c_str());
+  std::string towergeomnodename = "TOWERGEOM_" + m_detector;
+  m_geometry = findNode::getClass<RawTowerGeomContainer>(topNode, towergeomnodename);
   if (!m_geometry)
   {
-    cout << Name() << "::" << m_detector << "::"
-         << "CreateNodeTree"
-         << ": Could not find node " << towergeomnodename.c_str() << endl;
+    std::cout << Name() << "::" << m_detector << "::"
+              << "CreateNodeTree"
+              << ": Could not find node " << towergeomnodename << std::endl;
     throw std::runtime_error("failed to find TOWERGEOM node in RawClusterDeadAreaMask::CreateNodeTree");
   }
 
-  const string deadMapName = "DEADMAP_" + m_detector;
+  const std::string deadMapName = "DEADMAP_" + m_detector;
   m_deadMap = findNode::getClass<RawTowerDeadMap>(topNode, deadMapName);
   if (m_deadMap)
   {
-    cout << Name() << "::" << m_detector << "::"
-         << "CreateNodeTree"
-         << " use dead map: ";
+    std::cout << Name() << "::" << m_detector << "::"
+              << "CreateNodeTree"
+              << " use dead map: ";
     m_deadMap->identify();
   }
 }
 
-int RawClusterDeadAreaMask::End(PHCompositeNode *topNode)
+int RawClusterDeadAreaMask::End(PHCompositeNode * /*topNode*/)
 {
   return Fun4AllReturnCodes::EVENT_OK;
 }

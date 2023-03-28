@@ -2,7 +2,7 @@
 
 /*!
  * \file RawTowerDeadMapLoader.h
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision:   $
  * \date $Date: $
@@ -23,11 +23,11 @@ class PHCompositeNode;
 class RawTowerDeadMapLoader : public SubsysReco
 {
  public:
-  RawTowerDeadMapLoader(const std::string& detector);
+  explicit RawTowerDeadMapLoader(const std::string& detector);
 
-  virtual ~RawTowerDeadMapLoader() {}
+  ~RawTowerDeadMapLoader() override {}
 
-  virtual int InitRun(PHCompositeNode* topNode);
+  int InitRun(PHCompositeNode* topNode) override;
 
   const std::string& deadMapPath() const
   {
@@ -52,7 +52,6 @@ class RawTowerDeadMapLoader : public SubsysReco
  private:
   std::string m_detector;
   std::string m_deadMapPath;
-
 };
 
 #endif

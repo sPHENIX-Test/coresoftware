@@ -7,32 +7,24 @@ AUTOMAKE_OPTIONS = foreign
 lib_LTLIBRARIES = \
   libg4calo.la
 
+AM_CXXFLAGS = `geant4-config --cflags`
+
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include \
-  -I${G4_MAIN}/include
+  -isystem$(ROOTSYS)/include
 
 pkginclude_HEADERS = \
   HcalRawTowerBuilder.h \
   RawTowerBuilder.h \
   RawTowerBuilderByHitIndex.h \
-  RawTowerDigitizer.h
-
-if ! MAKEROOT6
-  ROOT5_DICTS = \
-    HcalRawTowerBuilder_Dict.cc \
-    RawTowerBuilder_Dict.cc \
-    RawTowerBuilderByHitIndex_Dict.cc \
-    RawTowerDigitizer_Dict.cc
-endif
+  RawTowerDigitizer.h 
 
 libg4calo_la_SOURCES = \
-  $(ROOT5_DICTS) \
   HcalRawTowerBuilder.cc \
   RawTowerBuilder.cc \
   RawTowerBuilderByHitIndex.cc \
-  RawTowerDigitizer.cc
+  RawTowerDigitizer.cc 
 
 libg4calo_la_LDFLAGS = \
   -L$(libdir) \
@@ -48,12 +40,8 @@ libg4calo_la_LIBADD = \
   -lphparameter \
   -lgsl \
   -lgslcblas \
-  -lcalo_io \
-  -lcalo_util
-
-# Rule for generating table CINT dictionaries.
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
+  -lcaloCalibDBFile \
+  -lcalo_io
 
 ################################################
 # linking tests
@@ -77,4 +65,4 @@ testexternals.cc:
 # please add new classes in alphabetical order
 
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES) *.pcm
+	rm -f $(BUILT_SOURCES)

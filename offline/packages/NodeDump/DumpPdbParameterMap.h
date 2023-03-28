@@ -10,11 +10,11 @@ class PHNode;
 class DumpPdbParameterMap : public DumpObject
 {
  public:
-  DumpPdbParameterMap(const std::string &NodeName);
-  virtual ~DumpPdbParameterMap() {}
+  explicit DumpPdbParameterMap(const std::string &NodeName);
+  ~DumpPdbParameterMap() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };
 
 #endif

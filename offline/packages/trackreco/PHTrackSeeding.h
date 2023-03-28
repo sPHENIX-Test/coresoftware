@@ -18,9 +18,12 @@ class PHCompositeNode;
 
 //class SvtxClusterMap;
 class TrkrClusterContainer;
+class TrkrClusterHitAssoc;
+class TrkrHitSetContainer;
+class TrkrClusterIterationMapv1;
 class SvtxVertexMap;
-class SvtxTrackMap;
-class AssocInfoContainer;
+class TrackSeedContainer;
+
 
 /// \class PHTrackSeeding
 ///
@@ -30,17 +33,15 @@ class PHTrackSeeding : public SubsysReco
 {
  public:
   PHTrackSeeding(const std::string &name = "PHTrackSeeding");
-  virtual ~PHTrackSeeding() {}
+  ~PHTrackSeeding() override {}
 
-  int InitRun(PHCompositeNode *topNode);
-  int process_event(PHCompositeNode *topNode);
-  int End(PHCompositeNode *topNode);
+  int InitRun(PHCompositeNode *topNode) override;
+  int process_event(PHCompositeNode *topNode) override;
+  int End(PHCompositeNode *topNode) override;
   void set_track_map_name(const std::string &map_name) { _track_map_name = map_name; }
-
-  //virtual const std::set<unsigned int>& get_seeding_layers() const = 0;
-
-  //virtual void set_seeding_layers(const unsigned int a[], const unsigned int n) = 0;
-
+  void set_do_hit_association(bool do_assoc){do_hit_assoc = do_assoc;}
+  void SetUseTruthClusters(bool setit){_use_truth_clusters = setit;}
+  void SetIteration(int iter){_n_iteration = iter;}
  protected:
   /// setup interface for trackers, called in InitRun, setup things like pointers to nodes.
   /// overrided in derived classes
@@ -53,14 +54,21 @@ class PHTrackSeeding : public SubsysReco
   /// Called in SubsysReco::End
   virtual int End() = 0;
 
-  TrkrClusterContainer *_cluster_map;
-  SvtxVertexMap *_vertex_map;
-  SvtxTrackMap *_track_map;
-  AssocInfoContainer *_assoc_container;
+  TrkrClusterContainer *_cluster_map = nullptr;
+  TrkrClusterHitAssoc *_cluster_hit_map = nullptr;
+  TrkrClusterIterationMapv1* _iteration_map;
+  int _n_iteration;
+  bool do_hit_assoc = true;
+  SvtxVertexMap *_vertex_map = nullptr;
+  TrackSeedContainer *_track_map = nullptr;
+  TrkrHitSetContainer  *_hitsets = nullptr;
 
-  std::string _track_map_name;
+  std::string _track_map_name = "TpcTrackSeedContainer";
+
+  bool _use_truth_clusters = false;
 
  private:
+
   /// create new node output pointers
   int CreateNodes(PHCompositeNode *topNode);
 

@@ -25,7 +25,6 @@
 #include <Geant4/G4VTouchable.hh>             // for G4VTouchable
 #include <Geant4/G4VUserTrackInformation.hh>  // for G4VUserTrackInformation
 
-#include <cmath>  // for sqrt, NAN
 #include <iostream>
 #include <string>  // for char_traits, operator<<
 
@@ -37,13 +36,6 @@ using namespace std;
 PHG4HcalSteppingAction::PHG4HcalSteppingAction(PHG4HcalDetector* detector)
   : PHG4SteppingAction(detector->GetName())
   , detector_(detector)
-  , m_HitContainer(nullptr)
-  , m_AbsorberHits(nullptr)
-  , m_SaveHitContainer(nullptr)
-  , m_Hit(nullptr)
-  , zmin(NAN)
-  , zmax(NAN)
-  , light_scint_model_(true)
 {
 }
 
@@ -267,8 +259,8 @@ void PHG4HcalSteppingAction::SetInterfacePointers(PHCompositeNode* topNode)
   }
 
   //now look for the map and grab a pointer to it.
-  m_HitContainer = findNode::getClass<PHG4HitContainer>(topNode, hitnodename.c_str());
-  m_AbsorberHits = findNode::getClass<PHG4HitContainer>(topNode, absorbernodename.c_str());
+  m_HitContainer = findNode::getClass<PHG4HitContainer>(topNode, hitnodename);
+  m_AbsorberHits = findNode::getClass<PHG4HitContainer>(topNode, absorbernodename);
   // if we do not find the node we need to make it.
   if (!m_HitContainer)
   {

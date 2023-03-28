@@ -3,29 +3,12 @@ AUTOMAKE_OPTIONS = foreign
 AM_CPPFLAGS = \
   -I$(includedir) \
   -I$(OFFLINE_MAIN)/include \
-  -I$(ROOTSYS)/include \
+  -isystem$(ROOTSYS)/include \
   -I$(OPT_SPHENIX)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
   -L$(OFFLINE_MAIN)/lib
-
-if ! MAKEROOT6
-ROOT5_SUBSYSRECODICTS = \
-  Fun4AllBase_Dict.cc \
-  SubsysReco_Dict.cc
-
-ROOT5_FUN4ALLDICTS = \
-  Fun4AllDstInputManager_Dict.cc \
-  Fun4AllDstOutputManager_Dict.cc \
-  Fun4AllDummyInputManager_Dict.cc \
-  Fun4AllHistoManager_Dict.cc \
-  Fun4AllInputManager_Dict.cc \
-  Fun4AllNoSyncDstInputManager_Dict.cc \
-  Fun4AllOutputManager_Dict.cc \
-  Fun4AllServer_Dict.cc \
-  Fun4AllSyncManager_Dict.cc
-endif
 
 pkginclude_HEADERS = \
   Fun4AllBase.h \
@@ -36,6 +19,7 @@ pkginclude_HEADERS = \
   Fun4AllHistoManager.h \
   Fun4AllInputManager.h \
   Fun4AllMemoryTracker.h \
+  Fun4AllMonitoring.h \
   Fun4AllNoSyncDstInputManager.h \
   Fun4AllOutputManager.h \
   Fun4AllReturnCodes.h \
@@ -58,12 +42,12 @@ libTDirectoryHelper_la_LDFLAGS = \
     `root-config --libs`
 
 libfun4all_la_SOURCES = \
-  $(ROOT5_FUN4ALLDICTS) \
   Fun4AllDstInputManager.cc \
   Fun4AllDstOutputManager.cc \
   Fun4AllDummyInputManager.cc \
   Fun4AllHistoManager.cc \
   Fun4AllInputManager.cc \
+  Fun4AllMonitoring.cc \
   Fun4AllMemoryTracker.cc \
   Fun4AllNoSyncDstInputManager.cc \
   Fun4AllOutputManager.cc \
@@ -81,15 +65,7 @@ libfun4all_la_LIBADD = \
   -lphool
 
 libSubsysReco_la_SOURCES = \
-  $(ROOT5_SUBSYSRECODICTS) \
   Fun4AllBase.cc
-
-if ! MAKEROOT6
-libSubsysReco_la_LDFLAGS = \
-  -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib \
-  `root-config --libs`
-endif
 
 bin_SCRIPTS = \
   CreateSubsysRecoModule.pl
@@ -117,8 +93,5 @@ testexternals.cc:
 	echo "  return 0;" >> $@
 	echo "}" >> $@
 
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ -c $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES)
+	rm -f $(BUILT_SOURCES)

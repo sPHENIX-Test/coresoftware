@@ -10,11 +10,11 @@ class PHNode;
 class DumpJetMap : public DumpObject
 {
  public:
-  DumpJetMap(const std::string &NodeName);
-  virtual ~DumpJetMap() {}
+  explicit DumpJetMap(const std::string &NodeName);
+  ~DumpJetMap() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };
 
 #endif

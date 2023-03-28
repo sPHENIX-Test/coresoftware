@@ -7,7 +7,7 @@
 
 #include "Fun4AllReturnCodes.h"
 
-#include <string>                 // for string
+#include <string>  // for string
 
 class Fun4AllSyncManager;
 class SyncObject;
@@ -16,18 +16,21 @@ class Fun4AllDummyInputManager : public Fun4AllInputManager
 {
  public:
   Fun4AllDummyInputManager(const std::string& name = "DUMMY", const std::string& nodename = "DST");
-  virtual ~Fun4AllDummyInputManager() {}
-  int fileopen(const std::string& /*filename*/) { return 0; }
-  int fileclose() { return 0; }
-  int isOpen() { return 1; }
-  int run(const int /*nevents=0*/);
-  int GetSyncObject(SyncObject** /*mastersync*/) { return Fun4AllReturnCodes::SYNC_NOOBJECT; }
-  int SyncIt(const SyncObject* /*mastersync*/) { return Fun4AllReturnCodes::SYNC_OK; }
-  void setSyncManager(Fun4AllSyncManager* master);
-  int PushBackEvents(const int /*nevt*/) { return 0; }
+  ~Fun4AllDummyInputManager() override {}
+  int fileopen(const std::string&) override { return 0; }
+  int fileclose() override { return 0; }
+  int IsOpen() const override { return 1; }
+  int run(const int /*nevents=0*/) override;
+  int GetSyncObject(SyncObject** /*mastersync*/) override { return Fun4AllReturnCodes::SYNC_NOOBJECT; }
+  int SyncIt(const SyncObject* /*mastersync*/) override { return Fun4AllReturnCodes::SYNC_OK; }
+  void setSyncManager(Fun4AllSyncManager* master) override;
+  int PushBackEvents(const int nevt) override;
+  int NoSyncPushBackEvents(const int nevt) override { return PushBackEvents(nevt); }
+  int ResetFileList() override;
 
  private:
-  int m_NumEvents;
+  int m_NumEvents = 0;
+  int m_SumEvents = 0;
 };
 
 #endif

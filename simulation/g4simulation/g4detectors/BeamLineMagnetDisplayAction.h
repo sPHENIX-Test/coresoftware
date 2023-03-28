@@ -16,11 +16,11 @@ class G4VPhysicalVolume;
 class BeamLineMagnetDisplayAction : public PHG4DisplayAction
 {
  public:
-  BeamLineMagnetDisplayAction(const std::string &name);
+  explicit BeamLineMagnetDisplayAction(const std::string &name);
 
-  virtual ~BeamLineMagnetDisplayAction();
+  ~BeamLineMagnetDisplayAction() override;
 
-  void ApplyDisplayAction(G4VPhysicalVolume *physvol);
+  void ApplyDisplayAction(G4VPhysicalVolume *physvol) override;
   void AddVolume(G4LogicalVolume *logvol, const std::string &mat) { m_LogicalVolumeMap[logvol] = mat; }
 
  private:

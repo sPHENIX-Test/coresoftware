@@ -3,6 +3,8 @@
 
 #include <g4detectors/PHG4CylinderGeom.h>
 
+#include <trackbase/ActsGeometry.h>
+
 #include <cmath>
 #include <iostream>
 
@@ -50,50 +52,64 @@ class CylinderGeomIntt : public PHG4CylinderGeom
     m_dPhi = 2. * M_PI / nladders_layer;
   }
 
-  void identify(std::ostream &os = std::cout) const;
-  void set_layer(const int i)
-  {
-    m_Layer = i;
-  }
+// from PHObject
+  void identify(std::ostream &os = std::cout) const override;
 
-  int get_layer() const
-  {
-    return m_Layer;
-  }
-
-  double get_radius() const
-  {
-    return m_SensorRadius;
-  }
-
-  bool load_geometry();
-  void find_segment_center(const int segment_z_bin, const int segment_phi_bin, double location[]);
-  void find_strip_center(const int segment_z_bin, const int segment_phi_bin, const int strip_column, const int strip_index, double location[]);
-  void find_strip_index_values(const int segment_z_bin, const double ypos, const double zpos, int &strip_y_index, int &strip_z_index);
-  void find_strip_center_localcoords(const int segment_z_bin, const int strip_y_index, const int strip_z_index, double location[]);
-  void find_indices_from_segment_center(int &segment_z_bin, int &segment_phi_bin, double location[]);
-  TVector3 get_local_from_world_coords(const int segment_z_bin, const int segment_phi_bin, TVector3 world);
-  void find_indices_from_world_location(int &segment_z_bin, int &segment_phi_bin, double location[]);
-
-  double get_thickness() const
+// overridden from base class
+  double get_thickness() const override
   {
     return m_StripX;
   }
 
-  double get_strip_y_spacing() const
+  double get_strip_y_spacing() const override
   {
     return m_StripY;
   }
 
-  double get_strip_z_spacing() const
+  double get_strip_z_spacing() const override
   {
     return m_StripZ[0];
   }
 
-  double get_strip_tilt() const
+  double get_strip_tilt() const override
   {
     return 0.;
   }
+
+
+  void set_layer(const int i) override
+  {
+    m_Layer = i;
+  }
+
+  int get_layer() const override
+  {
+    return m_Layer;
+  }
+
+  double get_radius() const override
+  {
+    return m_SensorRadius;
+  }
+
+// our own
+  void find_segment_center(Surface surface, ActsGeometry* tGeometry, double location[]);
+  void find_strip_center(Surface surface, ActsGeometry *tGeometry, const int segment_z_bin,  const int segment_phi_bin, const int strip_column, const int strip_index, double location[]);
+  void find_strip_index_values(const int segment_z_bin, const double ypos, const double zpos, int &strip_y_index, int &strip_z_index) override;
+
+  bool load_geometry();
+  void find_strip_center_localcoords(const int segment_z_bin, const int strip_y_index, const int strip_z_index, double location[]);
+  void find_indices_from_segment_center(int &segment_z_bin, int &segment_phi_bin, double location[]);
+  TVector3 get_world_from_local_coords(Surface surface, ActsGeometry* tGeometry, TVector2 local);
+  TVector3 get_world_from_local_coords(Surface surface, ActsGeometry* tGeometry, TVector3 local);
+  TVector3 get_local_from_world_coords(Surface surface, ActsGeometry* tGeometry, TVector3 world);
+  void find_indices_from_world_location(int &segment_z_bin, int &segment_phi_bin, double location[]);
+
+  void find_strip_center(int, int, int, int, double*) override
+  { std::cout << "find_strip_center(int, int, int, int, double[]) is deprecated" << std::endl;
+  }
+  void find_segment_center(const int, const int, double*) override
+  { std::cout << "find_segment_center(const int, const int, double*) is deprecated" << std::endl; }
 
   double get_strip_phi_tilt() const
   {
@@ -115,7 +131,7 @@ class CylinderGeomIntt : public PHG4CylinderGeom
   double m_StripZ[2];
   double m_LadderZ[2];
 
-  ClassDef(CylinderGeomIntt, 1)
+  ClassDefOverride(CylinderGeomIntt, 1)
 };
 
 #endif

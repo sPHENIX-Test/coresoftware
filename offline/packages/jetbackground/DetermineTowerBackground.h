@@ -28,10 +28,10 @@ class DetermineTowerBackground : public SubsysReco
 {
  public:
   DetermineTowerBackground(const std::string &name = "DetermineTowerBackground");
-  virtual ~DetermineTowerBackground() {}
+  ~DetermineTowerBackground() override {}
 
-  int InitRun(PHCompositeNode *topNode);
-  int process_event(PHCompositeNode *topNode);
+  int InitRun(PHCompositeNode *topNode) override;
+  int process_event(PHCompositeNode *topNode) override;
 
   void SetBackgroundOutputName(const std::string &name) { _backgroundName = name; }
   void SetSeedType(int seed_type) { _seed_type = seed_type; }
@@ -39,7 +39,10 @@ class DetermineTowerBackground : public SubsysReco
 
   void SetSeedJetD(float D) { _seed_jet_D = D; };
   void SetSeedJetPt(float pt) { _seed_jet_pt = pt; };
-
+  void set_towerinfo(bool use_towerinfo)
+  {
+    m_use_towerinfo = use_towerinfo;
+  }
  private:
   int CreateNode(PHCompositeNode *topNode);
   void FillNode(PHCompositeNode *topNode);
@@ -71,6 +74,9 @@ class DetermineTowerBackground : public SubsysReco
 
   std::vector<float> _seed_eta;
   std::vector<float> _seed_phi;
+
+  bool m_use_towerinfo = false;
+
 };
 
 #endif

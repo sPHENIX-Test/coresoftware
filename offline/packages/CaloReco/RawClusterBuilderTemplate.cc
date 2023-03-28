@@ -2,107 +2,113 @@
 
 #include "BEmcCluster.h"
 #include "BEmcRec.h"
-#include "BEmcRecFEMC.h"
 #include "BEmcRecCEMC.h"
 #include "BEmcRecEEMC.h"
-#include "BEmcProfile.h"
+#include "BEmcRecFEMC.h"
 
-#include <calobase/RawClusterContainer.h>
+#include <g4vertex/GlobalVertex.h>
+#include <g4vertex/GlobalVertexMap.h>
+
 #include <calobase/RawCluster.h>
+#include <calobase/RawClusterContainer.h>
 #include <calobase/RawClusterv1.h>
 #include <calobase/RawTower.h>
 #include <calobase/RawTowerContainer.h>
 #include <calobase/RawTowerDefs.h>
 #include <calobase/RawTowerGeom.h>
 #include <calobase/RawTowerGeomContainer.h>
+#include <calobase/TowerInfo.h>
+#include <calobase/TowerInfoContainer.h>
+#include <calobase/TowerInfoContainerv1.h>
+#include <calobase/TowerInfov1.h>
+
+#include <ffamodules/XploadInterface.h>
 
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/SubsysReco.h>
 
-#include <phool/getClass.h>
 #include <phool/PHCompositeNode.h>
 #include <phool/PHIODataNode.h>
 #include <phool/PHNode.h>
 #include <phool/PHNodeIterator.h>
 #include <phool/PHObject.h>
+#include <phool/getClass.h>
 #include <phool/phool.h>
 
 #include <cmath>
-#include <iostream>
-#include <cstdio>
 #include <exception>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-using namespace std;
+RawClusterBuilderTemplate::RawClusterBuilderTemplate(const std::string &name)
+  : SubsysReco(name)
+{
+}
 
 RawClusterBuilderTemplate::~RawClusterBuilderTemplate()
 {
-  if( bemc != nullptr ) delete bemc;
+  // one can delete null pointers
+  delete bemc;
 }
 
-RawClusterBuilderTemplate::RawClusterBuilderTemplate(const std::string &name)
-  : SubsysReco(name)
-  , _clusters(nullptr)
-  , _min_tower_e(0.020)
-  , chkenergyconservation(0)
-  , detector("NONE")
-  , bPrintGeom(false)
+void RawClusterBuilderTemplate::Detector(const std::string &d)
 {
-  bemc = nullptr;
-
-  BINX0 = 0;
-  NBINX = 0;
-  BINY0 = 0;
-  NBINY = 0;
-
-  fEnergyNorm = 1.;
-}
-
-void RawClusterBuilderTemplate::Detector(const std::string& d)
-{ 
   detector = d;
 
   // Create proper BEmcRec object
 
-  if( detector == "CEMC" ) {
+  if (detector == "CEMC")
+  {
     bemc = new BEmcRecCEMC();
   }
-  else if( detector == "FEMC" ) {
+  else if (detector == "FEMC")
+  {
     bemc = new BEmcRecFEMC();
   }
-  else if( detector == "EEMC" ) {
+  else if (detector == "EEMC")
+  {
     bemc = new BEmcRecEEMC();
   }
-  else {
-    printf("Warning from RawClusterBuilderTemplate::Detector(): no detector specific class BEmcRec{Name} defined for detector %s. Default BEmcRec will be used\n",detector.c_str());
+  else if (detector == "EEMC_crystal")
+  {
+    bemc = new BEmcRecEEMC();
+  }
+  else if (detector == "EEMC_glass")
+  {
+    bemc = new BEmcRecEEMC();
+  }
+  else
+  {
+    std::cout << "Warning from RawClusterBuilderTemplate::Detector(): no detector specific class "
+              << Name() << " defined for detector " << detector
+              << ". Default BEmcRec will be used" << std::endl;
     bemc = new BEmcRec();
   }
 
-  // Define vertex ... not used now
+  // Set vertex
   float vertex[3] = {0, 0, 0};
   bemc->SetVertex(vertex);
-  // Define threshold ... not used now
-  bemc->SetTowerThreshold(0);
+  // Set threshold
+  bemc->SetTowerThreshold(_min_tower_e);
+  bemc->SetProbNoiseParam(fProbNoiseParam);
 }
 
-void RawClusterBuilderTemplate::LoadProfile(const char *fname) 
-{ 
-  if( bemc == nullptr ) {
-    printf("Error in RawClusterBuilderTemplate::LoadProfile(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it\n");
-    return;
-  }
+void RawClusterBuilderTemplate::LoadProfile(const std::string &fname)
+{
+  std::string url = XploadInterface::instance()->getUrl("EMCPROFILE", fname);
 
-  //  _emcprof = new BEmcProfile(fname); 
-  bemc->LoadProfile(fname);
+  bemc->LoadProfile(url);
 }
 
 void RawClusterBuilderTemplate::SetCylindricalGeometry()
-{ 
-  if( bemc == nullptr ) {
-    printf("Error in RawClusterBuilderTemplate::SetCylindricalGeometry()(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it\n");
+{
+  if (bemc == nullptr)
+  {
+    std::cout << "Error in RawClusterBuilderTemplate::SetCylindricalGeometry()(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it" << std::endl;
     return;
   }
 
@@ -110,9 +116,10 @@ void RawClusterBuilderTemplate::SetCylindricalGeometry()
 }
 
 void RawClusterBuilderTemplate::SetPlanarGeometry()
-{ 
-  if( bemc == nullptr ) {
-    printf("Error in RawClusterBuilderTemplate::SetPlanarGeometry()(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it\n");
+{
+  if (bemc == nullptr)
+  {
+    std::cout << "Error in RawClusterBuilderTemplate::SetPlanarGeometry()(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it" << std::endl;
     return;
   }
 
@@ -121,8 +128,9 @@ void RawClusterBuilderTemplate::SetPlanarGeometry()
 
 int RawClusterBuilderTemplate::InitRun(PHCompositeNode *topNode)
 {
-  if( bemc == nullptr ) {
-    printf("Error in RawClusterBuilderTemplate::InitRun(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it\n");
+  if (bemc == nullptr)
+  {
+    std::cout << "Error in RawClusterBuilderTemplate::InitRun(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it" << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 
@@ -136,13 +144,16 @@ int RawClusterBuilderTemplate::InitRun(PHCompositeNode *topNode)
     throw;
   }
 
-  string towergeomnodename = "TOWERGEOM_" + detector;
-  RawTowerGeomContainer *towergeom = findNode::getClass<RawTowerGeomContainer>(topNode, towergeomnodename.c_str());
+  std::string towergeomnodename = "TOWERGEOM_" + detector;
+  RawTowerGeomContainer *towergeom = findNode::getClass<RawTowerGeomContainer>(topNode, towergeomnodename);
   if (!towergeom)
   {
-    cout << PHWHERE << ": Could not find node " << towergeomnodename.c_str() << endl;
+    std::cout << PHWHERE << ": Could not find node " << towergeomnodename << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
+
+  int Calo_ID = towergeom->get_calorimeter_id();
+  // std::cout << std::endl << std::endl << std::endl << "Calorimeter ID: " << Calo_ID << std::endl << std::endl << std::endl;
 
   int ngeom = 0;
   int ixmin = 999999;
@@ -155,18 +166,37 @@ int RawClusterBuilderTemplate::InitRun(PHCompositeNode *topNode)
   {
     RawTowerGeom *towerg = itr_geom->second;
     RawTowerDefs::keytype towerid = towerg->get_id();
-    int ix = RawTowerDefs::decode_index2(towerid); // index2 is phi in CYL
-    int iy = RawTowerDefs::decode_index1(towerid); // index1 is eta in CYL
-    if (ixmin > ix) ixmin = ix;
-    if (ixmax < ix) ixmax = ix;
-    if (iymin > iy) iymin = iy;
-    if (iymax < iy) iymax = iy;
+    int ix = RawTowerDefs::decode_index2(towerid);  // index2 is phi in CYL
+    int iy = RawTowerDefs::decode_index1(towerid);  // index1 is eta in CYL
+    if (ixmin > ix)
+    {
+      ixmin = ix;
+    }
+    if (ixmax < ix)
+    {
+      ixmax = ix;
+    }
+    if (iymin > iy)
+    {
+      iymin = iy;
+    }
+    if (iymax < iy)
+    {
+      iymax = iy;
+    }
     ngeom++;
   }
-  printf("Infor from RawClusterBuilderTemplate::InitRun(): Init geometry for %s: N of geom towers: %d; ix=%d-%d iy=%d-%d\n",detector.c_str(),ngeom,ixmin,ixmax,iymin,iymax);
-
-  if (ixmax < ixmin || iymax < iymin) {
-    printf("Error in RawClusterBuilderTemplate::InitRun(): wrong geometry data for detector %s\n",detector.c_str());
+  if (Verbosity() > 1)
+  {
+    std::cout << "Info from RawClusterBuilderTemplate::InitRun(): Init geometry for "
+              << detector << ": N of geom towers: " << ngeom << "; ix = "
+              << ixmin << "-" << ixmax << ", iy = "
+              << iymin << "-" << iymax << std::endl;
+  }
+  if (ixmax < ixmin || iymax < iymin)
+  {
+    std::cout << "Error in RawClusterBuilderTemplate::InitRun(): wrong geometry data for detector "
+              << detector << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 
@@ -184,50 +214,59 @@ int RawClusterBuilderTemplate::InitRun(PHCompositeNode *topNode)
     RawTowerDefs::keytype towerid = towerg->get_id();
     //    int itype = towerg->get_tower_type();
     //    if( itype==2 ) { // PbSc
-    int ix = RawTowerDefs::decode_index2(towerid); // index2 is phi in CYL
-    int iy = RawTowerDefs::decode_index1(towerid); // index1 is eta in CYL
+    int ix = RawTowerDefs::decode_index2(towerid);  // index2 is phi in CYL
+    int iy = RawTowerDefs::decode_index1(towerid);  // index1 is eta in CYL
     ix -= BINX0;
     iy -= BINY0;
+
     bemc->SetTowerGeometry(ix, iy, towerg->get_center_x(), towerg->get_center_y(), towerg->get_center_z());
-    //    }
+    bemc->SetCalotype(Calo_ID);
+    if (Calo_ID == RawTowerDefs::EEMC ||
+        Calo_ID == RawTowerDefs::EEMC_crystal ||
+        Calo_ID == RawTowerDefs::EEMC_glass)
+    {
+      bemc->SetScinSize(towerg->get_size_z());
+    }
   }
 
-  if(!bemc->CompleteTowerGeometry()) return Fun4AllReturnCodes::ABORTEVENT;
+  if (!bemc->CompleteTowerGeometry())
+  {
+    return Fun4AllReturnCodes::ABORTEVENT;
+  }
 
-  if(bPrintGeom) {
-    string fname = "geom_" + detector + ".txt";
+  if (bPrintGeom)
+  {
+    std::string fname = "geom_" + detector + ".txt";
     //    bemc->PrintTowerGeometry("geom.txt");
-    bemc->PrintTowerGeometry(fname.c_str());
+    bemc->PrintTowerGeometry(fname);
     //    PrintCylGeom(towergeom,"phieta.txt");
   }
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-void RawClusterBuilderTemplate::PrintCylGeom(RawTowerGeomContainer *towergeom, const char* fname)
+void RawClusterBuilderTemplate::PrintCylGeom(RawTowerGeomContainer *towergeom, const std::string &fname)
 {
-  FILE* pf = fopen(fname, "w");
-  if (!pf)
+  std::ofstream outfile(fname);
+  if (!outfile.is_open())
   {
-    printf("Error in BEmcRec::RawClusterBuilderTemplate::PrintCylGeom(): Failed to open file %s\n", fname);
+    std::cout << "Error in BEmcRec::RawClusterBuilderTemplate::PrintCylGeom(): Failed to open file "
+              << fname << std::endl;
     return;
   }
-
-  fprintf(pf, "%d %d\n", NBINX, NBINY);
-  for( int ip=0; ip<NBINX; ip++ ) {
-    float phi = towergeom->get_phicenter(ip);
-    fprintf(pf, "%d %f\n", ip, phi);
+  outfile << NBINX << " " << NBINY << std::endl;
+  for (int ip = 0; ip < NBINX; ip++)
+  {
+    outfile << ip << " " << towergeom->get_phicenter(ip) << std::endl;
   }
-  for( int ip=0; ip<NBINY; ip++ ) {
-    float eta = towergeom->get_etacenter(ip);
-    fprintf(pf, "%d %f\n", ip, eta);
+  for (int ip = 0; ip < NBINY; ip++)
+  {
+    outfile << ip << " " << towergeom->get_etacenter(ip) << std::endl;
   }
-
-  fclose(pf);
+  outfile.close();
 }
 
-
-bool RawClusterBuilderTemplate::Cell2Abs(RawTowerGeomContainer *towergeom, float phiC, float etaC, float &phi, float &eta)
+bool RawClusterBuilderTemplate::Cell2Abs(RawTowerGeomContainer * /*towergeom*/, float /*phiC*/, float /*etaC*/, float &phi, float &eta)
 {
   phi = eta = 0;
   return false;
@@ -235,61 +274,156 @@ bool RawClusterBuilderTemplate::Cell2Abs(RawTowerGeomContainer *towergeom, float
 
 int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
 {
-  if( bemc == nullptr ) {
-    printf("Error in RawClusterBuilderTemplate::process_event(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it\n");
+  if (bemc == nullptr)
+  {
+    std::cout << "Error in RawClusterBuilderTemplate::process_event(): detector is not defined; use RawClusterBuilderTemplate::Detector() to define it" << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 
-  string towernodename = "TOWER_CALIB_" + detector;
-  // Grab the towers
-  RawTowerContainer *towers = findNode::getClass<RawTowerContainer>(topNode, towernodename.c_str());
-  if (!towers)
+  RawTowerContainer *towers = nullptr;
+  if (m_UseTowerInfo < 1)
   {
-    std::cout << PHWHERE << ": Could not find node " << towernodename.c_str() << std::endl;
-    return Fun4AllReturnCodes::DISCARDEVENT;
+    std::string towernodename = "TOWER_CALIB_" + detector;
+
+    // Grab the towers
+    towers = findNode::getClass<RawTowerContainer>(topNode, towernodename);
+    if (!towers)
+    {
+      std::cout << PHWHERE << ": Could not find node " << towernodename << std::endl;
+      return Fun4AllReturnCodes::DISCARDEVENT;
+    }
   }
-  string towergeomnodename = "TOWERGEOM_" + detector;
-  RawTowerGeomContainer *towergeom = findNode::getClass<RawTowerGeomContainer>(topNode, towergeomnodename.c_str());
+
+  std::string towergeomnodename = "TOWERGEOM_" + detector;
+  RawTowerGeomContainer *towergeom = findNode::getClass<RawTowerGeomContainer>(topNode, towergeomnodename);
   if (!towergeom)
   {
-    cout << PHWHERE << ": Could not find node " << towergeomnodename.c_str() << endl;
+    std::cout << PHWHERE << ": Could not find node " << towergeomnodename << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 
-  // _clusters->Reset(); // !!! Not sure if it is necessarry to do it - ask Chris
+  TowerInfoContainer *calib_towerinfos = nullptr;
 
-  // make the list of towers above threshold
-  RawTowerContainer::ConstRange begin_end = towers->getTowers();
-  RawTowerContainer::ConstIterator itr = begin_end.first;
+  if (m_UseTowerInfo > 0)
+  {
+    std::string towerinfoNodename = "TOWERINFO_CALIB_" + detector;
+
+    calib_towerinfos = findNode::getClass<TowerInfoContainer>(topNode, towerinfoNodename);
+    if (!calib_towerinfos)
+    {
+      std::cerr << Name() << "::" << detector << "::" << __PRETTY_FUNCTION__
+                << " " << towerinfoNodename << " Node missing, doing bail out!"
+                << std::endl;
+
+      return Fun4AllReturnCodes::DISCARDEVENT;
+    }
+  }
+
+  // Get vertex
+  float vx = 0;
+  float vy = 0;
+  float vz = 0;
+  GlobalVertexMap *vertexmap = findNode::getClass<GlobalVertexMap>(topNode, "GlobalVertexMap");
+  if (vertexmap)
+  {
+    if (!vertexmap->empty())
+    {
+      GlobalVertex *vertex = (vertexmap->begin()->second);
+      vx = vertex->get_x();
+      vy = vertex->get_y();
+      vz = vertex->get_z();
+    }
+  }
+
+  // Set vertex
+  float vertex[3] = {vx, vy, vz};
+  bemc->SetVertex(vertex);
+  // Set threshold
+  bemc->SetTowerThreshold(_min_tower_e);
+
+  bemc->SetProbNoiseParam(fProbNoiseParam);
+  bemc->SetProfileProb(bProfProb);
+
+  // _clusters->Reset(); // !!! Not sure if it is necessarry to do it - ask Chris
 
   // Define vector of towers in EmcModule format to input into BEmc
   EmcModule vhit;
   std::vector<EmcModule> HitList;
   HitList.erase(HitList.begin(), HitList.end());
-  int ich, ix, iy;
+  int ich;
 
-  for (; itr != begin_end.second; ++itr)
+  if (m_UseTowerInfo < 1)
   {
-    RawTower *tower = itr->second;
-    //      printf("  Tower e=%f (%f)\n",tower->get_energy(), _min_tower_e);
-    if (tower->get_energy() > _min_tower_e)
+    // make the list of towers above threshold
+    RawTowerContainer::ConstRange begin_end = towers->getTowers();
+    RawTowerContainer::ConstIterator itr = begin_end.first;
+
+    for (; itr != begin_end.second; ++itr)
     {
-      //	  printf("(%d,%d)  (%d,%d)\n",tower->get_column(),tower->get_row(),tower->get_binphi(),tower->get_bineta());
-      //	  ix = tower->get_column();
-      RawTowerDefs::keytype towerid = tower->get_id();
-      int ix = RawTowerDefs::decode_index2(towerid); // index2 is phi in CYL
-      int iy = RawTowerDefs::decode_index1(towerid); // index1 is eta in CYL
-      ix -= BINX0; 
-      iy -= BINY0;
-      //      ix = tower->get_bineta() - BINX0;  // eta: index1
-      //      iy = tower->get_binphi() - BINY0;  // phi: index2
-      if (ix >= 0 && ix < NBINX && iy >= 0 && iy < NBINY)
+      RawTower *tower = itr->second;
+      //      std::cout << "  Tower e = " << tower->get_energy()
+      //           << " (" << _min_tower_e << ")" << std::endl;
+      if (tower->get_energy() > _min_tower_e)
       {
-        ich = iy * NBINX + ix;
-        vhit.ich = ich;
-        vhit.amp = tower->get_energy() * fEnergyNorm;  // !!! Global Calibration
-        vhit.tof = 0.;
-        HitList.push_back(vhit);
+        // std::cout << "(" << tower->get_column() << "," << tower->get_row()
+        //      << ")  (" << tower->get_binphi() << "," << tower->get_bineta()
+        //      << ")" << std::endl;
+        //	  ix = tower->get_column();
+        RawTowerDefs::keytype towerid = tower->get_id();
+        int ix = RawTowerDefs::decode_index2(towerid);  // index2 is phi in CYL
+        int iy = RawTowerDefs::decode_index1(towerid);  // index1 is eta in CYL
+        ix -= BINX0;
+        iy -= BINY0;
+        //      ix = tower->get_bineta() - BINX0;  // eta: index1
+        //      iy = tower->get_binphi() - BINY0;  // phi: index2
+        if (ix >= 0 && ix < NBINX && iy >= 0 && iy < NBINY)
+        {
+          ich = iy * NBINX + ix;
+          vhit.ich = ich;
+          vhit.amp = tower->get_energy() * fEnergyNorm;  // !!! Global Calibration
+          vhit.tof = 0.;
+          HitList.push_back(vhit);
+        }
+      }
+    }
+  }
+  else if (m_UseTowerInfo)
+  {
+    // make the list of towers above threshold
+    // TowerInfoContainer::ConstRange begin_end = calib_towerinfos->getTowers();
+    // TowerInfoContainer::ConstIterator rtiter;
+    unsigned int nchannels = calib_towerinfos->size();
+    // for (rtiter = begin_end.first; rtiter != begin_end.second; ++rtiter)
+    for (unsigned int channel = 0; channel < nchannels; channel++)
+    {
+      TowerInfo *tower_info = calib_towerinfos->get_tower_at_channel(channel);
+
+      //      std::cout << "  Tower e = " << tower->get_energy()
+      //           << " (" << _min_tower_e << ")" << std::endl;
+      if (tower_info->get_energy() > _min_tower_e)
+      {
+        unsigned int towerkey = calib_towerinfos->encode_key(channel);
+        int ieta = calib_towerinfos->getTowerEtaBin(towerkey);
+        int iphi = calib_towerinfos->getTowerPhiBin(towerkey);
+
+        const RawTowerDefs::keytype key = RawTowerDefs::encode_towerid(RawTowerDefs::CalorimeterId::CEMC, ieta, iphi);
+
+        int ix = RawTowerDefs::decode_index2(key);  // index2 is phi in CYL
+        int iy = RawTowerDefs::decode_index1(key);  // index1 is eta in CYL
+
+        ix -= BINX0;
+        iy -= BINY0;
+
+        if (ix >= 0 && ix < NBINX && iy >= 0 && iy < NBINY)
+        {
+          ich = iy * NBINX + ix;
+          // add key field to vhit
+          vhit.ich = ich;
+          vhit.amp = tower_info->get_energy() * fEnergyNorm;  // !!! Global Calibration
+          vhit.tof = tower_info->get_time();
+
+          HitList.push_back(vhit);
+        }
       }
     }
   }
@@ -300,7 +434,8 @@ int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
   int ncl = bemc->FindClusters();
   if (ncl < 0)
   {
-    printf("!!! Error in BEmcRec::FindClusters(): numbers of cluster %d ?\n",ncl);
+    std::cout << "!!! Error in BEmcRec::FindClusters(): numbers of cluster "
+              << ncl << " ?" << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 
@@ -316,15 +451,13 @@ int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
 
   std::vector<EmcCluster> PList;
   std::vector<EmcModule> Peaks;
-  std::vector<EmcCluster> *pPList = &PList;
-  std::vector<EmcModule> *pPeaks = &Peaks;
 
   float prob, chi2;
   int ndf;
   float xg, yg, zg;
 
-  vector<EmcModule>::iterator ph;
-  vector<EmcModule> hlist;
+  std::vector<EmcModule>::iterator ph;
+  std::vector<EmcModule> hlist;
 
   // ncl = 0;
   for (pc = ClusterList->begin(); pc != ClusterList->end(); ++pc)
@@ -332,20 +465,24 @@ int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
     //    ecl = pc->GetTotalEnergy();
     //    pc->GetMoments( &xcg, &ycg, &xx, &xy, &yy );
 
-    int npk = pc->GetSubClusters(pPList, pPeaks);
-    if (npk < 0) return Fun4AllReturnCodes::ABORTEVENT;
+    int npk = pc->GetSubClusters(PList, Peaks);
+    if (npk < 0)
+    {
+      return Fun4AllReturnCodes::ABORTEVENT;
+    }
 
-    //    printf("  iCl=%d (%d): E=%f  x=%f  y=%f\n",ncl,npk,ecl,xcg,ycg);
+    //    std::cout << "  iCl = " << ncl << " (" << npk << "): E ="
+    //         << ecl << "  x = " << xcg << "  y = " << ycg << std::endl;
 
-    for (pp = pPList->begin(); pp != pPList->end(); ++pp)
+    for (pp = PList.begin(); pp != PList.end(); ++pp)
     {
       // Cluster energy
       ecl = pp->GetTotalEnergy();
       ecore = pp->GetECoreCorrected();
       // 3x3 energy around center of gravity
-      //e9 = pp->GetE9();
+      // e9 = pp->GetE9();
       // Ecore (basically near 2x2 energy around center of gravity)
-      //ecore = pp->GetECore();
+      // ecore = pp->GetECore();
       // Center of Gravity etc.
       pp->GetMoments(xcg, ycg, xx, xy, yy);
       pp->GetGlobalPos(xg, yg, zg);
@@ -365,40 +502,46 @@ int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
       //      phi = 0;
       //      if (phi > M_PI) phi -= 2. * M_PI;  // convert to [-pi,pi]]
 
-      prob = -1;
+      //      prob = -1;
       chi2 = 0;
       ndf = 0;
       prob = pp->GetProb(chi2, ndf);
-      //      printf("Prob/Chi2/NDF= %f %f %d Ecl=%f\n",prob,chi2,ndf,ecl);
+      //      std::cout << "Prob/Chi2/NDF = " << prob << " " << chi2
+      //           << " " << ndf << " Ecl = " << ecl << std::endl;
 
       cluster = new RawClusterv1();
       cluster->set_energy(ecl);
       cluster->set_ecore(ecore);
 
-      cluster->set_r(sqrt(xg * xg + yg * yg));
-      cluster->set_phi(atan2(yg, xg));
+      cluster->set_r(std::sqrt(xg * xg + yg * yg));
+      cluster->set_phi(std::atan2(yg, xg));
       cluster->set_z(zg);
 
       cluster->set_prob(prob);
       if (ndf > 0)
+      {
         cluster->set_chi2(chi2 / ndf);
+      }
       else
+      {
         cluster->set_chi2(0);
-
+      }
       hlist = pp->GetHitList();
       ph = hlist.begin();
       while (ph != hlist.end())
       {
         ich = (*ph).ich;
-        iy = ich / NBINX;
-        ix = ich % NBINX;
+        int iy = ich / NBINX;
+        int ix = ich % NBINX;
         // that code needs a closer look - here are the towers
         // with their energy added to the cluster object where
         // the id is the tower id
         // !!!!! Make sure twrkey is correctly extracted
-	//        RawTowerDefs::keytype twrkey = RawTowerDefs::encode_towerid(towers->getCalorimeterID(), ix + BINX0, iy + BINY0);
-        RawTowerDefs::keytype twrkey = RawTowerDefs::encode_towerid(towers->getCalorimeterID(), iy + BINY0, ix + BINX0); // Becuase in this part index1 is iy
-        //	printf("%d %d: %d e=%f\n",iphi,ieta,twrkey,(*ph).amp);
+        //        RawTowerDefs::keytype twrkey = RawTowerDefs::encode_towerid(towers->getCalorimeterID(), ix + BINX0, iy + BINY0);
+        const RawTowerDefs::CalorimeterId Calo_ID = towergeom->get_calorimeter_id();
+        RawTowerDefs::keytype twrkey = RawTowerDefs::encode_towerid(Calo_ID, iy + BINY0, ix + BINX0);  // Becuase in this part index1 is iy
+        //	std::cout << iphi << " " << ieta << ": "
+        //           << twrkey << " e = " << (*ph).amp) << std::endl;
         cluster->addTower(twrkey, (*ph).amp / fEnergyNorm);
         ++ph;
       }
@@ -406,11 +549,14 @@ int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
       _clusters->AddCluster(cluster);
       // ncl++;
 
-      //      printf("    ipk=%d: E=%f  E9=%f  x=%f  y=%f  MaxTower: (%d,%d) e=%f\n",ipk,ecl,e9,xcg,ycg,hmax.ich%NPHI,hmax.ich/NPHI,hmax.amp);
+      //      std::cout << "    ipk = " << ipk << ": E = " << ecl << "  E9 = "
+      //           << e9 << "  x = " << xcg << "  y = " << ycg
+      //           << "  MaxTower: (" << hmax.ich%NPHI << ","
+      //           << hmax.ich/NPHI << ") e = " << hmax.amp << std::endl;
     }
   }
 
-  if (chkenergyconservation)
+  if (chkenergyconservation && towers && _clusters)
   {
     double ecluster = _clusters->getTotalEdep();
     double etower = towers->getTotalEdep();
@@ -418,26 +564,25 @@ int RawClusterBuilderTemplate::process_event(PHCompositeNode *topNode)
     {
       if (fabs(etower - ecluster) / ecluster > 1e-9)
       {
-        cout << "energy conservation violation: ETower: " << etower
-             << " ECluster: " << ecluster
-             << " diff: " << etower - ecluster << endl;
+        std::cout << "energy conservation violation: ETower: " << etower
+                  << " ECluster: " << ecluster
+                  << " diff: " << etower - ecluster << std::endl;
       }
     }
     else
     {
       if (etower != 0)
       {
-        cout << "energy conservation violation: ETower: " << etower
-             << " ECluster: " << ecluster << endl;
+        std::cout << "energy conservation violation: ETower: " << etower
+                  << " ECluster: " << ecluster << std::endl;
       }
     }
   }
-  return Fun4AllReturnCodes::EVENT_OK;
-}
+  else if (chkenergyconservation)
+  {
+    std::cout << "RawClusterBuilderTemplate : energy conservation check asked for but tower or cluster container is NULL " << std::endl;
+  }
 
-
-int RawClusterBuilderTemplate::End(PHCompositeNode *topNode)
-{
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
@@ -449,14 +594,14 @@ void RawClusterBuilderTemplate::CreateNodes(PHCompositeNode *topNode)
   PHCompositeNode *dstNode = static_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "DST"));
   if (!dstNode)
   {
-    std::cerr << PHWHERE << "DST Node missing, doing nothing." << std::endl;
+    std::cout << PHWHERE << "DST Node missing, doing nothing." << std::endl;
     throw std::runtime_error("Failed to find DST node in EmcRawTowerBuilder::CreateNodes");
   }
 
-  //Get the _det_name subnode
+  // Get the _det_name subnode
   PHCompositeNode *cemcNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", detector));
 
-  //Check that it is there
+  // Check that it is there
   if (!cemcNode)
   {
     cemcNode = new PHCompositeNode(detector);
@@ -465,6 +610,12 @@ void RawClusterBuilderTemplate::CreateNodes(PHCompositeNode *topNode)
 
   _clusters = new RawClusterContainer();
   ClusterNodeName = "CLUSTER_" + detector;
-  PHIODataNode<PHObject> *clusterNode = new PHIODataNode<PHObject>(_clusters, ClusterNodeName.c_str(), "PHObject");
+
+  if (m_UseTowerInfo)
+  {
+    ClusterNodeName = "CLUSTERINFO_" + detector;
+  }
+
+  PHIODataNode<PHObject> *clusterNode = new PHIODataNode<PHObject>(_clusters, ClusterNodeName, "PHObject");
   cemcNode->addNode(clusterNode);
 }

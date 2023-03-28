@@ -5,6 +5,7 @@
 
 #include "FlagSave.h"
 
+#include <cstdint>  // for uint64_t
 #include <iostream>
 #include <map>
 #include <string>
@@ -13,52 +14,55 @@ class PHFlag;
 class PHObject;
 
 ///
-class FlagSavev1: public FlagSave
+class FlagSavev1 : public FlagSave
 {
  public:
-
   /// ctor
-  FlagSavev1() {}
+  FlagSavev1() = default;
   /// dtor
-  virtual ~FlagSavev1() {}
+  ~FlagSavev1() override = default;
 
-  PHObject *CloneMe() const;
+  PHObject *CloneMe() const override;
 
   ///  Clear Event
-  void Reset() {}
-  int isValid() const;
+  void Reset() override {}
+  int isValid() const override;
 
   /** identify Function from PHObject
       @param os Output Stream 
    */
-  void identify(std::ostream& os = std::cout) const;
+  void identify(std::ostream &os = std::cout) const override;
 
-  int  FillFromPHFlag(const PHFlag *flags);
-  int  PutFlagsBack(PHFlag *flags);
+  int FillFromPHFlag(const PHFlag *flags, const bool clearold) override;
+  int PutFlagsBack(PHFlag *flags, const bool overwrite) override;
 
- protected:
+ private:
+  void ClearAll();
   int FillIntFromPHFlag(const PHFlag *flags);
+  int Filluint64FromPHFlag(const PHFlag *flags);
   int FillDoubleFromPHFlag(const PHFlag *flags);
   int FillFloatFromPHFlag(const PHFlag *flags);
-  int FillCharFromPHFlag(const PHFlag *flags);
+  int FillStringFromPHFlag(const PHFlag *flags);
 
-  int PutIntToPHFlag(PHFlag *flags);
-  int PutDoubleToPHFlag(PHFlag *flags);
-  int PutFloatToPHFlag(PHFlag *flags);
-  int PutCharToPHFlag(PHFlag *flags);
+  int PutIntToPHFlag(PHFlag *flags, const bool overwrite);
+  int Putuint64ToPHFlag(PHFlag *flags, const bool overwrite);
+  int PutDoubleToPHFlag(PHFlag *flags, const bool overwrite);
+  int PutFloatToPHFlag(PHFlag *flags, const bool overwrite);
+  int PutStringToPHFlag(PHFlag *flags, const bool overwrite);
 
-  void PrintIntFlag(std::ostream& os) const;
-  void PrintDoubleFlag(std::ostream& os) const;
-  void PrintFloatFlag(std::ostream& os) const ;
-  void PrintStringFlag(std::ostream& os) const;
+  void PrintIntFlag(std::ostream &os) const;
+  void Printuint64Flag(std::ostream &os) const;
+  void PrintDoubleFlag(std::ostream &os) const;
+  void PrintFloatFlag(std::ostream &os) const;
+  void PrintStringFlag(std::ostream &os) const;
 
   std::map<std::string, int> intflag;
   std::map<std::string, double> doubleflag;
   std::map<std::string, float> floatflag;
   std::map<std::string, std::string> stringflag;
+  std::map<std::string, uint64_t> m_uint64flag_map;
 
- private: // prevent doc++ from showing ClassDef
-  ClassDef(FlagSavev1,1)
+  ClassDefOverride(FlagSavev1, 2)
 };
 
 #endif

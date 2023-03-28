@@ -6,7 +6,7 @@
 #include <g4main/PHG4DisplayAction.h>
 
 #include <set>
-#include <string>                      // for string
+#include <string>  // for string
 #include <vector>
 
 class G4LogicalVolume;
@@ -16,14 +16,14 @@ class G4VPhysicalVolume;
 class PHG4InnerHcalDisplayAction : public PHG4DisplayAction
 {
  public:
-  PHG4InnerHcalDisplayAction(const std::string &name);
+  explicit PHG4InnerHcalDisplayAction(const std::string &name);
 
-  virtual ~PHG4InnerHcalDisplayAction();
+  ~PHG4InnerHcalDisplayAction() override;
 
-  void ApplyDisplayAction(G4VPhysicalVolume *physvol);
+  void ApplyDisplayAction(G4VPhysicalVolume *physvol) override;
   void SetMyTopVolume(G4VPhysicalVolume *vol) { m_MyTopVolume = vol; }
-  void AddScintiVolume(G4LogicalVolume *vol) { m_ScintiLogVolSet.insert(vol);}
-  void AddSteelVolume(G4LogicalVolume *vol) {m_SteelVol = vol;}
+  void AddScintiVolume(G4LogicalVolume *vol) { m_ScintiLogVolSet.insert(vol); }
+  void AddSteelVolume(G4LogicalVolume *vol) { m_SteelVol = vol; }
 
  private:
   G4VPhysicalVolume *m_MyTopVolume;

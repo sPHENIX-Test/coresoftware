@@ -13,20 +13,16 @@ dnl   at least see them, so here we go for g++: -Wall
 case $CXX in
  clang++)
 dnl odbc++ has issues
-  CXXFLAGS="$CXXFLAGS -Wall -Werror -Wno-deprecated-declarations -Wno-overloaded-virtual"
+  CXXFLAGS="$CXXFLAGS -Wall -Werror -Wno-deprecated-declarations -Wno-overloaded-virtual -Wno-inconsistent-missing-override -Wextra"
  ;;
- g++)
-  CXXFLAGS="$CXXFLAGS -Wall -Werror"
+ *g++)
+  CXXFLAGS="$CXXFLAGS -Wall -Werror -Wno-deprecated-declarations -Wextra"
  ;;
 esac
 
 
-dnl test for root 6
-if test `root-config --version | awk '{print $1>=6.?"1":"0"}'` = 1; then
-CINTDEFS=" -noIncludePaths  -inlineInputHeader "
+CINTDEFS=" -noIncludePaths  -inlineInputHeader -Wno-inconsistent-missing-override "
 AC_SUBST(CINTDEFS)
-fi
-AM_CONDITIONAL([MAKEROOT6],[test `root-config --version | awk '{print $1>=6.?"1":"0"}'` = 1])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

@@ -5,14 +5,15 @@
 
 #include "Fun4AllBase.h"
 
-#include "Fun4AllHistoManager.h"          // for Fun4AllHistoManager
+#include "Fun4AllHistoManager.h"  // for Fun4AllHistoManager
 
 #include <phool/PHTimer.h>
 
+#include <deque>
 #include <iostream>
 #include <map>
 #include <string>
-#include <utility>          // for pair
+#include <utility>  // for pair
 #include <vector>
 
 class Fun4AllInputManager;
@@ -30,9 +31,9 @@ class Fun4AllServer : public Fun4AllBase
 {
  public:
   static Fun4AllServer *instance();
-  virtual ~Fun4AllServer();
+  ~Fun4AllServer() override;
 
-  virtual bool registerHisto(const char *hname, TNamed *h1d, const int replace = 0);
+  virtual bool registerHisto(const std::string &hname, TNamed *h1d, const int replace = 0);
   virtual bool registerHisto(TNamed *h1d, const int replace = 0);
   template <typename T>
   T *makeHisto(T *t)
@@ -42,6 +43,7 @@ class Fun4AllServer : public Fun4AllBase
   virtual int isHistoRegistered(const std::string &name) const;
 
   int registerSubsystem(SubsysReco *subsystem, const std::string &topnodename = "TOP");
+  void addNewSubsystem(SubsysReco *subsystem, const std::string &topnodename = "TOP") { NewSubsystems.push_back(std::make_pair(subsystem, topnodename)); }
   int unregisterSubsystem(SubsysReco *subsystem);
   SubsysReco *getSubsysReco(const std::string &name);
   int registerOutputManager(Fun4AllOutputManager *manager);
@@ -50,15 +52,15 @@ class Fun4AllServer : public Fun4AllBase
   Fun4AllHistoManager *getHistoManager(const std::string &name);
   TNamed *getHisto(const std::string &hname) const;
   TNamed *getHisto(const unsigned int ihisto) const;
-  const char *getHistoName(const unsigned int ihisto) const;
-  virtual void Print(const std::string &what = "ALL") const;
+  std::string getHistoName(const unsigned int ihisto) const;
+  void Print(const std::string &what = "ALL") const override;
 
   void InitAll();
   int BeginRunTimeStamp(PHTimeStamp &TimeStp);
-  int dumpHistos(const std::string &filename = "", const std::string &openmode = "RECREATE");
-  int process_event(PHCompositeNode *topNode);
+  int dumpHistos(const std::string &filename, const std::string &openmode = "RECREATE");
   int Reset();
   virtual int BeginRun(const int runno);
+  int BeginRunSubsystem(const std::pair<SubsysReco *, PHCompositeNode *> &subsys);
   virtual int EndRun(const int runno = 0);
   virtual int End();
   PHCompositeNode *topNode() const { return TopNode; }
@@ -74,7 +76,7 @@ class Fun4AllServer : public Fun4AllBase
 
   // Interface to the default Input Master
   int registerInputManager(Fun4AllInputManager *InManager);
-  Fun4AllInputManager *getInputManager(const char *name);
+  Fun4AllInputManager *getInputManager(const std::string &name);
   int PrdfEvents() const;
   int DstEvents() const;
 
@@ -87,13 +89,13 @@ class Fun4AllServer : public Fun4AllBase
   */
   int skip(const int nevnts = 0);
 
-  int fileopen(const char *managername = "NONE", const char *filename = "NONE");
-  int fileclose(const std::string &managername = "");
+  int fileopen(const std::string &managername, const std::string &filename);
+  int fileclose(const std::string &managername);
   int SegmentNumber();
   int ResetNodeTree();
-  int BranchSelect(const char *managername, const char *branch, int iflag);
-  int BranchSelect(const char *branch, int iflag);
-  int setBranches(const char *managername);
+  int BranchSelect(const std::string &managername, const std::string &branch, int iflag);
+  int BranchSelect(const std::string &branch, int iflag);
+  int setBranches(const std::string &managername);
   int setBranches();
   virtual int DisconnectDB();
   virtual void identify(std::ostream &out = std::cout) const;
@@ -105,10 +107,13 @@ class Fun4AllServer : public Fun4AllBase
   int registerSyncManager(Fun4AllSyncManager *newmaster);
   int retcodestats(const int iret) { return retcodesmap[iret]; }
   void EventNumber(const int evtno) { eventnumber = evtno; }
+  int EventNumber() const { return eventnumber; }
   void NodeIdentify(const std::string &name);
   void KeepDBConnection(const int i = 1) { keep_db_connected = i; }
   void PrintTimer(const std::string &name = "");
   void PrintMemoryTracker(const std::string &name = "") const;
+  int RunNumber() const { return runnumber; }
+  int EventCounter() const { return eventcounter; }
 
  protected:
   Fun4AllServer(const std::string &name = "Fun4AllServer");
@@ -119,24 +124,26 @@ class Fun4AllServer : public Fun4AllBase
   int unregisterSubsystemsNow();
   int setRun(const int runnumber);
   static Fun4AllServer *__instance;
-  TH1 *FrameWorkVars;
-  Fun4AllMemoryTracker *ffamemtracker;
-  Fun4AllHistoManager *ServerHistoManager;
-  PHTimeStamp *beginruntimestamp;
-  PHCompositeNode *TopNode;
-  Fun4AllSyncManager *defaultSyncManager;
+  TH1 *FrameWorkVars = nullptr;
+  Fun4AllMemoryTracker *ffamemtracker = nullptr;
+  Fun4AllHistoManager *ServerHistoManager = nullptr;
+  PHTimeStamp *beginruntimestamp = nullptr;
+  PHCompositeNode *TopNode = nullptr;
+  Fun4AllSyncManager *defaultSyncManager = nullptr;
 
-  int OutNodeCount;
-  int bortime_override;
-  int ScreamEveryEvent;
-  int unregistersubsystem;
-  int runnumber;
-  int eventnumber;
-  int keep_db_connected;
+  int OutNodeCount = 0;
+  int bortime_override = 0;
+  int ScreamEveryEvent = 0;
+  int unregistersubsystem = 0;
+  int runnumber = 0;
+  int eventnumber = 0;
+  int eventcounter = 0;
+  int keep_db_connected = 0;
 
   std::vector<std::string> ComplaintList;
-  std::vector<std::pair<SubsysReco *, PHCompositeNode *> > Subsystems;
-  std::vector<std::pair<SubsysReco *, PHCompositeNode *> > DeleteSubsystems;
+  std::vector<std::pair<SubsysReco *, PHCompositeNode *>> Subsystems;
+  std::vector<std::pair<SubsysReco *, PHCompositeNode *>> DeleteSubsystems;
+  std::deque<std::pair<SubsysReco *, std::string>> NewSubsystems;
   std::vector<int> RetCodes;
   std::vector<Fun4AllOutputManager *> OutputManager;
   std::vector<TDirectory *> TDirCollection;

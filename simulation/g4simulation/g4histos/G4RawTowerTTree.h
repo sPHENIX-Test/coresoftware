@@ -13,22 +13,22 @@ class G4RawTowerTTree : public SubsysReco
 {
  public:
   G4RawTowerTTree(const std::string &name = "RAWTOWERTTREE");
-  virtual ~G4RawTowerTTree() {}
+  ~G4RawTowerTTree() override {}
 
   //! full initialization
-  int Init(PHCompositeNode *);
+  int Init(PHCompositeNode *) override;
 
   //! event processing method
-  int process_event(PHCompositeNode *);
+  int process_event(PHCompositeNode *) override;
 
-  int End(PHCompositeNode *);
+  int End(PHCompositeNode *) override;
 
   void Detector(const std::string &det);
 
   void SaveRawTowers(const int i = 1) { savetowers = i; }
 
   void HistoFileName(const std::string &name) { _histofilename = name; }
-
+ 
  protected:
   std::string _detector;
   std::string _outnodename;

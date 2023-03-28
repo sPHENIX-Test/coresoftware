@@ -10,11 +10,11 @@ class PHNode;
 class DumpTrkrClusterContainer : public DumpObject
 {
  public:
-  DumpTrkrClusterContainer(const std::string &NodeName);
-  virtual ~DumpTrkrClusterContainer() {}
+  explicit DumpTrkrClusterContainer(const std::string &NodeName);
+  ~DumpTrkrClusterContainer() override {}
 
  protected:
-  int process_Node(PHNode *mynode);
+  int process_Node(PHNode *mynode) override;
 };
 
 #endif
