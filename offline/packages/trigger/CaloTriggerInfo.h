@@ -6,7 +6,7 @@
 class CaloTriggerInfo : public PHObject
 {
  public:
-  ~CaloTriggerInfo() override{};
+  ~CaloTriggerInfo() override {};
 
   void identify(std::ostream &os = std::cout) const override { os << "CaloTriggerInfo base class" << std::endl; };
   int isValid() const override { return 0; }
@@ -84,7 +84,7 @@ class CaloTriggerInfo : public PHObject
   virtual float get_best_FullCalo_1p0x1p0_phi() const { return 0; }
 
  protected:
-  CaloTriggerInfo() {}
+  CaloTriggerInfo() = default;
 
  private:
   ClassDefOverride(CaloTriggerInfo, 1);

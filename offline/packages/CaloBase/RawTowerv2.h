@@ -13,13 +13,13 @@
 class RawTowerv2 : public RawTowerv1
 {
  public:
-  RawTowerv2();
+  RawTowerv2() = default;
   RawTowerv2(const RawTower& tower);
   RawTowerv2(RawTowerDefs::keytype id);
   RawTowerv2(const unsigned int ieta, const unsigned int iphi);
   RawTowerv2(const RawTowerDefs::CalorimeterId caloid, const unsigned int ieta,
              const unsigned int iphi);
-  ~RawTowerv2() override {}
+  ~RawTowerv2() override = default;
 
   void Reset() override;
   int isValid() const override;
@@ -32,6 +32,7 @@ class RawTowerv2 : public RawTowerv1
 
   bool has_property(const PROPERTY prop_id) const override;
   double get_property(const PROPERTY prop_id) const override;
+  // cppcheck-suppress virtualCallInConstructor
   void set_property(const PROPERTY prop_id, const double value) override;
 
  protected:

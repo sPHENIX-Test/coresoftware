@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
@@ -22,10 +22,8 @@ ROOTDICTS = \
   ParticleFlowElementContainer_Dict.cc
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  ParticleFlowElement_Dict_rdict.pcm \
-  ParticleFlowElementv1_Dict_rdict.pcm \
-  ParticleFlowElementContainer_Dict_rdict.pcm 
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 lib_LTLIBRARIES = \
   libparticleflow_io.la \
@@ -50,10 +48,10 @@ libparticleflow_la_LIBADD = \
   -lgsl \
   -lgslcblas \
   -lphg4hit \
-  -lg4jets_io \
+  -ljetbase \
   -ltrackbase_historic_io \
   -lCLHEP \
-  -lg4vertex_io \
+  -lglobalvertex_io \
   -lSubsysReco
 
 %_Dict.cc: %.h %LinkDef.h

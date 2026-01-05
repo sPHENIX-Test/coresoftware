@@ -2,7 +2,7 @@
 
 /*!
  * \file JetHepMCLoader.C
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision:   $
  * \date $Date: $
@@ -10,9 +10,8 @@
 
 #include "JetHepMCLoader.h"
 
-#include "JetMap.h"  // for JetMap
-#include "JetMapv1.h"
-#include "Jetv1.h"
+#include <jetbase/JetContainer.h>  // for JetContainer
+#include <jetbase/Jetv1.h>
 
 #include <phhepmc/PHHepMCGenEvent.h>
 #include <phhepmc/PHHepMCGenEventMap.h>
@@ -36,11 +35,7 @@
 #include <TH2.h>
 #include <TNamed.h>  // for TNamed
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <HepMC/GenEvent.h>      // for GenEvent, GenEvent::particl...
-#pragma GCC diagnostic pop
-
+#include <HepMC/GenEvent.h>  // for GenEvent, GenEvent::particl...
 #include <HepMC/GenParticle.h>   // for GenParticle
 #include <HepMC/SimpleVector.h>  // for FourVector
 #include <HepMC/Units.h>         // for conversion_factor, GEV
@@ -54,6 +49,7 @@ JetHepMCLoader::JetHepMCLoader(const std::string &jetInputCategory)
   , m_jetInputCategory(jetInputCategory)
 
 {
+  return;
 }
 
 int JetHepMCLoader::InitRun(PHCompositeNode *topNode)
@@ -98,7 +94,7 @@ int JetHepMCLoader::process_event(PHCompositeNode *topNode)
   {
     static bool once = true;
 
-    if (once and Verbosity())
+    if (once && Verbosity())
     {
       once = false;
 
@@ -119,7 +115,7 @@ int JetHepMCLoader::process_event(PHCompositeNode *topNode)
 
   for (const hepmc_jet_src &src : m_jetSrc)
   {
-    JetMap *jets = findNode::getClass<JetMap>(topNode, src.m_name);
+    JetContainer *jets = findNode::getClass<JetContainer>(topNode, src.m_name);
     assert(jets);
 
     jets->set_algo(src.m_algorithmID);
@@ -128,7 +124,10 @@ int JetHepMCLoader::process_event(PHCompositeNode *topNode)
 
     PHHepMCGenEvent *genevt = genevtmap->get(src.m_embeddingID);
 
-    if (genevt == nullptr) continue;
+    if (genevt == nullptr)
+    {
+      continue;
+    }
 
     HepMC::GenEvent *evt = genevt->getEvent();
     if (!evt)
@@ -168,9 +167,9 @@ int JetHepMCLoader::process_event(PHCompositeNode *topNode)
         part->print();
       }
 
-      if (part->status() == src.m_tagStatus and part->pdg_id() == src.m_tagPID)
+      if (part->status() == src.m_tagStatus && part->pdg_id() == src.m_tagPID)
       {
-        Jet *jet = new Jetv1();
+        Jet *jet = jets->add_jet();  // returns a new Jetv2
 
         jet->set_px(part->momentum().px() * mom_factor);
         jet->set_py(part->momentum().py() * mom_factor);
@@ -178,9 +177,6 @@ int JetHepMCLoader::process_event(PHCompositeNode *topNode)
         jet->set_e(part->momentum().e() * mom_factor);
 
         jet->insert_comp(Jet::HEPMC_IMPORT, part->barcode());
-
-        jets->insert(jet);
-
         if (hjet)
         {
           hjet->Fill(jet->get_eta(), jet->get_et());
@@ -256,27 +252,27 @@ int JetHepMCLoader::CreateNodes(PHCompositeNode *topNode)
   for (const hepmc_jet_src &src : m_jetSrc)
   {
     // Create the AntiKt node if required
-    PHCompositeNode *AlgoNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", src.m_algorithmName.c_str()));
+    PHCompositeNode *AlgoNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", src.m_algorithmName));
     if (!AlgoNode)
     {
-      AlgoNode = new PHCompositeNode(src.m_algorithmName.c_str());
+      AlgoNode = new PHCompositeNode(src.m_algorithmName);
       dstNode->addNode(AlgoNode);
     }
 
     // Create the Input node if required
-    PHCompositeNode *InputNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", m_jetInputCategory.c_str()));
+    PHCompositeNode *InputNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", m_jetInputCategory));
     if (!InputNode)
     {
-      InputNode = new PHCompositeNode(m_jetInputCategory.c_str());
+      InputNode = new PHCompositeNode(m_jetInputCategory);
       AlgoNode->addNode(InputNode);
     }
 
-    JetMap *jets = findNode::getClass<JetMap>(topNode, src.m_name);
+    JetContainer *jets = findNode::getClass<JetContainer>(topNode, src.m_name);
     if (!jets)
     {
-      jets = new JetMapv1();
-      PHIODataNode<PHObject> *JetMapNode = new PHIODataNode<PHObject>(jets, src.m_name.c_str(), "PHObject");
-      InputNode->addNode(JetMapNode);
+      jets = new JetContainer();
+      PHIODataNode<PHObject> *JetContainerNode = new PHIODataNode<PHObject>(jets, src.m_name, "PHObject");
+      InputNode->addNode(JetContainerNode);
     }
   }
 
@@ -291,7 +287,7 @@ JetHepMCLoader::getHistoManager()
   Fun4AllServer *se = Fun4AllServer::instance();
   Fun4AllHistoManager *hm = se->getHistoManager(histname);
 
-  if (not hm)
+  if (! hm)
   {
     std::cout
         << "TPCDataStreamEmulator::get_HistoManager - Making Fun4AllHistoManager " << histname

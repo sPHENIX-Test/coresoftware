@@ -1,6 +1,6 @@
 /*!
  * \file PHG4SteppingAction.cc
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision: 1.1 $
  * \date $Date: 2015/01/07 23:50:05 $
@@ -33,12 +33,9 @@
 
 PHG4SteppingAction::PHG4SteppingAction(const std::string& name, const int i)
   : m_Verbosity(i)
-  , m_LightBalanceInnerRadius(NAN)
-  , m_LightBalanceInnerCorr(NAN)
-  , m_LightBalanceOuterRadius(NAN)
-  , m_LightBalanceOuterCorr(NAN)
   , m_Name(name)
 {
+  return;
 }
 
 double
@@ -54,7 +51,7 @@ PHG4SteppingAction::GetScintLightYield(const G4Step* step)
       aMaterial->GetMaterialPropertiesTable();
   if (!aMaterialPropertiesTable)
   {
-    const std::string &mname(aMaterial->GetName());
+    const std::string& mname(aMaterial->GetName());
 
     std::set<std::string>::const_iterator it =
         m_ScintLightYieldMissingMaterialSet.find(mname);
@@ -64,10 +61,10 @@ PHG4SteppingAction::GetScintLightYield(const G4Step* step)
       m_ScintLightYieldMissingMaterialSet.insert(mname);
 
       std::cout << "PHG4SteppingAction::GetScintLightYield - WARNING - "
-           << "can not find Material Properties Table for material " << mname
-           << ", will assume it do NOT scintillate. "
-           << "Please ignore this warning if you do not expect scintillation light from "
-           << mname << std::endl;
+                << "can not find Material Properties Table for material " << mname
+                << ", will assume it do NOT scintillate. "
+                << "Please ignore this warning if you do not expect scintillation light from "
+                << mname << std::endl;
     }
 
     return 0.;
@@ -79,28 +76,23 @@ PHG4SteppingAction::GetScintLightYield(const G4Step* step)
 
     return light_yield;
   }  //  if (aMaterialPropertiesTable->ConstPropertyExists("SCINTILLATIONYIELD"))
-  else
+  const std::string& mname(aMaterial->GetName());
+
+  std::set<std::string>::const_iterator it =
+      m_ScintLightYieldMissingMaterialSet.find(mname);
+
+  if (it == m_ScintLightYieldMissingMaterialSet.end())
   {
-    const std::string &mname(aMaterial->GetName());
+    m_ScintLightYieldMissingMaterialSet.insert(mname);
 
-    std::set<std::string>::const_iterator it =
-        m_ScintLightYieldMissingMaterialSet.find(mname);
-
-    if (it == m_ScintLightYieldMissingMaterialSet.end())
-    {
-      m_ScintLightYieldMissingMaterialSet.insert(mname);
-
-      std::cout << "PHG4SteppingAction::GetScintLightYield - WARNING - "
-           << "can not find scintillation light yield for material " << mname
-           << ", will assume it do NOT scintillate. "
-           << "Please ignore this warning if you do not expect scintillation light from "
-           << mname << std::endl;
-    }
-
-    return 0.;
+    std::cout << "PHG4SteppingAction::GetScintLightYield - WARNING - "
+              << "can not find scintillation light yield for material " << mname
+              << ", will assume it do NOT scintillate. "
+              << "Please ignore this warning if you do not expect scintillation light from "
+              << mname << std::endl;
   }
 
-  return light_yield;
+  return light_yield;  // whatever was set as default at beginning
 }
 
 double
@@ -116,14 +108,12 @@ PHG4SteppingAction::GetVisibleEnergyDeposition(const G4Step* step)
     double visen = emSaturation->VisibleEnergyDepositionAtAStep(step) / GeV;
     return visen;
   }
-  else
-  {
-    std::cout
-        << "PHG4SteppingAction::GetScintLightYield - ERROR - can NOT initialize G4EmSaturation!"
-        << std::endl;
 
-    return 0.;
-  }
+  std::cout
+      << "PHG4SteppingAction::GetScintLightYield - ERROR - can NOT initialize G4EmSaturation!"
+      << std::endl;
+
+  return 0.;
 }
 
 void PHG4SteppingAction::StoreLocalCoordinate(PHG4Hit* hit, const G4Step* aStep,

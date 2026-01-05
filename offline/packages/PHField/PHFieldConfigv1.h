@@ -2,7 +2,7 @@
 
 /*!
  * \file PHFieldConfig_v1.h
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision:   $
  * \date $Date: $
@@ -49,8 +49,7 @@ class PHFieldConfigv1 : public PHFieldConfig
   void Reset() override {}
 
   /// isValid returns non zero if object contains vailid data
-  int
-  isValid() const override;
+  int isValid() const override;
 
   FieldConfigTypes get_field_config() const override
   {
@@ -80,6 +79,9 @@ class PHFieldConfigv1 : public PHFieldConfig
   {
     magfield_rescale_ = magfieldRescale;
   }
+
+  //! equal to operator, to base class
+  bool operator == (const PHFieldConfig& ) const override;
 
  protected:
   FieldConfigTypes field_config_;

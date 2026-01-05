@@ -18,10 +18,8 @@
 #include <phool/PHObject.h>        // for PHObject
 #include <phool/getClass.h>
 
-#include <boost/foreach.hpp>
-
-#include <cmath>     // for NAN
 #include <iostream>  // for operator<<, basic_ostream
+#include <limits>
 #include <set>
 #include <sstream>
 
@@ -88,7 +86,7 @@ int PHG4InnerHcalSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
       }
       nodes.insert(nodename.str());
     }
-    BOOST_FOREACH (std::string node, nodes)
+    for (const auto &node : nodes)
     {
       PHG4HitContainer *g4_hits = findNode::getClass<PHG4HitContainer>(topNode, node);
       if (!g4_hits)
@@ -100,7 +98,7 @@ int PHG4InnerHcalSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
 
     // create stepping action
     m_SteppingAction = new PHG4InnerHcalSteppingAction(m_Detector, GetParams());
-    m_SteppingAction->Init();
+    m_SteppingAction->InitWithNode(topNode);
   }
   else
   {
@@ -108,7 +106,7 @@ int PHG4InnerHcalSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
     if (GetParams()->get_int_param("blackhole"))
     {
       m_SteppingAction = new PHG4InnerHcalSteppingAction(m_Detector, GetParams());
-      m_SteppingAction->Init();
+      m_SteppingAction->InitWithNode(topNode);
     }
   }
   return 0;
@@ -151,10 +149,11 @@ PHG4Detector *PHG4InnerHcalSubsystem::GetDetector() const
 void PHG4InnerHcalSubsystem::SetDefaultParameters()
 {
   set_default_double_param(PHG4HcalDefs::innerrad, 117.27);
-  set_default_double_param("light_balance_inner_corr", NAN);
-  set_default_double_param("light_balance_inner_radius", NAN);
-  set_default_double_param("light_balance_outer_corr", NAN);
-  set_default_double_param("light_balance_outer_radius", NAN);
+  set_default_double_param("light_balance_inner_corr", std::numeric_limits<double>::quiet_NaN());
+  set_default_double_param("light_balance_inner_radius", std::numeric_limits<double>::quiet_NaN());
+  set_default_double_param("light_balance_outer_corr", std::numeric_limits<double>::quiet_NaN());
+  set_default_double_param("light_balance_outer_radius", std::numeric_limits<double>::quiet_NaN());
+  set_default_double_param("phistart", std::numeric_limits<double>::quiet_NaN());
   set_default_double_param(PHG4HcalDefs::outerrad, 134.42);
   set_default_double_param("place_x", 0.);
   set_default_double_param("place_y", 0.);
@@ -168,13 +167,16 @@ void PHG4InnerHcalSubsystem::SetDefaultParameters()
   set_default_double_param("scinti_gap_neighbor", 0.1);
   set_default_double_param("scinti_inner_gap", 0.85);
   set_default_double_param("scinti_outer_gap", 1.22 * (5.0 / 4.0));
+  set_default_double_param("tmin", -20.);
+  set_default_double_param("tmax", 60.);
+  set_default_double_param("dt", 100.);
   // some math issue in the code subtracts 0.4mm so the scintillator
   // does not end at 133.09 as per drawing but at 133.05
   // adding 0.4mm compensates for this (so 133.13 gives the desired 133.09
   set_default_double_param("scinti_outer_radius", 133.13);
   set_default_double_param("scinti_tile_thickness", 0.7);
   set_default_double_param("size_z", 175.94 * 2);
-  set_default_double_param("steplimits", NAN);
+  set_default_double_param("steplimits", std::numeric_limits<double>::quiet_NaN());
   set_default_double_param("tilt_angle", 36.15);  // engineering drawing
                                                   // corresponds very closely to 4 crossinge (35.5497 deg)
 
@@ -187,6 +189,8 @@ void PHG4InnerHcalSubsystem::SetDefaultParameters()
   set_default_int_param(PHG4HcalDefs::n_scinti_tiles, 12);
   set_default_int_param(PHG4HcalDefs::n_scinti_tiles_pos, 12);
   set_default_int_param(PHG4HcalDefs::n_scinti_tiles_neg, 12);
+  set_default_int_param("etabins", 24);
+  set_default_int_param("saveg4hit", 1);
 
   set_default_string_param("material", "G4_Al");
   std::string defaultmapfilename;

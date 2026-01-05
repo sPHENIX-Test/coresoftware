@@ -4,9 +4,12 @@
 #include "TowerInfoContainer.h"
 #include "TowerInfov1.h"
 
-#include <phool/PHObject.h>
-
 #include <TClonesArray.h>
+
+#include <cstddef>
+#include <iostream>
+
+class PHObject;
 
 class TowerInfoContainerv1 : public TowerInfoContainer
 {
@@ -14,30 +17,23 @@ class TowerInfoContainerv1 : public TowerInfoContainer
   TowerInfoContainerv1(DETECTOR detec);
 
   // default constructor for ROOT IO
-  TowerInfoContainerv1() {}
+  TowerInfoContainerv1() = default;
+  PHObject *CloneMe() const override { return new TowerInfoContainerv1(*this); }
+  TowerInfoContainerv1(const TowerInfoContainerv1 &);
 
   ~TowerInfoContainerv1() override;
+
+  void identify(std::ostream &os = std::cout) const override;
 
   void Reset() override;
   TowerInfov1 *get_tower_at_channel(int pos) override;
   TowerInfov1 *get_tower_at_key(int pos) override;
 
-
   unsigned int encode_key(unsigned int towerIndex) override;
   unsigned int decode_key(unsigned int tower_key) override;
 
-  unsigned int encode_epd(unsigned int towerIndex) override;
-  unsigned int encode_hcal(unsigned int towerIndex) override;
-  unsigned int encode_emcal(unsigned int towerIndex) override;
-
-  unsigned int decode_epd(unsigned int towerIndex) override;
-  unsigned int decode_hcal(unsigned int towerIndex) override;
-  unsigned int decode_emcal(unsigned int towerIndex) override;
-
-  size_t size() override { return _clones->GetEntries(); }
-
-  unsigned int getTowerPhiBin(unsigned int towerIndex) override;
-  unsigned int getTowerEtaBin(unsigned int towerIndex) override;
+  size_t size() const override { return _clones->GetEntries(); }
+  DETECTOR get_detectorid() const override { return _detector; }
 
  protected:
   TClonesArray *_clones = nullptr;

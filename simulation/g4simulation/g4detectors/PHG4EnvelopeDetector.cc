@@ -23,8 +23,6 @@ class G4Material;
 class G4VSolid;
 class PHCompositeNode;
 
-using namespace std;
-
 //___________________________________________________________________________________
 PHG4EnvelopeDetector::PHG4EnvelopeDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const std::string& dnam)
   : PHG4Detector(subsys, Node, dnam)
@@ -47,20 +45,18 @@ PHG4EnvelopeDetector::PHG4EnvelopeDetector(PHG4Subsystem* subsys, PHCompositeNod
 //_______________________________________________________________________________________
 bool PHG4EnvelopeDetector::IsInEnvelope(G4VPhysicalVolume* volume) const
 {
-  if (volume->GetName().find("arbage") != string::npos)
+  if (volume->GetName().find("arbage") != std::string::npos)
   {
     return true;
   }
-  else
-  {
-    return false;
-  }
+
+  return false;
 }
 
 void PHG4EnvelopeDetector::ConstructMe(G4LogicalVolume* logicWorld)
 {
   //***************
-  //Backward Endcap
+  // Backward Endcap
   //***************
 
   G4double placeInZ = _placeInZ;
@@ -105,7 +101,7 @@ void PHG4EnvelopeDetector::ConstructMe(G4LogicalVolume* logicWorld)
                     OverlapCheck());
 
   //**************
-  //Forward Endcap
+  // Forward Endcap
   //**************
 
   new G4PVPlacement(G4Transform3D(ecal_rotm, G4ThreeVector(placeInX, placeInY, -1 * placeInZ)),
@@ -117,7 +113,7 @@ void PHG4EnvelopeDetector::ConstructMe(G4LogicalVolume* logicWorld)
                     OverlapCheck());
 
   //*****************************
-  //Cylinder Surrounding Detector
+  // Cylinder Surrounding Detector
   //*****************************
 
   G4double cyl_place = 0 * mm;

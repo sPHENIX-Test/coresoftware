@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS = foreign
 
-AM_CXXFLAGS = `geant4-config --cflags`
+AM_CXXFLAGS = `geant4-config --cflags | sed 's/-I/-isystem/g'`
 
 # set in configure.in to check if gcc version >= 4.8
 #if GCC_GE_48
@@ -14,10 +14,10 @@ lib_LTLIBRARIES = \
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include \
   -isystem$(XERCESCROOT)/include \
-  -I$(OPT_SPHENIX)/include
+  -isystem$(OPT_SPHENIX)/include
 
 libphg4hit_la_LDFLAGS = \
   -L$(libdir) \
@@ -37,8 +37,6 @@ libg4testbench_la_LDFLAGS = \
 libg4testbench_la_LIBADD = \
   libphg4hit.la \
   -lboost_filesystem \
-  -leASTPhysicsList \
-  -leicsmear \
   -lffamodules \
   -lfun4all \
   -lg4decayer \
@@ -49,8 +47,7 @@ libg4testbench_la_LIBADD = \
   -lphgeom \
   -lphg4gdml \
   -lphhepmc \
-  -lphparameter \
-  -lvararray
+  -lphparameter
 
 # I/O dictionaries have to exist for root5 and root6. For ROOT6 we need
 # pcm files in addition. If someone can figure out how to make a list
@@ -75,30 +72,13 @@ ROOTHITDICTS = \
   PHG4Showerv1_Dict.cc \
   PHG4VtxPoint_Dict.cc \
   PHG4VtxPointv1_Dict.cc \
+  PHG4VtxPointv2_Dict.cc \
   PHG4TruthInfoContainer_Dict.cc
 
 # this is a tweak to install files in $(libdir), automake refuses
 # to install other files in libdir, this construct gets around this
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  EicEventHeader_Dict_rdict.pcm \
-  EicEventHeaderv1_Dict_rdict.pcm \
-  PHG4EventHeader_Dict_rdict.pcm \
-  PHG4EventHeaderv1_Dict_rdict.pcm \
-  PHG4Hit_Dict_rdict.pcm \
-  PHG4Hitv1_Dict_rdict.pcm \
-  PHG4HitEval_Dict_rdict.pcm \
-  PHG4HitContainer_Dict_rdict.pcm \
-  PHG4InEvent_Dict_rdict.pcm \
-  PHG4Particle_Dict_rdict.pcm \
-  PHG4Particlev1_Dict_rdict.pcm \
-  PHG4Particlev2_Dict_rdict.pcm \
-  PHG4Particlev3_Dict_rdict.pcm \
-  PHG4Shower_Dict_rdict.pcm \
-  PHG4Showerv1_Dict_rdict.pcm \
-  PHG4VtxPoint_Dict_rdict.pcm \
-  PHG4VtxPointv1_Dict_rdict.pcm \
-  PHG4TruthInfoContainer_Dict_rdict.pcm
+nobase_dist_pcm_DATA = $(ROOTHITDICTS:.cc=_rdict.pcm)
 
 libphg4hit_la_SOURCES = \
   $(ROOTHITDICTS) \
@@ -119,15 +99,17 @@ libphg4hit_la_SOURCES = \
   PHG4Showerv1.cc \
   PHG4TruthInfoContainer.cc \
   PHG4VtxPoint.cc \
-  PHG4VtxPointv1.cc
+  PHG4VtxPointv1.cc \
+  PHG4VtxPointv2.cc
 
 libg4testbench_la_SOURCES = \
+  CosmicSpray.cc \
   Fun4AllMessenger.cc \
-  G4TBMagneticFieldSetup.cc \
-  G4TBFieldMessenger.cc \
   Fun4AllDstPileupInputManager.cc \
   Fun4AllDstPileupMerger.cc \
   Fun4AllSingleDstPileupInputManager.cc \
+  G4TBMagneticFieldSetup.cc \
+  G4TBFieldMessenger.cc \
   HepMCNodeReader.cc \
   PHG4ConsistencyCheck.cc \
   PHG4DisplayAction.cc \
@@ -136,8 +118,6 @@ libg4testbench_la_SOURCES = \
   PHG4EtaParameterization.cc \
   PHG4EtaPhiParameterization.cc \
   PHG4HeadReco.cc \
-  PHG4InEventCompress.cc \
-  PHG4InEventReadBack.cc \
   PHG4InputFilter.cc \
   PHG4IonGun.cc \
   PHG4MagneticField.cc \
@@ -154,6 +134,8 @@ libg4testbench_la_SOURCES = \
   PHG4PhenixTrackingAction.cc \
   PHG4PileupGenerator.cc \
   PHG4PrimaryGeneratorAction.cc \
+  PHG4ProcessMap.cc \
+  PHG4ProcessMapPhysics.cc \
   PHG4Reco.cc \
   PHG4RegionInformation.cc \
   PHG4ScoringManager.cc \
@@ -167,9 +149,7 @@ libg4testbench_la_SOURCES = \
   PHG4TruthTrackingAction.cc \
   PHG4UIsession.cc \
   PHG4Utils.cc \
-  PHG4VertexSelection.cc \
-  ReadEICFiles.cc \
-  CosmicSpray.cc
+  PHG4VertexSelection.cc
 
 
 ##############################################
@@ -194,6 +174,7 @@ pkginclude_HEADERS = \
   PHG4HitContainer.h \
   PHG4InEvent.h \
   PHG4IonGun.h \
+  PHG4MCProcessDefs.h \
   PHG4Particle.h \
   PHG4Particlev1.h \
   PHG4Particlev2.h \
@@ -207,6 +188,8 @@ pkginclude_HEADERS = \
   PHG4PhenixDetector.h \
   PHG4PileupGenerator.h \
   PHG4PrimaryGeneratorAction.h \
+  PHG4ProcessMap.h \
+  PHG4ProcessMapPhysics.h \
   PHG4Reco.h \
   PHG4RegionInformation.h \
   PHG4ScoringManager.h \
@@ -225,6 +208,7 @@ pkginclude_HEADERS = \
   PHG4VertexSelection.h \
   PHG4VtxPoint.h \
   PHG4VtxPointv1.h \
+  PHG4VtxPointv2.h \
   ReadEICFiles.h \
   CosmicSpray.h \
   EcoMug.h

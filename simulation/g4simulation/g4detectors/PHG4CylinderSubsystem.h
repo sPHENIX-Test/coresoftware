@@ -18,10 +18,10 @@ class PHG4CylinderSubsystem : public PHG4DetectorSubsystem
 {
  public:
   //! constructor
-  PHG4CylinderSubsystem(const std::string& name = "CYLINDER", const int layer = 0);
+  PHG4CylinderSubsystem(const std::string& name = "CYLINDER", const int lyr = 0);
 
   //! destructor
-  ~PHG4CylinderSubsystem(void) override;
+  ~PHG4CylinderSubsystem() override;
 
   //! init runwise stuff
   /*!
@@ -42,8 +42,8 @@ class PHG4CylinderSubsystem : public PHG4DetectorSubsystem
   void Print(const std::string& what = "ALL") const override;
 
   //! accessors (reimplemented)
-  PHG4Detector* GetDetector(void) const override;
-  PHG4SteppingAction* GetSteppingAction(void) const override { return m_SteppingAction; }
+  PHG4Detector* GetDetector() const override;
+  PHG4SteppingAction* GetSteppingAction() const override { return m_SteppingAction; }
 
   PHG4DisplayAction* GetDisplayAction() const override { return m_DisplayAction; }
   void set_color(const double red, const double green, const double blue, const double alpha = 1.)
@@ -68,19 +68,19 @@ class PHG4CylinderSubsystem : public PHG4DetectorSubsystem
 
   //! detector geometry
   /*! derives from PHG4Detector */
-  PHG4CylinderDetector* m_Detector = nullptr;
+  PHG4CylinderDetector* m_Detector{nullptr};
 
   //! particle tracking "stepping" action
   /*! derives from PHG4SteppingActions */
-  PHG4SteppingAction* m_SteppingAction = nullptr;
+  PHG4SteppingAction* m_SteppingAction{nullptr};
 
   //! display attribute setting
   /*! derives from PHG4DisplayAction */
-  PHG4DisplayAction* m_DisplayAction = nullptr;
+  PHG4DisplayAction* m_DisplayAction{nullptr};
 
   bool m_SaveAllHitsFlag = false;
   //! Color setting if we want to override the default
-  std::array<double, 4> m_ColorArray;
+  std::array<double, 4> m_ColorArray{};
 };
 
 #endif  // G4DETECTORS_PHG4CYLINDERSUBSYSTEM_H

@@ -34,13 +34,13 @@ PHG4SimpleEventGenerator::PHG4SimpleEventGenerator(const std::string &name)
 
 void PHG4SimpleEventGenerator::add_particles(const std::string &name, const unsigned int num)
 {
-  _particle_names.push_back(std::make_pair(name, num));
+  _particle_names.emplace_back(name, num);
   return;
 }
 
 void PHG4SimpleEventGenerator::add_particles(const int pid, const unsigned int num)
 {
-  _particle_codes.push_back(std::make_pair(pid, num));
+  _particle_codes.emplace_back(pid, num);
   return;
 }
 
@@ -53,8 +53,8 @@ void PHG4SimpleEventGenerator::set_eta_range(const double min, const double max)
   }
   m_EtaMin = min;
   m_EtaMax = max;
-  m_ThetaMin = NAN;
-  m_ThetaMax = NAN;
+  m_ThetaMin = std::numeric_limits<double>::quiet_NaN();
+  m_ThetaMax = std::numeric_limits<double>::quiet_NaN();
   return;
 }
 
@@ -72,8 +72,8 @@ void PHG4SimpleEventGenerator::set_theta_range(const double min, const double ma
   }
   m_ThetaMin = min;
   m_ThetaMax = max;
-  m_EtaMin = NAN;
-  m_EtaMax = NAN;
+  m_EtaMin = std::numeric_limits<double>::quiet_NaN();
+  m_EtaMax = std::numeric_limits<double>::quiet_NaN();
   return;
 }
 
@@ -118,9 +118,9 @@ void PHG4SimpleEventGenerator::set_pt_range(const double min, const double max, 
   m_Pt_Min = min;
   m_Pt_Max = max;
   m_Pt_GausWidth = pt_gaus_width;
-  m_P_Min = NAN;
-  m_P_Max = NAN;
-  m_P_GausWidth = NAN;
+  m_P_Min = std::numeric_limits<double>::quiet_NaN();
+  m_P_Max = std::numeric_limits<double>::quiet_NaN();
+  m_P_GausWidth = std::numeric_limits<double>::quiet_NaN();
   return;
 }
 
@@ -137,9 +137,9 @@ void PHG4SimpleEventGenerator::set_p_range(const double min, const double max, c
               << ", max: " << max << ", p_gaus_width: " << p_gaus_width << std::endl;
     gSystem->Exit(1);
   }
-  m_Pt_Min = NAN;
-  m_Pt_Max = NAN;
-  m_Pt_GausWidth = NAN;
+  m_Pt_Min = std::numeric_limits<double>::quiet_NaN();
+  m_Pt_Max = std::numeric_limits<double>::quiet_NaN();
+  m_Pt_GausWidth = std::numeric_limits<double>::quiet_NaN();
   m_P_Min = min;
   m_P_Max = max;
   m_P_GausWidth = p_gaus_width;
@@ -187,17 +187,17 @@ void PHG4SimpleEventGenerator::set_vertex_size_parameters(const double mean, con
 
 int PHG4SimpleEventGenerator::InitRun(PHCompositeNode *topNode)
 {
-  if (m_FunctionNames.find(m_VertexFunc_x) == m_FunctionNames.end())
+  if (!m_FunctionNames.contains(m_VertexFunc_x))
   {
     std::cout << PHWHERE << "::Error - unknown x vertex distribution function requested" << std::endl;
     gSystem->Exit(1);
   }
-  if (m_FunctionNames.find(m_VertexFunc_y) == m_FunctionNames.end())
+  if (!m_FunctionNames.contains(m_VertexFunc_y))
   {
     std::cout << PHWHERE << "::Error - unknown y vertex distribution function requested" << std::endl;
     gSystem->Exit(1);
   }
-  if (m_FunctionNames.find(m_VertexFunc_z) == m_FunctionNames.end())
+  if (!m_FunctionNames.contains(m_VertexFunc_z))
   {
     std::cout << PHWHERE << "::Error - unknown z vertex distribution function requested" << std::endl;
     gSystem->Exit(1);
@@ -220,13 +220,13 @@ int PHG4SimpleEventGenerator::InitRun(PHCompositeNode *topNode)
     std::cout << "================ PHG4SimpleEventGenerator::InitRun() ======================" << std::endl;
     std::cout << " Random seed = " << get_seed() << std::endl;
     std::cout << " Particles:" << std::endl;
-    for (unsigned int i = 0; i < _particle_codes.size(); ++i)
+    for (auto &_particle_code : _particle_codes)
     {
-      std::cout << "    " << _particle_codes[i].first << ", count = " << _particle_codes[i].second << std::endl;
+      std::cout << "    " << _particle_code.first << ", count = " << _particle_code.second << std::endl;
     }
-    for (unsigned int i = 0; i < _particle_names.size(); ++i)
+    for (auto &_particle_name : _particle_names)
     {
-      std::cout << "    " << _particle_names[i].first << ", count = " << _particle_names[i].second << std::endl;
+      std::cout << "    " << _particle_name.first << ", count = " << _particle_name.second << std::endl;
     }
     if (get_reuse_existing_vertex())
     {
@@ -272,12 +272,12 @@ int PHG4SimpleEventGenerator::InitRun(PHCompositeNode *topNode)
   }
 
   // the definition table should be filled now, so convert codes into names
-  for (unsigned int i = 0; i < _particle_codes.size(); ++i)
+  for (auto &_particle_code : _particle_codes)
   {
-    int pdgcode = _particle_codes[i].first;
-    unsigned int count = _particle_codes[i].second;
+    int pdgcode = _particle_code.first;
+    unsigned int count = _particle_code.second;
     std::string pdgname = get_pdgname(pdgcode);
-    _particle_names.push_back(std::make_pair(pdgname, count));
+    _particle_names.emplace_back(pdgname, count);
   }
 
   return Fun4AllReturnCodes::EVENT_OK;
@@ -357,32 +357,31 @@ int PHG4SimpleEventGenerator::process_event(PHCompositeNode *topNode)
         exit(-1);
       }
 
-      double phi = (m_PhiMax - m_PhiMin) * gsl_rng_uniform_pos(RandomGenerator()) + m_PhiMin;      
+      double phi = (m_PhiMax - m_PhiMin) * gsl_rng_uniform_pos(RandomGenerator()) + m_PhiMin;
 
       double pt;
-      
+
       if (!std::isnan(m_P_Min) && !std::isnan(m_P_Max) && !std::isnan(m_P_GausWidth))
       {
-	pt = ((m_P_Max - m_P_Min) * gsl_rng_uniform_pos(RandomGenerator()) + m_P_Min + gsl_ran_gaussian(RandomGenerator(), m_P_GausWidth)) / cosh(eta);
-	if(!std::isnan(m_powerLawN))
-	{
-	  double y = gsl_rng_uniform_pos(RandomGenerator());
-	  double x1 = pow(m_Pt_Max, m_powerLawN+1);
-	  double x0 = pow(m_Pt_Min, m_powerLawN+1);
-	  pt = pow((x1-x0)*y + x0,1./(m_powerLawN+1.));
-	}
+        pt = ((m_P_Max - m_P_Min) * gsl_rng_uniform_pos(RandomGenerator()) + m_P_Min + gsl_ran_gaussian(RandomGenerator(), m_P_GausWidth)) / cosh(eta);
+        if (!std::isnan(m_powerLawN))
+        {
+          double y = gsl_rng_uniform_pos(RandomGenerator());
+          double x1 = pow(m_Pt_Max, m_powerLawN + 1);
+          double x0 = pow(m_Pt_Min, m_powerLawN + 1);
+          pt = pow((x1 - x0) * y + x0, 1. / (m_powerLawN + 1.));
+        }
       }
       else if (!std::isnan(m_Pt_Min) && !std::isnan(m_Pt_Max) && !std::isnan(m_Pt_GausWidth))
       {
         pt = (m_Pt_Max - m_Pt_Min) * gsl_rng_uniform_pos(RandomGenerator()) + m_Pt_Min + gsl_ran_gaussian(RandomGenerator(), m_Pt_GausWidth);
-	if(!std::isnan(m_powerLawN))
-	{
-	  double y = gsl_rng_uniform_pos(RandomGenerator());
-	  double x1 = pow(m_Pt_Max, m_powerLawN+1);
-	  double x0 = pow(m_Pt_Min, m_powerLawN+1);
-	  pt = pow((x1-x0)*y + x0,1./(m_powerLawN+1.));
-	}
-
+        if (!std::isnan(m_powerLawN))
+        {
+          double y = gsl_rng_uniform_pos(RandomGenerator());
+          double x1 = pow(m_Pt_Max, m_powerLawN + 1);
+          double x0 = pow(m_Pt_Min, m_powerLawN + 1);
+          pt = pow((x1 - x0) * y + x0, 1. / (m_powerLawN + 1.));
+        }
       }
       else
       {
@@ -408,7 +407,10 @@ int PHG4SimpleEventGenerator::process_event(PHCompositeNode *topNode)
       particle->set_e(e);
 
       m_InEvent->AddParticle(vtxindex, particle);
-      if (EmbedFlag() != 0) m_InEvent->AddEmbeddedParticle(particle, EmbedFlag());
+      if (EmbedFlag() != 0)
+      {
+        m_InEvent->AddEmbeddedParticle(particle, EmbedFlag());
+      }
     }
   }
 

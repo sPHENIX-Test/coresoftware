@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
@@ -11,16 +11,24 @@ AM_LDFLAGS = \
   -L$(OFFLINE_MAIN)/lib64
 
 pkginclude_HEADERS = \
-  KshortReconstruction.h \
+  BeamCrossingAnalysis.h \
   helixResiduals.h \
+  KshortReconstruction.h \
+  TrackContainerCombiner.h \
+  TrackResiduals.h \
+  TrackSeedTrackMapConverter.h \
   TrkrNtuplizer.h
 
 lib_LTLIBRARIES = \
   libTrackingDiagnostics.la
 
 libTrackingDiagnostics_la_SOURCES = \
-  KshortReconstruction.cc \
+  BeamCrossingAnalysis.cc \
   helixResiduals.cc \
+  KshortReconstruction.cc \
+  TrackContainerCombiner.cc \
+  TrackResiduals.cc \
+  TrackSeedTrackMapConverter.cc \
   TrkrNtuplizer.cc
 
 libTrackingDiagnostics_la_LIBADD = \
@@ -29,15 +37,18 @@ libTrackingDiagnostics_la_LIBADD = \
   -lg4eval \
   -lg4eval_io \
   -lphg4hit \
+  -lmbd_io \
   -lg4detectors_io \
-  -ltrack_io \
-  -ltrackbase_historic_io \
-  -ltpc_io \
+  -lmvtx \
   -lmvtx_io \
+  -lintt \
   -lintt_io \
   -lmicromegas_io \
   -lSubsysReco \
-  -ltrackeralign
+  -ltpc_io \
+  -ltrack_io \
+  -ltrackeralign \
+  -ltrackbase_historic_io
 
 BUILT_SOURCES = testexternals.cc
 

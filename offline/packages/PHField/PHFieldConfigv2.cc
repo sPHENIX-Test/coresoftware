@@ -2,7 +2,7 @@
 
 /*!
  * \file PHFieldConfigv2.cc
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision:   $
  * \date $Date: $
@@ -43,4 +43,14 @@ void PHFieldConfigv2::identify(std::ostream& os) const
     os << "Empty";
   }
   os << std::endl;
+}
+
+
+bool PHFieldConfigv2::operator == (const PHFieldConfig& other ) const
+{
+  return
+    get_field_config() == other.get_field_config() &&
+    get_field_mag_x() == other.get_field_mag_x() &&
+    get_field_mag_y() == other.get_field_mag_y() &&
+    get_field_mag_z() == other.get_field_mag_z();
 }

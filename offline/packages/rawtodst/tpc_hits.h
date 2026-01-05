@@ -6,14 +6,17 @@
 #include "TPCMap.h"
 #include "TPC_RawHit.h"
 
+#include <trackbase/TrkrDefs.h>
+#include <trackbase/TrkrHitSet.h>
+
 #include <fun4all/SubsysReco.h>
 
+#include <memory>
 #include <string>
 
 class PHCompositeNode;
-class TrkrHitSetContainer;
-class TrkrHitSet;
-class TrkrHit;
+class Fun4AllHistoManager;
+class TH2;
 
 class tpc_hits : public SubsysReco
 {
@@ -36,35 +39,23 @@ class tpc_hits : public SubsysReco
   */
   int process_event(PHCompositeNode *topNode) override;
 
-  /// Clean up internals after each event.
-  int ResetEvent(PHCompositeNode *topNode) override;
-
-  /// Called at the end of each run.
-  int EndRun(const int runnumber) override;
-
   /// Called at the end of all processing.
   int End(PHCompositeNode *topNode) override;
 
-  /// Reset
-  int Reset(PHCompositeNode * /*topNode*/) override;
+ private:
+  static const int layercount {16};
+  static const int layeroffset {7 + 16};
+  Fun4AllHistoManager *hm {nullptr};
+  TH2 *_h_hit_XY {nullptr};
+  TrkrHitSet *m_hitset[layercount] = {nullptr};
 
-  void Print(const std::string &what = "ALL") const override;
-
- protected:
-  static const int layercount = 16;
-  static const int layeroffset = 7 + 16;
-
-  TrkrHitSetContainer *m_hits = nullptr;
-  TrkrHitSet *m_hitset[layercount] = {};
-  TrkrHit *m_hit = nullptr;
-
-  // RawHitSetContainer *m_rawhits __attribute__ ((unused)) = nullptr;
+  int starting_BCO {-1};
+  int rollover_value {0};
+  int current_BCOBIN {0};
 
   TPCMap M;
 
-  int starting_BCO;
-  int rollover_value;
-  int current_BCOBIN;
+  std::string _filename {"./outputfile.root"};
 };
 
 #endif  // TPC_HITS_H

@@ -4,18 +4,18 @@
 #include "TpcDefs.h"
 #include "TrkrDefs.h"
 
-#include <ffamodules/XploadInterface.h>
+#include <ffamodules/CDBInterface.h>
 
 #include <fun4all/Fun4AllReturnCodes.h>
 
 #include <phool/PHCompositeNode.h>
-#include <phool/getClass.h>
-#include <phool/phool.h>
 #include <phool/PHDataNode.h>
 #include <phool/PHNode.h>
 #include <phool/PHNodeIterator.h>
 #include <phool/PHObject.h>
 #include <phool/PHTimer.h>
+#include <phool/getClass.h>
+#include <phool/phool.h>
 
 #include <Acts/Surfaces/PerigeeSurface.hpp>
 #include <Acts/Surfaces/PlaneSurface.hpp>
@@ -27,341 +27,651 @@
 
 #include <cmath>
 #include <fstream>
-
-
+#include <sstream>
 
 void AlignmentTransformation::createMap(PHCompositeNode* topNode)
-{ 
+{
+  localVerbosity = 0;
+  // The default is to use translation parameters that are in global coordinates
+  std::cout << "AlignmentTransformation: use INTT survey geometry = " << use_intt_survey_geometry << std::endl;
+  std::cout << "AlignmentTransformation: localVerbosity = " << localVerbosity << std::endl;
+
   getNodes(topNode);
 
- // Use construction transforms as a reference for making the map
- if(alignmentTransformationContainer::use_alignment) alignmentTransformationContainer::use_alignment = false;
+  // Use construction transforms as a reference for making the map
+  if (alignmentTransformationContainer::use_alignment)
+  {
+    alignmentTransformationContainer::use_alignment = false;
+  }
 
- // Define Parsing Variables
- TrkrDefs::hitsetkey hitsetkey = 0;
- float alpha = 0.0, beta = 0.0, gamma = 0.0, dx = 0.0, dy = 0.0, dz = 0.0;
+  innerLayer[0] = 7;
+  innerLayer[1] = 23;
+  innerLayer[2] = 39;
 
- // load alignment constants file
- std::ifstream datafile;
- datafile.open(alignmentParamsFile);  //  looks for default file name on disk
- if(datafile.is_open())
-   {
-     std::cout << "AlignmentTransformation: Reading alignment parameters from disk file: "
-	       << alignmentParamsFile << std::endl; 
-   }
- else
-   { 
-     datafile.clear();
-     // load alignment constants file from database
-     alignmentParamsFile = XploadInterface::instance()->getUrl("TRACKINGALIGNMENT");
-     std::cout << "AlignmentTransformation: Reading alignment parameters from database file: " << alignmentParamsFile << std::endl; 
-     datafile.open(alignmentParamsFile);
-   }
- 
- ActsSurfaceMaps surfMaps = m_tGeometry->maps();
- Surface surf;
+  double m_moduleStepPhi = 2.0 * M_PI / 12.0;
+  double m_modulePhiStart = -M_PI;
+  for (int iside : {0, 1})
+  {
+    for (int isector = 0; isector < 12; ++isector)
+    {
+      sectorPhi[iside][isector] = m_modulePhiStart + m_moduleStepPhi * (double) isector;
+    }
+  }
 
- int fileLines = 1824;
- for (int i=0; i<fileLines; i++)
-   {
-     datafile >> hitsetkey >> alpha >> beta >> gamma >> dx >> dy >> dz;
-     
-     // Perturbation translations and angles for stave and sensor
-     Eigen::Vector3d sensorAngles(alpha,beta,gamma);  
-     Eigen::Vector3d millepedeTranslation(dx,dy,dz); 
+  extractModuleCenterPositions();  // needed for TPC module transforms
 
-     unsigned int trkrId = TrkrDefs::getTrkrId(hitsetkey); // specify between detectors
+  // Define Parsing Variables
+  TrkrDefs::hitsetkey hitsetkey = 0;
+  float alpha = 0.0;
+  float beta = 0.0;
+  float gamma = 0.0;
+  float dx = 0.0;
+  float dy = 0.0;
+  float dz = 0.0;
+  float dgrx = 0.0;
+  float dgry = 0.0;
+  float dgrz = 0.0;
 
+  // load alignment constants file
+  std::ifstream datafile;
+  datafile.open(alignmentParamsFile);  //  looks for default file name on disk
+  if (datafile.is_open())
+  {
+    std::cout << "AlignmentTransformation: Reading alignment parameters from disk file: "
+              << alignmentParamsFile << " localVerbosity = " << localVerbosity << std::endl;
+  }
+  else
+  {
+    datafile.clear();
+    // load alignment constants file from database
+    alignmentParamsFile = CDBInterface::instance()->getUrl("TRACKINGALIGNMENT");
+    std::cout << "AlignmentTransformation: Reading alignment parameters from database file: " << alignmentParamsFile << std::endl;
+    datafile.open(alignmentParamsFile);
+  }
 
-     perturbationAngles      = Eigen::Vector3d(0.0,0.0,0.0);
-     perturbationTranslation = Eigen::Vector3d(0.0,0.0,0.0);
+  ActsSurfaceMaps surfMaps = m_tGeometry->maps();
+  Surface surf;
 
-     if(trkrId == TrkrDefs::mvtxId) 
-       {
-	 if(perturbMVTX)
-	   {
-	     generateRandomPerturbations(mvtxAngleDev, mvtxTransDev);
-	     sensorAngles         = sensorAngles + perturbationAngles;
-	     millepedeTranslation = millepedeTranslation + perturbationTranslation;
-	   }
+  int linecount = 0;
+  std::string str;
+  while (std::getline(datafile, str))
+  {
+    // trim leading space characters
+    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](unsigned char ch)
+                                        { return !std::isspace(ch); }));
 
-         surf                        = surfMaps.getSiliconSurface(hitsetkey);
-	 Acts::Transform3 transform  = makeTransform(surf, millepedeTranslation, sensorAngles);
-         Acts::GeometryIdentifier id = surf->geometryId();
+    // skip empty lines, or commented lines
+    if (str.empty())
+    {
+      continue;
+    }
+    if (str.substr(0, 2) == "//")
+    {
+      continue;
+    }
+    if (str.substr(0, 1) == "#")
+    {
+      continue;
+    }
 
-	 if(localVerbosity) 
-	   {
-	   std::cout << " Add transform for MVTX with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
-	   std::cout << "mvtx transform" << transform.matrix() << std::endl;
-	   }
-	 transformMap->addTransform(id,transform);
-       }
+    // try read
+    std::stringstream ss(str);
 
-     else if(trkrId == TrkrDefs::inttId) 
-       {
-
-	 if(perturbINTT)
-	   {
-	     generateRandomPerturbations(inttAngleDev,inttTransDev);
-	     sensorAngles         = sensorAngles + perturbationAngles;
-	     millepedeTranslation = millepedeTranslation + perturbationTranslation;
-	   }
-
-         surf                        = surfMaps.getSiliconSurface(hitsetkey);
-	 Acts::Transform3 transform  = makeTransform(surf, millepedeTranslation, sensorAngles);
-         Acts::GeometryIdentifier id = surf->geometryId();
-
-	 if(localVerbosity) 
-	   {
-	     std::cout << " Add transform for INTT with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
-	   }
-
-	 transformMap->addTransform(id,transform);
-       }
-
-
-     else if(trkrId == TrkrDefs::tpcId)
-       {
-	 if(perturbTPC)
-	   {
-	     generateRandomPerturbations(tpcAngleDev,tpcTransDev);	 
-	     sensorAngles         = sensorAngles + perturbationAngles;
-	     millepedeTranslation = millepedeTranslation + perturbationTranslation;
-	   }
-	 unsigned int sector         = TpcDefs::getSectorId(hitsetkey);
-	 unsigned int side           = TpcDefs::getSide(hitsetkey);
-	 unsigned int subsurfkey_min = sector * 12 + (1-side) * 144;
-	 unsigned int subsurfkey_max = subsurfkey_min + 12;
-
-	 for(unsigned int subsurfkey = subsurfkey_min; subsurfkey<subsurfkey_max; subsurfkey++)
-	   {
-             surf                        = surfMaps.getTpcSurface(hitsetkey,subsurfkey);
-	     Acts::Transform3 transform  = makeTransform(surf, millepedeTranslation, sensorAngles);
-             Acts::GeometryIdentifier id = surf->geometryId();
-
-	     if(localVerbosity) 
-	       {
-		 std::cout << " Add transform for TPC with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
-	       }
-	     transformMap->addTransform(id,transform);
-	   }
-       }
-     else if(trkrId == TrkrDefs::micromegasId)
+    // check to see how many parameters per line in the file
+    // If it is old, there may be only six. In that case, set the global rotation pars to zero, print a message.
+    std::string dummy;
+    int count = 0;
+    while (ss >> dummy)
+    {
+      count++;
+    }
+    if (count < 9)
+    {
+      std::stringstream str6(str);
+      str6 >> hitsetkey >> alpha >> beta >> gamma >> dx >> dy >> dz;
+      if (str6.rdstate() & std::ios::failbit)
       {
-	if(perturbMM)
-	  {
-	    generateRandomPerturbations(mmAngleDev,mmTransDev);
+        std::cout << "AlignmentTransformation::createMap - invalid line: " << str << " -------- Exiting" << std::endl;
+        exit(1);
+      }
+      dgrx = 0;
+      dgry = 0;
+      dgrz = 0;
 
-	     sensorAngles         = sensorAngles + perturbationAngles;
-	     millepedeTranslation = millepedeTranslation + perturbationTranslation;
-	  }
-	surf                        = surfMaps.getMMSurface(hitsetkey);
-	Acts::Transform3 transform  = makeTransform(surf, millepedeTranslation, sensorAngles);
-	Acts::GeometryIdentifier id = surf->geometryId();
+      if (linecount == 1 && localVerbosity > 0)
+      {
+        std::cout << PHWHERE << "The  alignment parameters file has only 6 parameters" << std::endl
+                  << "     --- setting global rotation parameters to zero!" << std::endl;
+      }
+    }
+    else
+    {
+      std::stringstream str9(str);
+      str9 >> hitsetkey >> alpha >> beta >> gamma >> dx >> dy >> dz >> dgrx >> dgry >> dgrz;
+      if (str9.rdstate() & std::ios::failbit)
+      {
+        std::cout << "AlignmentTransformation::createMap - invalid line: " << str << " -------- Exiting" << std::endl;
+        exit(1);
+      }
+    }
 
-	if(localVerbosity)
-	  { 
-	    std::cout << " Add transform for Micromegas with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
-	  }
+    linecount++;
 
-	transformMap->addTransform(id,transform);
+    if(localVerbosity > 0)
+      {
+	std::cout  <<  hitsetkey << "  " << alpha  << "  " << beta  << "  " << gamma  << "  " << dx  << "  " << dy << "  " << dz
+		   << "  " << dgrx << "  " << dgry << "  " << dgrz << std::endl;
+      }
+    
+    // Perturbation translations and angles for stave and sensor
+    Eigen::Vector3d sensorAngles(alpha, beta, gamma);
+    Eigen::Vector3d millepedeTranslation(dx, dy, dz);
+    Eigen::Vector3d sensorAnglesGlobal(dgrx, dgry, dgrz);
+
+    perturbationAngles = Eigen::Vector3d(0.0, 0.0, 0.0);
+    perturbationAnglesGlobal = Eigen::Vector3d(0.0, 0.0, 0.0);
+    perturbationTranslation = Eigen::Vector3d(0.0, 0.0, 0.0);
+
+    unsigned int trkrId = TrkrDefs::getTrkrId(hitsetkey);  // specify between detectors
+
+    switch (trkrId)
+    {
+    case TrkrDefs::mvtxId:
+    {
+      if (perturbMVTX)
+      {
+        generateRandomPerturbations(mvtxAngleDev, mvtxTransDev);
+        sensorAngles = sensorAngles + perturbationAngles;
+        millepedeTranslation = millepedeTranslation + perturbationTranslation;
       }
 
-     else
-       {
-	 std::cout<< "Error: Invalid Hitsetkey" << std::endl;
-       }
-   } 
+      surf = surfMaps.getSiliconSurface(hitsetkey);
 
- // copy map into geoContext
- m_tGeometry->geometry().geoContext =  transformMap;
+      Eigen::Vector3d localFrameTranslation(0.0, 0.0, 0.0);
 
- // map is created, now we can use the transforms
- alignmentTransformationContainer::use_alignment = true;
+      Acts::Transform3 transform;
+      transform = newMakeTransform(surf, millepedeTranslation, sensorAngles, localFrameTranslation, sensorAnglesGlobal, trkrId, false);
 
- 
-}
+      Acts::GeometryIdentifier id = surf->geometryId();
 
-Eigen::Matrix3d AlignmentTransformation::rotateToGlobal(Surface surf)
-{  
-  /*
-    Get ideal geometry rotation, by aligning surface to surface normal vector in global coordinates
-    URL: https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
-  */  
- 
-  Eigen::Vector3d ylocal(0,1,0);
-  Eigen::Vector3d sensorNormal    = -surf->normal(m_tGeometry->geometry().getGeoContext());
-  sensorNormal                    = sensorNormal/sensorNormal.norm(); // make unit vector 
-  double cosTheta                 = ylocal.dot(sensorNormal);
-  double sinTheta                 = (ylocal.cross(sensorNormal)).norm();
-  Eigen::Vector3d vectorRejection = (sensorNormal - (ylocal.dot(sensorNormal))*ylocal)/(sensorNormal - (ylocal.dot(sensorNormal))*ylocal).norm();
-  Eigen::Vector3d perpVector      =  sensorNormal.cross(ylocal);
+      if (localVerbosity)
+      {
+        std::cout << " Add transform for MVTX with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
+        std::cout << " final mvtx transform:" << std::endl
+                  << transform.matrix() << std::endl;
+      }
+      transformMap->addTransform(id, transform);
+      transformMapTransient->addTransform(id, transform);
 
-  // Initialize and fill matrices (row,col)
-  Eigen::Matrix3d fInverse;
-  fInverse(0,0) = ylocal(0);
-  fInverse(1,0) = ylocal(1);
-  fInverse(2,0) = ylocal(2);
-  fInverse(0,1) = vectorRejection(0);
-  fInverse(1,1) = vectorRejection(1); 
-  fInverse(2,1) = vectorRejection(2);
-  fInverse(0,2) = perpVector(0);
-  fInverse(1,2) = perpVector(1);
-  fInverse(2,2) = perpVector(2);
-  
-  Eigen::Matrix3d G;
-  G(0,0) =  cosTheta;
-  G(0,1) = -sinTheta;
-  G(0,2) =  0;
-  G(1,0) =  sinTheta;
-  G(1,1) =  cosTheta;
-  G(1,2) =  0;
-  G(2,0) =  0;
-  G(2,1) =  0;
-  G(2,2) =  1;
-
-  Eigen::Matrix3d globalRotation = fInverse * G * (fInverse.inverse()); 
-
-  if(localVerbosity > 2)
-    {
-      std::cout<< " global rotation: "<< std::endl << globalRotation <<std::endl;
+      break;
     }
-  return globalRotation;
+
+    case TrkrDefs::inttId:
+    {
+      if (perturbINTT)
+      {
+        generateRandomPerturbations(inttAngleDev, inttTransDev);
+        sensorAngles = sensorAngles + perturbationAngles;
+        millepedeTranslation = millepedeTranslation + perturbationTranslation;
+      }
+
+      surf = surfMaps.getSiliconSurface(hitsetkey);
+
+      Eigen::Vector3d localFrameTranslation(0.0, 0.0, 0.0);
+
+      Acts::Transform3 transform;
+      transform = newMakeTransform(surf, millepedeTranslation, sensorAngles, localFrameTranslation, sensorAnglesGlobal, trkrId, use_intt_survey_geometry);
+      Acts::GeometryIdentifier id = surf->geometryId();
+
+      if (localVerbosity)
+      {
+        std::cout << " Add transform for INTT with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
+      }
+
+      transformMap->addTransform(id, transform);
+      transformMapTransient->addTransform(id, transform);
+      break;
+    }
+
+    case TrkrDefs::tpcId:
+    {
+      if (perturbTPC)
+      {
+        generateRandomPerturbations(tpcAngleDev, tpcTransDev);
+        sensorAngles = sensorAngles + perturbationAngles;
+        millepedeTranslation = millepedeTranslation + perturbationTranslation;
+      }
+
+      unsigned int nlayers = 1;
+      unsigned int test_layer = TrkrDefs::getLayer(hitsetkey);
+      unsigned int layer_begin = test_layer;
+      if (test_layer < 3)
+      {
+        // This is a TPC module hitsetkey ("test_layer" will be 0, 1, 2)
+        nlayers = 16;
+        layer_begin = innerLayer[test_layer];
+      }
+
+      unsigned int side = TpcDefs::getSide(hitsetkey);
+      unsigned int sector = TpcDefs::getSectorId(hitsetkey);
+      // std::cout << "New module hitsetkey " << hitsetkey << "test_layer " << test_layer <<  " side " << side << " sector " << sector << " nlayers " << nlayers << " layer_begin " << layer_begin << std::endl;
+
+      // loop over layers in module
+      for (unsigned int this_layer = layer_begin; this_layer < layer_begin + nlayers; ++this_layer)
+      {
+        TrkrDefs::hitsetkey this_hitsetkey = TpcDefs::genHitSetKey(this_layer, sector, side);
+
+        //  std::cout << " *** module hitsetkey " << hitsetkey << " this_hitsetkey " << this_hitsetkey << " this layer " << this_layer << " side " << side << " sector " << sector << std::endl;
+
+        // is this correct??????
+        int subsurfkey_min = (1 - side) * 144 + (144 - sector * 12) - 12 - 6;
+        int subsurfkey_max = subsurfkey_min + 12;
+        for (int subsurfkey = subsurfkey_min; subsurfkey < subsurfkey_max; subsurfkey++)
+        {
+          int sskey = subsurfkey;
+          if (sskey < 0)
+          {
+            sskey += 288;
+          }
+
+          surf = surfMaps.getTpcSurface(this_hitsetkey, (unsigned int) sskey);
+
+          Eigen::Vector3d localFrameTranslation(0, 0, 0);
+          if (test_layer < 4 || use_module_tilt_always)
+          {
+            // get the local frame translation that puts the local surface center at the tilted position after the local rotations are applied
+            unsigned int this_region = (this_layer - 7) / 16;                                           // 0-2
+            Eigen::Vector3d this_center = surf->center(m_tGeometry->geometry().getGeoContext()) * 0.1;  // mm to cm
+            double this_radius = std::sqrt(this_center[0] * this_center[0] + this_center[1] * this_center[1]);
+            float moduleRadius = TpcModuleRadii[side][sector][this_region];                                     // radius of the center of the module in cm
+            localFrameTranslation = getTpcLocalFrameTranslation(moduleRadius, this_radius, sensorAngles) * 10;  // cm to mm
+          }
+
+          Acts::Transform3 transform;
+          transform = newMakeTransform(surf, millepedeTranslation, sensorAngles, localFrameTranslation, sensorAnglesGlobal, trkrId, false);
+          Acts::GeometryIdentifier id = surf->geometryId();
+
+          if (localVerbosity)
+          {
+            unsigned int layer = this_layer;
+            std::cout << " Add transform for TPC with surface GeometryIdentifier " << id << std::endl
+                      << " trkrid " << trkrId << " hitsetkey " << this_hitsetkey << " layer " << layer << " sector " << sector << " side " << side
+                      << " subsurfkey " << subsurfkey << std::endl;
+            Acts::Vector3 center = surf->center(m_tGeometry->geometry().getGeoContext()) * 0.1;  // convert to cm
+            std::cout << "Ideal surface center: " << std::endl
+                      << center << std::endl;
+            std::cout << "transform matrix: " << std::endl
+                      << transform.matrix() << std::endl;
+          }
+          transformMap->addTransform(id, transform);
+          transformMapTransient->addTransform(id, transform);
+        }
+      }
+
+      break;
+    }
+
+    case TrkrDefs::micromegasId:
+    {
+      if (perturbMM)
+      {
+        generateRandomPerturbations(mmAngleDev, mmTransDev);
+
+        sensorAngles = sensorAngles + perturbationAngles;
+        millepedeTranslation = millepedeTranslation + perturbationTranslation;
+      }
+      surf = surfMaps.getMMSurface(hitsetkey);
+
+      Eigen::Vector3d localFrameTranslation(0.0, 0.0, 0.0);
+
+      Acts::Transform3 transform;
+      transform = newMakeTransform(surf, millepedeTranslation, sensorAngles, localFrameTranslation, sensorAnglesGlobal, trkrId, false);
+      Acts::GeometryIdentifier id = surf->geometryId();
+
+      if (localVerbosity)
+      {
+        std::cout << " Add transform for Micromegas with surface GeometryIdentifier " << id << " trkrid " << trkrId << std::endl;
+      }
+
+      transformMap->addTransform(id, transform);
+      transformMapTransient->addTransform(id, transform);
+      break;
+    }
+
+    default:
+    {
+      std::cout << "AlignmentTransformation::createMap - Invalid Hitsetkey: " << hitsetkey << std::endl;
+      break;
+    }
+    }
+  }
+
+  // copy map into geoContext
+  m_tGeometry->geometry().geoContext = transformMap;
+
+  std::cout << " AlignmentTransformation processed " << linecount << " input lines " << std::endl;
+
+  // map is created, now we can use the transforms
+  alignmentTransformationContainer::use_alignment = true;
 }
 
-Acts::Transform3 AlignmentTransformation::makeAffineMatrix(Eigen::Matrix3d rotationMatrix, Eigen::Vector3d translationVector)
+// currently used as the transform maker
+Acts::Transform3 AlignmentTransformation::newMakeTransform(const Surface& surf, Eigen::Vector3d& millepedeTranslation, Eigen::Vector3d& sensorAngles, Eigen::Vector3d& localFrameTranslation, Eigen::Vector3d& sensorAnglesGlobal, unsigned int trkrid, bool survey)
 {
-  // Acts uses a rotation matrix that transforms local position (x,z,y) into global position (x',y',z')
-  // That rotation matrix is obtained from the one we have (which does (x,y,z) to (x',y',z') by:
-  //    exchanging column 2 and 3 (y with z)
-  //    flipping the signs of the original content of column 2
+  // define null matrices
+  Eigen::Vector3d nullTranslation(0, 0, 0);
+  Eigen::AngleAxisd a(0, Eigen::Vector3d::UnitX());
+  Eigen::AngleAxisd b(0, Eigen::Vector3d::UnitY());
+  Eigen::AngleAxisd g(0, Eigen::Vector3d::UnitZ());
+  Eigen::Quaternion<double> qnull = g * b * a;
+  Eigen::Matrix3d nullRotation = qnull.matrix();
 
-  Eigen::Matrix3d actsRotationMatrix;
-  actsRotationMatrix(0,0) = rotationMatrix(0,0);
-  actsRotationMatrix(1,0) = rotationMatrix(1,0);
-  actsRotationMatrix(2,0) = rotationMatrix(2,0);
+  // get the acts transform components
+  // Note that Acts transforms local coordinates of (x,z,y) to global (x,y,z)
+  Acts::Transform3 actsTransform = surf->transform(m_tGeometry->geometry().getGeoContext());
+  Eigen::Matrix3d actsRotationPart = actsTransform.rotation();
+  Eigen::Vector3d actsTranslationPart = actsTransform.translation();
 
-  // flip column 1 and 2
-  actsRotationMatrix(0,1) = rotationMatrix(0,2);
-  actsRotationMatrix(1,1) = rotationMatrix(1,2);
-  actsRotationMatrix(2,1) = rotationMatrix(2,2);
-
-  actsRotationMatrix(0,2) = -rotationMatrix(0,1);
-  actsRotationMatrix(1,2) = -rotationMatrix(1,1);
-  actsRotationMatrix(2,2) = -rotationMatrix(2,1);
-
-  // Creates 4x4 affine matrix given rotation matrix and translationVector 
-  Acts::Transform3 affineMatrix;
-  affineMatrix.linear() = actsRotationMatrix;
-  affineMatrix.translation() = translationVector;
-  return affineMatrix;
-}
-
-Acts::Transform3 AlignmentTransformation::makeTransform(Surface surf, Eigen::Vector3d millepedeTranslation, Eigen::Vector3d sensorAngles)
-{
-  // Create alignment rotation matrix
+  // Create  alignment local coordinates rotation matrix
+  // the measurement is in the local XY plane, which becomes the global xz plane
   Eigen::AngleAxisd alpha(sensorAngles(0), Eigen::Vector3d::UnitX());
   Eigen::AngleAxisd beta(sensorAngles(1), Eigen::Vector3d::UnitY());
   Eigen::AngleAxisd gamma(sensorAngles(2), Eigen::Vector3d::UnitZ());
-  Eigen::Quaternion<double> q       = gamma*beta*alpha;
-  Eigen::Matrix3d millepedeRotation = q.matrix();
+  Eigen::Quaternion<double> q = gamma * beta * alpha;
+  Eigen::Matrix3d millepedeRotationLocal = q.matrix();
 
-  // Create ideal rotation matrix from ActsGeometry
-  Eigen::Matrix3d globalRotation    = AlignmentTransformation::rotateToGlobal(surf);
-  Eigen::Matrix3d combinedRotation  = globalRotation * millepedeRotation; 
-  Eigen::Vector3d sensorCenter      = surf->center(m_tGeometry->geometry().getGeoContext());//*0.1;
-  Eigen::Vector3d globalTranslation = sensorCenter + millepedeTranslation;
-  Acts::Transform3 transformation   = AlignmentTransformation::makeAffineMatrix(combinedRotation,globalTranslation);
+  // Create alignment global coordinates rotation matrix
+  Eigen::AngleAxisd grx(sensorAnglesGlobal(0), Eigen::Vector3d::UnitX());
+  Eigen::AngleAxisd gry(sensorAnglesGlobal(1), Eigen::Vector3d::UnitY());
+  Eigen::AngleAxisd grz(sensorAnglesGlobal(2), Eigen::Vector3d::UnitZ());
+  Eigen::Quaternion<double> gqr = grz * gry * grx;
+  Eigen::Matrix3d millepedeRotationGlobal = gqr.matrix();
 
-  if(localVerbosity > 2)
+  // and make affine matrices from each
+
+  // careful! what axes are what in local coordinates?
+  Acts::Transform3 mpLocalRotationAffine;
+  mpLocalRotationAffine.linear() = millepedeRotationLocal;
+  mpLocalRotationAffine.translation() = nullTranslation;
+
+  Acts::Transform3 mpLocalTranslationAffine;
+  mpLocalTranslationAffine.linear() = nullRotation;
+  mpLocalTranslationAffine.translation() = localFrameTranslation;
+
+  Acts::Transform3 mpGlobalRotationAffine;
+  mpGlobalRotationAffine.linear() = millepedeRotationGlobal;
+  mpGlobalRotationAffine.translation() = nullTranslation;
+
+  Acts::Transform3 mpGlobalTranslationAffine;
+  mpGlobalTranslationAffine.linear() = nullRotation;
+  mpGlobalTranslationAffine.translation() = millepedeTranslation;
+
+  Acts::Transform3 actsRotationAffine;
+  actsRotationAffine.linear() = actsRotationPart;
+  actsRotationAffine.translation() = nullTranslation;
+  Acts::Transform3 actsTranslationAffine;
+  actsTranslationAffine.linear() = nullRotation;
+  actsTranslationAffine.translation() = actsTranslationPart;
+
+  // Put them together into a combined transform
+  Acts::Transform3 transform;
+  //! If we read the survey parameters directly, that is the full transform
+  if (survey)
+  {
+    //! The millepede affines will just be what was read in, which was the
+    //! survey information. This should (in principle) be equivalent to
+    //! the ideal position + any misalignment
+    transform = mpGlobalTranslationAffine * mpGlobalRotationAffine * mpLocalRotationAffine;
+  }
+  else
+  {
+    if (trkrid == TrkrDefs::tpcId)
     {
-      std::cout << "sensor center: " << sensorCenter << " millepede translation: " << millepedeTranslation <<std::endl;
-      std::cout << "Transform: "<< std::endl<< transformation.matrix()  <<std::endl;
+      transform = mpGlobalTranslationAffine * mpGlobalRotationAffine * actsTranslationAffine * actsRotationAffine * mpLocalTranslationAffine * mpLocalRotationAffine;
     }
+    else
+    {
+      if(use_new_silicon_rotation_order)
+	{
+	  transform = mpGlobalTranslationAffine * mpGlobalRotationAffine * actsTranslationAffine * actsRotationAffine * mpLocalTranslationAffine * mpLocalRotationAffine;
+	}
+      else
+	{
+	  // needed for backward compatibility to existing local rotations in MVTX
+	  transform = mpGlobalTranslationAffine * mpGlobalRotationAffine * actsTranslationAffine * mpLocalRotationAffine * actsRotationAffine;
+	}
+    }
+  }
 
-  return transformation;   
+  if (localVerbosity)
+  {
+    Acts::Transform3 actstransform = actsTranslationAffine * actsRotationAffine;
+
+    std::cout << "newMakeTransform" << std::endl;
+    std::cout << "Input sensorAngles: " << std::endl
+              << sensorAngles << std::endl;
+    std::cout << "Input sensorAnglesGlobal: " << std::endl
+              << sensorAnglesGlobal << std::endl;
+    std::cout << "Input translation: " << std::endl
+              << millepedeTranslation << std::endl;
+    std::cout << "mpLocalRotationAffine: " << std::endl
+              << mpLocalRotationAffine.matrix() << std::endl;
+    std::cout << "mpLocalTranslationAffine: " << std::endl
+              << mpLocalTranslationAffine.matrix() << std::endl;
+    std::cout << "actsRotationAffine: " << std::endl
+              << actsRotationAffine.matrix() << std::endl;
+    std::cout << "actsTranslationAffine: " << std::endl
+              << actsTranslationAffine.matrix() << std::endl;
+    std::cout << "mpRotationGlobalAffine: " << std::endl
+              << mpGlobalRotationAffine.matrix() << std::endl;
+    std::cout << "mpTranslationGlobalAffine: " << std::endl
+              << mpGlobalTranslationAffine.matrix() << std::endl;
+    std::cout << "Overall transform: " << std::endl
+              << transform.matrix() << std::endl;
+    std::cout << "overall * idealinv " << std::endl
+              << (transform * actstransform.inverse()).matrix() << std::endl;
+    std::cout << "overall - ideal " << std::endl;
+    for (int test = 0; test < transform.matrix().rows(); test++)
+    {
+      for (int test2 = 0; test2 < transform.matrix().cols(); test2++)
+      {
+        std::cout << transform(test, test2) - actstransform(test, test2) << ", ";
+      }
+      std::cout << std::endl;
+    }
+  }
+
+  return transform;
 }
 
+Eigen::Vector3d AlignmentTransformation::getTpcLocalFrameTranslation(float moduleRadius, float layerRadius, Eigen::Vector3d& localRotation) const
+{
+  // everything in cm here
+
+  float Rdiff = layerRadius - moduleRadius;
+
+  // alpha local translation around X axis
+  float alpha = localRotation(0);
+  float dx = 0.0;
+  float dy = -Rdiff * std::sin(alpha);
+  float dz = -Rdiff * (1 - std::cos(alpha));
+
+  // beta local translation for rotation around Y axis
+  float beta = localRotation(1);
+  dx += Rdiff * std::sin(beta);
+  dy += 0.0;
+  dz += -Rdiff * (1 - std::cos(beta));
+
+  // gamma local translation around Z axis
+  float gamma = localRotation(2);
+  dx += -Rdiff * std::sin(gamma);
+  dy += -Rdiff * (1 - std::cos(gamma));
+  dz += 0.0;
+
+  if (localVerbosity)
+  {
+    std::cout << " alpha, beta, gamma " << alpha << "  " << beta << "  " << gamma << " radius " << moduleRadius << " Rdiff " << Rdiff
+              << " dx, dy dz " << dx << "  " << dy << "  " << dz << std::endl;
+  }
+
+  Eigen::Vector3d localTranslation(dx, dy, dz);
+
+  return localTranslation;
+}
 
 int AlignmentTransformation::getNodes(PHCompositeNode* topNode)
 {
   m_tGeometry = findNode::getClass<ActsGeometry>(topNode, "ActsGeometry");
-  if(!m_tGeometry)
-    {
-      std::cout << "ActsGeometry not on node tree. Exiting."
-		<< std::endl;
-      
-      return Fun4AllReturnCodes::ABORTEVENT;
-    }
+  if (!m_tGeometry)
+  {
+    std::cout << "ActsGeometry not on node tree. Exiting."
+              << std::endl;
 
-  return 0; 
+    return Fun4AllReturnCodes::ABORTEVENT;
+  }
+
+  return 0;
 }
 
-void AlignmentTransformation::misalignmentFactor(TrkrDefs::TrkrId id, const double factor)
+void AlignmentTransformation::misalignmentFactor(uint8_t layer, const double factor)
 {
-  transformMap->setMisalignmentFactor(id, factor);
+  transformMap->setMisalignmentFactor(layer, factor);
+  transformMapTransient->setMisalignmentFactor(layer, factor);
 }
 void AlignmentTransformation::createAlignmentTransformContainer(PHCompositeNode* topNode)
 {
-  //​ Get a pointer to the top of the node tree
+  // ​ Get a pointer to the top of the node tree
   PHNodeIterator iter(topNode);
- 
-  PHCompositeNode *dstNode = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "DST"));
+
+  PHCompositeNode* dstNode = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "DST"));
   if (!dstNode)
-    {
-      std::cerr << "DST node is missing, quitting" << std::endl;
-      throw std::runtime_error("Failed to find DST node in AlignmentTransformation::createNodes");
-    }
+  {
+    std::cerr << "DST node is missing, quitting" << std::endl;
+    throw std::runtime_error("Failed to find DST node in AlignmentTransformation::createNodes");
+  }
 
   transformMap = findNode::getClass<alignmentTransformationContainer>(topNode, "alignmentTransformationContainer");
-  if(!transformMap)
-    {
-      transformMap = new alignmentTransformationContainer;
-      auto node    = new PHDataNode<alignmentTransformationContainer>(transformMap, "alignmentTransformationContainer");
-      dstNode->addNode(node);
-    }
-}
+  if (!transformMap)
+  {
+    transformMap = new alignmentTransformationContainer;
+    auto* node = new PHDataNode<alignmentTransformationContainer>(transformMap, "alignmentTransformationContainer");
+    dstNode->addNode(node);
+  }
 
+  transformMapTransient = findNode::getClass<alignmentTransformationContainer>(topNode, "alignmentTransformationContainerTransient");
+  if (!transformMapTransient)
+  {
+    transformMapTransient = new alignmentTransformationContainer;
+    auto* node = new PHDataNode<alignmentTransformationContainer>(transformMapTransient, "alignmentTransformationContainerTransient");
+    dstNode->addNode(node);
+  }
+}
 
 void AlignmentTransformation::generateRandomPerturbations(Eigen::Vector3d angleDev, Eigen::Vector3d transformDev)
 {
   /*Creates random perturbations for the correctional parameters with a given standard deviation and mean of zero*/
 
-  std::cout << "Generating Random Perturbations..."<<std::endl;
+  std::cout << "Generating Random Perturbations..." << std::endl;
 
-  if(angleDev(0)!=0)
-    {
-      std::normal_distribution<double> distribution(0,angleDev(0));
-      perturbationAngles(0) = distribution(generator);
-    }
-  if(angleDev(1)!=0)
-    {
-      std::normal_distribution<double> distribution(0,angleDev(1));
-      perturbationAngles(1) = distribution(generator);
-    }
-  if(angleDev(2)!=0)
-    {
-      std::normal_distribution<double> distribution(0,angleDev(2));
-      perturbationAngles(2) = distribution(generator);
-    }
-  if(transformDev(0)!=0)
-    {
-      std::normal_distribution<double> distribution(0,transformDev(0));
-      perturbationTranslation(0) = distribution(generator);
-    }
-  if(transformDev(1)!=0)
-    {
-      std::normal_distribution<double> distribution(0,transformDev(1));
-      perturbationTranslation(1) = distribution(generator);
-    }
-  if(transformDev(2)!=0)
-    {
-      std::normal_distribution<double> distribution(0,transformDev(2));
-      perturbationTranslation(2) = distribution(generator);
-    }
-  if(localVerbosity)
-    {
-      std::cout << "randomperturbationAngles" << perturbationAngles << " randomperturbationTrans:" << perturbationTranslation << std::endl;
-    }
+  if (angleDev(0) != 0)
+  {
+    std::normal_distribution<double> distribution(0, angleDev(0));
+    perturbationAngles(0) = distribution(generator);
+  }
+  if (angleDev(1) != 0)
+  {
+    std::normal_distribution<double> distribution(0, angleDev(1));
+    perturbationAngles(1) = distribution(generator);
+  }
+  if (angleDev(2) != 0)
+  {
+    std::normal_distribution<double> distribution(0, angleDev(2));
+    perturbationAngles(2) = distribution(generator);
+  }
+  if (transformDev(0) != 0)
+  {
+    std::normal_distribution<double> distribution(0, transformDev(0));
+    perturbationTranslation(0) = distribution(generator);
+  }
+  if (transformDev(1) != 0)
+  {
+    std::normal_distribution<double> distribution(0, transformDev(1));
+    perturbationTranslation(1) = distribution(generator);
+  }
+  if (transformDev(2) != 0)
+  {
+    std::normal_distribution<double> distribution(0, transformDev(2));
+    perturbationTranslation(2) = distribution(generator);
+  }
+  if (localVerbosity)
+  {
+    std::cout << "randomperturbationAngles" << perturbationAngles << " randomperturbationTrans:" << perturbationTranslation << std::endl;
+  }
 }
 
+void AlignmentTransformation::extractModuleCenterPositions()
+{
+  if (localVerbosity)
+  {
+    std::cout << "Extracting TPC module center radii:" << std::endl;
+  }
+
+  for (int iside = 0; iside < 2; ++iside)
+  {
+    for (int iregion = 0; iregion < 3; ++iregion)
+    {
+      unsigned int lin = innerLayer[iregion];
+      unsigned int lout = lin + 15;
+
+      for (int isector = 0; isector < 12; ++isector)
+      {
+        double sectorphi = sectorPhi[iside][iregion];
+
+        TrkrDefs::hitsetkey hitsetkey_in = TpcDefs::genHitSetKey(lin, isector, iside);
+        if (localVerbosity)
+        {
+          std::cout << "  hitsetkey_in " << hitsetkey_in << " lin " << lin << " sector " << isector << " side " << iside << " region " << iregion << std::endl;
+        }
+        double surf_rad_in = extractModuleCenter(hitsetkey_in, sectorphi);
+
+        TrkrDefs::hitsetkey hitsetkey_out = TpcDefs::genHitSetKey(lout, isector, iside);
+        double surf_rad_out = extractModuleCenter(hitsetkey_out, sectorphi);
+        double mod_radius = (surf_rad_in + surf_rad_out) / 2.0;
+
+        TpcModuleRadii[iside][isector][iregion] = mod_radius;
+
+        if (localVerbosity)
+        {
+          std::cout << "  hitsetkey_out " << hitsetkey_out << " lout " << lout << " sector " << isector << " side " << iside
+                    << " region " << iregion << " module radius " << mod_radius << std::endl;
+        }
+      }
+    }
+  }
+}
+
+double AlignmentTransformation::extractModuleCenter(TrkrDefs::hitsetkey hitsetkey, double sectorphi)
+{
+  // We want the module center position from the ideal geometry
+
+  // the radius and z are not used, only the phi value
+  double x = std::cos(sectorphi + 0.01) * 10.0;
+  double y = std::sin(sectorphi + 0.01) * 10.0;
+  double z = 0.0;
+
+  Acts::Vector3 world(x, y, z);
+  TrkrDefs::subsurfkey subsurfkey = 0;
+
+  Surface surface = m_tGeometry->get_tpc_surface_from_coords(hitsetkey, world, subsurfkey);
+  if (!surface)
+  {
+    std::cout << PHWHERE << "Failed to find surface, quit " << std::endl;
+    exit(1);
+  }
+
+  Eigen::Vector3d surf_center = surface->center(m_tGeometry->geometry().getGeoContext());
+  surf_center /= 10.0;  // convert from mm to cm
+  double surf_radius = std::sqrt(surf_center[0] * surf_center[0] + surf_center[1] * surf_center[1]);
+
+  return surf_radius;
+}

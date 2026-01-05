@@ -4,42 +4,35 @@
 #include <calobase/TowerInfo.h>
 #include <calobase/TowerInfoContainerv1.h>
 
-
 #include <fun4all/Fun4AllHistoManager.h>
-#include <fun4all/SubsysReco.h>                // for SubsysReco
+#include <fun4all/SubsysReco.h>  // for SubsysReco
 
 #include <phool/PHCompositeNode.h>
-#include <phool/PHIODataNode.h>                // for PHIODataNode
-#include <phool/PHNode.h>                      // for PHNode
-#include <phool/PHNodeIterator.h>              // for PHNodeIterator
-#include <phool/PHObject.h>                    // for PHObject
+#include <phool/PHIODataNode.h>    // for PHIODataNode
+#include <phool/PHNode.h>          // for PHNode
+#include <phool/PHNodeIterator.h>  // for PHNodeIterator
+#include <phool/PHObject.h>        // for PHObject
 #include <phool/getClass.h>
 
 #include <TH1.h>
 #include <TSystem.h>
 
-#include <iostream>                            // for operator<<, endl, basi...
-#include <map>                                 // for _Rb_tree_const_iterator
-#include <utility>                             // for pair
-
-using namespace std;
+#include <iostream>  // for operator<<, endl, basi...
+#include <map>       // for _Rb_tree_const_iterator
+#include <utility>   // for pair
 
 G4ScintillatorTowerTTree::G4ScintillatorTowerTTree(const std::string &name)
   : SubsysReco(name)
-  , savetowers(1)
-  , evtno(0)
-  , hm(nullptr)
-  , etot_hist(nullptr)
 {
 }
 
 int G4ScintillatorTowerTTree::Init(PHCompositeNode *topNode)
 {
-  if (!_detector.size())
+  if (_detector.empty())
   {
-    cout << "Detector not set via Detector(<name>) method" << endl;
-    cout << "(it is the name appended to the G4TOWER_<name> nodename)" << endl;
-    cout << "you do not want to run like this, exiting now" << endl;
+    std::cout << "Detector not set via Detector(<name>) method" << std::endl;
+    std::cout << "(it is the name appended to the G4TOWER_<name> nodename)" << std::endl;
+    std::cout << "you do not want to run like this, exiting now" << std::endl;
     gSystem->Exit(1);
   }
   hm = new Fun4AllHistoManager("SCINTILLATORTOWERHIST");
@@ -62,34 +55,33 @@ int G4ScintillatorTowerTTree::process_event(PHCompositeNode *topNode)
   TowerInfoContainer *g4towers = findNode::getClass<TowerInfoContainerv1>(topNode, _towernodename);
   if (!g4towers)
   {
-    cout << "could not find " << _towernodename << endl;
+    std::cout << "could not find " << _towernodename << std::endl;
     gSystem->Exit(1);
   }
 
   double etot = 0;
 
- 
   unsigned int nchannels = g4towers->size();
-  for (unsigned int channel = 0; channel < nchannels;channel++)
+  for (unsigned int channel = 0; channel < nchannels; channel++)
+  {
+    TowerInfo *intower = g4towers->get_tower_at_channel(channel);
+    if (savetowers)
     {
-      TowerInfo *intower =g4towers->get_tower_at_channel(channel);
-      if (savetowers)
-	{
-	  unsigned int towerkey = g4towers->encode_key(channel);
-	  int ieta = g4towers->getTowerEtaBin(towerkey);
-	  int iphi = g4towers->getTowerPhiBin(towerkey);
-	  double towerenergy = intower->get_energy();
-	  towers->AddTower(towerenergy,ieta,iphi);
-	}
-      etot += intower->get_energy();
+      unsigned int towerkey = g4towers->encode_key(channel);
+      int ieta = g4towers->getTowerEtaBin(towerkey);
+      int iphi = g4towers->getTowerPhiBin(towerkey);
+      double towerenergy = intower->get_energy();
+      towers->AddTower(towerenergy, ieta, iphi);
     }
+    etot += intower->get_energy();
+  }
   etot_hist->Fill(etot);
   towers->set_etotal(etot);
   towers->set_event(evtno);
   return 0;
 }
 
-int G4ScintillatorTowerTTree::End(PHCompositeNode */*topNode*/)
+int G4ScintillatorTowerTTree::End(PHCompositeNode * /*topNode*/)
 {
   hm->dumpHistos(_histofilename);
   delete hm;
@@ -101,7 +93,7 @@ void G4ScintillatorTowerTTree::Detector(const std::string &det)
   _detector = det;
   _outnodename = "G4RootScintillatorTower_" + det;
   _towernodename = "TOWERINFO_" + det;
-  if (!_histofilename.size())
+  if (_histofilename.empty())
   {
     _histofilename = "ScintillatorTowerHistos_" + det + ".root";
   }

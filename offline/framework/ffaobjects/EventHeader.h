@@ -23,12 +23,14 @@ class EventHeader : public PHObject
 
   /*
    * identify Function from PHObject
-   * @param os Output Stream 
+   * @param os Output Stream
    */
   void identify(std::ostream &os = std::cout) const override;
 
   /// isValid returns non zero if object contains valid data
   int isValid() const override;
+
+  virtual void CopyTo(EventHeader *) { return; }
 
   /// get Run Number
   virtual int get_RunNumber() const { return 0; }
@@ -62,6 +64,9 @@ class EventHeader : public PHObject
 
   void set_EventPlaneAngle(const double rval) { set_floatval("rplane", rval); }
   float get_EventPlaneAngle() const { return get_floatval("rplane"); }
+
+  void set_FlowPsiN(const unsigned int n, const float psi) { set_floatval("psi_" + std::to_string(n), psi); }
+  float get_FlowPsiN(const unsigned int n) const { return get_floatval("psi_" + std::to_string(n)); }
 
   void set_eccentricity(const double rval) { set_floatval("ecc", rval); }
   float get_eccentricity() const { return get_floatval("ecc"); }

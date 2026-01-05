@@ -94,7 +94,7 @@ int Fun4AllSyncManager::run(const int nevnts)
     unsigned iman = 0;
     int ifirst = 0;
     int hassync = 0;
-    for (auto & iter : m_InManager)
+    for (auto &iter : m_InManager)
     {
       m_iretInManager[iman] = iter->run(1);
       iret += m_iretInManager[iman];
@@ -110,14 +110,17 @@ int Fun4AllSyncManager::run(const int nevnts)
         if (iter->HasSyncObject())  // if zero (no syncing) no need to go further
         {
           if (hassync != iter->HasSyncObject())  // we have sync and no sync mixed
+          // NOLINTNEXTLINE(bugprone-branch-clone)
           {
             PrintSyncProblem();
             gSystem->Exit(1);
+            exit(1);
           }
           else if (hassync < 0)  // we have more than one nosync input
           {
             PrintSyncProblem();
             gSystem->Exit(1);
+            exit(1);
           }
         }
       }
@@ -127,6 +130,11 @@ int Fun4AllSyncManager::run(const int nevnts)
         {
           if (!(iter->GetSyncObject(&m_MasterSync)))  // NoSync managers return non zero
           {
+	    if (Verbosity() > 2)
+	    {
+	      std::cout << "got sync object from " << iter->Name() << std::endl;
+	      m_MasterSync->identify();
+	    }
             ifirst = 1;
           }
         }
@@ -142,7 +150,7 @@ int Fun4AllSyncManager::run(const int nevnts)
       iman++;
     }
 
-    // check event reading, syncronisation
+    // check event reading, synchronisation
     if (iret || iretsync)
     {
       // tell the server to reset the node tree
@@ -207,6 +215,7 @@ int Fun4AllSyncManager::run(const int nevnts)
           }
           ++InIter;
         }
+        // NOLINTNEXTLINE(hicpp-avoid-goto)
         goto readerror;
       }
       else
@@ -231,14 +240,13 @@ int Fun4AllSyncManager::run(const int nevnts)
       break;
     }
   }
-
 readerror:
-  if (!iret)
+  if (iret == 0)
   {
-    if (!resetnodetree)  // all syncing is done and no read errors --> we have a good event in memory
+    if (resetnodetree == 0)  // all syncing is done and no read errors --> we have a good event in memory
     {
       m_CurrentRun = 0;  // reset current run to 0
-      for (auto & iter : m_InManager)
+      for (auto &iter : m_InManager)
       {
         int runno = iter->RunNumber();
         if (Verbosity() > 2)
@@ -252,21 +260,27 @@ readerror:
             m_CurrentRun = runno;
             continue;
           }
-          else
+
+          if (m_CurrentRun != runno && !m_MixRunsOkFlag)
           {
-            if (m_CurrentRun != runno)
+            std::cout << PHWHERE << "Mixing run numbers (except runnumber=0 which means no valid runnumber) is not supported" << std::endl;
+            std::cout << "Here are the list of input managers and runnumbers:" << std::endl;
+            for (Fun4AllInputManager *inman : m_InManager)
             {
-              std::cout << "Mixing run numbers (except runnumber=0 which means no valid runnumber) is not supported" << std::endl;
-              std::cout << "Here are the list of input managers and runnumbers:" << std::endl;
-              for (Fun4AllInputManager *inman : m_InManager)
-              {
-                std::cout << inman->Name() << " runno: " << inman->RunNumber() << std::endl;
-              }
-              std::cout << "Exiting now" << std::endl;
-              exit(1);
+              std::cout << inman->Name() << " runno: " << inman->RunNumber() << std::endl;
             }
+            std::cout << "Exiting now" << std::endl;
+            exit(1);
           }
         }
+      }
+// at the point all sync objects contain the same event number as does our
+// local sync object copy which serves as reference for all sync objects
+// NB: if we run Fun4AllNoSyncDstInputManager.h they will not update this
+// if there is no master sync the event number will stay at 0 (from the Reset())
+      if (m_MasterSync)
+      {
+	CurrentEvent(m_MasterSync->EventNumber());
       }
     }
     return resetnodetree;
@@ -284,20 +298,30 @@ int Fun4AllSyncManager::skip(const int nevnts)
     // (technically it just decrements the local counter in the PHNodeIOManager)
     // giving it a negative argument will skip events
     // this is much faster than actually reading the events in
-    int iret = m_InManager[0]->PushBackEvents(Npushback);
-    for (unsigned int i = 1; i < m_InManager.size(); ++i)
+    int iret = 0;
+    bool first = true;
+    for (auto &iman : m_InManager)
     {
-      iret += m_InManager[i]->SkipForThisManager(nevnts);
+      if (iman->HasSyncObject())
+      {
+        if (first)
+        {
+          iret += iman->PushBackEvents(Npushback);
+          first = false;
+        }
+      }
+      else
+      {
+        iret += iman->SkipForThisManager(nevnts);
+      }
     }
     if (!iret)
     {
       return 0;
     }
-    else
-    {
-      std::cout << PHWHERE << " Error during skipping events" << std::endl;
-      return iret;
-    }
+
+    std::cout << PHWHERE << " Error during skipping events" << std::endl;
+    return iret;
   }
   std::cout << PHWHERE << " Cannot skip events: No Input Managers registered?" << std::endl;
   Print("INPUTMANAGER");
@@ -448,6 +472,7 @@ int Fun4AllSyncManager::ResetEvent()
     }
     iret += inman->ResetEvent();
   }
+  m_CurrentEvent = 0;
   return iret;
 }
 
@@ -464,7 +489,7 @@ void Fun4AllSyncManager::PrintSyncProblem() const
   std::cout << "Bad use of Fun4AllDstInputManager for file(s) which do not have a synchronization object" << std::endl;
   std::cout << "This works for single streams but if you run with multiple input streams this might lead to event mixing" << std::endl;
   std::cout << "If you insist to run this (you take full responsibility), change the following in your macro: " << std::endl;
-  for (auto iter : m_InManager)
+  for (auto *iter : m_InManager)
   {
     if (iter->HasSyncObject() < 0)
     {

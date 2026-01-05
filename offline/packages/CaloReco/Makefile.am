@@ -5,7 +5,7 @@ AUTOMAKE_OPTIONS = foreign
 
 # List of shared libraries to produce
 lib_LTLIBRARIES = \
-  libcalo_reco.la 
+  libcalo_reco.la
 
 #
 libcalo_reco_la_LDFLAGS = \
@@ -18,23 +18,27 @@ if USE_ONLINE
 
 else
 libcalo_reco_la_LIBADD = \
+  -lmbd_io \
+  -lcalo_io \
+  -lcdbobjects \
   -lCLHEP \
-  -lphool \
-  -lSubsysReco \
+  -lffamodules \
+  -lffarawobjects \
   -lgsl \
   -lgslcblas \
-  -lg4vertex_io \
-  -lcalo_io \
+  -lglobalvertex_io \
   -lsph_onnx \
-  -lcaloCalibDBFile \
-  -lcdbobjects \
-  -ldbtools \
-  -lphparameter
+  -lphg4hit \
+  -lphparameter_io \
+  -lphool \
+  -lSubsysReco \
+  -lTMVA \
+  -lTMVAUtils
 endif
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include
 
 if USE_ONLINE
@@ -43,16 +47,28 @@ pkginclude_HEADERS = \
 
 else
 pkginclude_HEADERS = \
+  CaloGeomMapping.h \
   CaloWaveformFitting.h \
   CaloWaveformProcessing.h \
+  CaloRecoUtility.h \
   CaloTowerBuilder.h \
   CaloTowerCalib.h \
-  RawClusterBuilderFwd.h \
+  CaloTowerStatus.h \
+  CaloTowerDefs.h \
+  PhotonClusterBuilder.h \
   RawClusterBuilderGraph.h \
   RawClusterBuilderTopo.h \
   RawClusterBuilderTemplate.h \
+  RawClusterCNNClassifier.h \
+  RawClusterLikelihoodProfile.h \
+  ClusterCDFCalculator.h \
   RawClusterPositionCorrection.h \
-  RawTowerCalibration.h 
+  RawClusterZVertexRecorrect.h \
+  RawTowerCalibration.h \
+  RawTowerDeadTowerInterp.h \
+  DeadHotMapLoader.h \
+  RawClusterDeadHotMask.h \
+  TowerInfoDeadHotMask.h
 endif
 
 if USE_ONLINE
@@ -65,22 +81,28 @@ libcalo_reco_la_SOURCES = \
   BEmcProfile.cc \
   BEmcRec.cc \
   BEmcRecCEMC.cc \
-  BEmcRecFEMC.cc \
-  BEmcRecEEMC.cc \
+  CaloGeomMapping.cc \
+  CaloRecoUtility.cc \
   CaloWaveformFitting.cc \
   CaloWaveformProcessing.cc \
   CaloTowerBuilder.cc \
   CaloTowerCalib.cc \
+  CaloTowerStatus.cc \
+  PhotonClusterBuilder.cc \
   RawClusterBuilderGraph.cc \
   RawClusterBuilderTopo.cc \
   RawClusterBuilderTemplate.cc \
-  RawClusterBuilderFwd.cc \
+  RawClusterCNNClassifier.cc \
+  RawClusterLikelihoodProfile.cc \
+  ClusterCDFCalculator.cc \
   RawClusterPositionCorrection.cc \
-  RawClusterDeadAreaMask.cc \
+  RawClusterZVertexRecorrect.cc \
   RawTowerCombiner.cc \
   RawTowerCalibration.cc \
   RawTowerDeadTowerInterp.cc \
-  RawTowerDeadMapLoader.cc
+  DeadHotMapLoader.cc \
+  RawClusterDeadHotMask.cc \
+  TowerInfoDeadHotMask.cc
 endif
 
 ################################################

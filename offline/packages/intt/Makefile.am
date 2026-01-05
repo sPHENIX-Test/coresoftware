@@ -3,53 +3,103 @@
 
 AUTOMAKE_OPTIONS = foreign
 
-lib_LTLIBRARIES = \
-  libintt_io.la \
-  libintt.la 
-
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include  \
-  -isystem$(ROOTSYS)/include
+  -isystem$(OFFLINE_MAIN)/include \
+  -isystem$(ROOTSYS)/include \
+  -isystem$(OPT_SPHENIX)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
+  -L$(OFFLINE_MAIN)/lib \
+  -L$(OFFLINE_MAIN)/lib64 \
   -L$(ROOTSYS)/lib \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OPT_SPHENIX)/lib
+
+lib_LTLIBRARIES = \
+  libintt_io.la \
+  libintt.la
 
 pkginclude_HEADERS = \
+  CylinderGeomIntt.h \
+  CylinderGeomInttHelper.h \
+  InttArborist.h \
+  InttBadChannelMap.h \
+  InttBCOMap.h \
   InttClusterizer.h \
-  CylinderGeomIntt.h
+  InttCombinedRawDataDecoder.h \
+  InttDacMap.h \
+  InttFelixMap.h \
+  InttMapping.h \
+  InttOdbcQuery.h \
+  InttSurveyMap.h \
+  InttXYVertexFinder.h \
+  InttZVertexFinder.h \
+  InttVertexMap.h \
+  InttVertexMapv1.h \
+  InttVertex.h \
+  InttVertexv1.h
+
+noinst_HEADERS = \
+  INTTZvtx.h \
+  INTTXYvtx.h \
+  InttVertexUtil.h
 
 ROOTDICTS = \
-  CylinderGeomIntt_Dict.cc
+  CylinderGeomIntt_Dict.cc \
+  InttVertexMap_Dict.cc \
+  InttVertexMapv1_Dict.cc \
+  InttVertex_Dict.cc \
+  InttVertexv1_Dict.cc
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  CylinderGeomIntt_Dict_rdict.pcm
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 # sources for intt library
 libintt_la_SOURCES = \
-  InttClusterizer.cc
+  CylinderGeomInttHelper.cc \
+  InttArborist.cc \
+  InttBCOMap.cc \
+  InttBadChannelMap.cc \
+  InttClusterizer.cc \
+  InttCombinedRawDataDecoder.cc \
+  InttDacMap.cc \
+  InttFelixMap.cc \
+  InttMapping.cc \
+  InttOdbcQuery.cc \
+  InttSurveyMap.cc \
+  InttVertexUtil.cc \
+  InttXYVertexFinder.cc \
+  InttZVertexFinder.cc \
+  INTTXYvtx.cc \
+  INTTZvtx.cc
 
 libintt_la_LIBADD = \
   libintt_io.la \
+  -lActsCore \
+  -lcdbobjects \
   -lCLHEP \
+  -lffamodules \
+  -lffarawobjects \
+  -lodbc++ \
   -lphg4hit \
-  -lSubsysReco
+  -lSubsysReco \
+  -ltrack
 
 # sources for io library
 libintt_io_la_SOURCES = \
   $(ROOTDICTS) \
-  CylinderGeomIntt.cc
+  CylinderGeomIntt.cc \
+  InttVertexMap.cc \
+  InttVertexMapv1.cc \
+  InttVertexv1.cc
 
 libintt_io_la_LIBADD = \
-  -lCLHEP \
+  -lffamodules \
   -lg4detectors_io \
   -lphool \
-  -ltrack_io \
-  -ltrackbase_historic_io
-
+  -lglobalvertex_io
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h

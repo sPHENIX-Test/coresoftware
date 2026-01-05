@@ -27,7 +27,7 @@ class PHG4EICMvtxDetector : public PHG4Detector
   PHG4EICMvtxDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const PHParametersContainer* _paramsContainer, const std::string& dnam);
 
   //! destructor
-  ~PHG4EICMvtxDetector() override {}
+  ~PHG4EICMvtxDetector() override = default;
 
   //! construct
   void ConstructMe(G4LogicalVolume* world) override;
@@ -42,16 +42,16 @@ class PHG4EICMvtxDetector : public PHG4Detector
   int IsAbsorberActive(int lyr) const { return m_IsLayerAbsorberActive[lyr]; }
   int IsBlackHole(int lyr) const { return m_IsBlackHole[lyr]; }
   void SuperDetector(const std::string& name) { m_SuperDetector = name; }
-  const std::string SuperDetector() const { return m_SuperDetector; }
+  const std::string &SuperDetector() const { return m_SuperDetector; }
   void Detector(const std::string& name) { m_Detector = name; }
-  const std::string Detector() const { return m_Detector; }
+  const std::string &Detector() const { return m_Detector; }
 
   int get_layer(int stv_index) const;
   int get_stave(int stv_index) const;
 
  private:
   void AddGeometryNode();
-  int ConstructMvtx(G4LogicalVolume* sandwich);
+  int ConstructMvtx(G4LogicalVolume* trackerenvelope);
   int ConstructMvtx_Layer(int layer, G4AssemblyVolume* stave, G4LogicalVolume*& trackerenvelope);
   void SetDisplayProperty(G4AssemblyVolume* av);
   void SetDisplayProperty(G4LogicalVolume* lv);
@@ -69,13 +69,13 @@ class PHG4EICMvtxDetector : public PHG4Detector
   std::map<G4VPhysicalVolume*, std::tuple<int, int>> m_StavePV;
 
   // setup parameters
-  std::array<int, n_Layers> m_IsLayerActive;
-  std::array<int, n_Layers> m_IsLayerAbsorberActive;
-  std::array<int, n_Layers> m_IsBlackHole;
-  std::array<int, n_Layers> m_N_staves;
-  std::array<double, n_Layers> m_nominal_radius;
-  std::array<double, n_Layers> m_nominal_phitilt;
-  std::array<double, n_Layers> m_nominal_phi0;
+  std::array<int, n_Layers> m_IsLayerActive{};
+  std::array<int, n_Layers> m_IsLayerAbsorberActive{};
+  std::array<int, n_Layers> m_IsBlackHole{};
+  std::array<int, n_Layers> m_N_staves{};
+  std::array<double, n_Layers> m_nominal_radius{};
+  std::array<double, n_Layers> m_nominal_phitilt{};
+  std::array<double, n_Layers> m_nominal_phi0{};
 
   std::string m_Detector;
   std::string m_SuperDetector;

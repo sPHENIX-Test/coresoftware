@@ -102,8 +102,7 @@ namespace PHG4Sector
       return layer_list;
     }
 
-    std::string
-    get_material() const
+    const std::string &get_material() const
     {
       return material;
     }
@@ -194,14 +193,14 @@ namespace PHG4Sector
     double
     get_total_thickness() const;
 
-    //!Unit
+    //! Unit
     static double
     Unit_cm()
     {
       return cm;
     }
 
-    //!Intercept certain z point at certain polar angle
+    //! Intercept certain z point at certain polar angle
     void
     set_normal_start(const double z_intercept, const double angle_intercept)
     {
@@ -351,7 +350,7 @@ namespace PHG4Sector
   {
    public:
     PHG4SectorConstructor(const std::string &name, PHG4Subsystem *subsys);
-    virtual ~PHG4SectorConstructor() {}
+    virtual ~PHG4SectorConstructor() = default;
 
     void
     Construct_Sectors(G4LogicalVolume *WorldLog);
@@ -374,7 +373,7 @@ namespace PHG4Sector
         const double start_z,          //
         const double thickness,        //
         G4VSolid *SecConeBoundary_Det  //
-    );
+    ) const;
 
    public:
     // properties

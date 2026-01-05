@@ -20,14 +20,14 @@ class Fun4AllSyncManager : public Fun4AllBase
  public:
   Fun4AllSyncManager(const std::string &name = "SYNCMANAGERNONAME");
   ~Fun4AllSyncManager() override;
-  int registerInputManager(Fun4AllInputManager *InManager);
+  int registerInputManager(Fun4AllInputManager *InputManager);
   Fun4AllInputManager *getInputManager(const std::string &name);
 
   //! run n events (0 means up to end of file
   int run(const int nevnts = 0);
 
-  /*! 
-    \brief skip n events (0 means up to the end of file). 
+  /*!
+    \brief skip n events (0 means up to the end of file).
     Skip means read, don't process.
   */
   int skip(const int nevnts = 0);
@@ -36,6 +36,7 @@ class Fun4AllSyncManager : public Fun4AllBase
   int fileclose(const std::string &managername = "NONE");
   int CurrentRun() { return m_CurrentRun; }
   void CurrentRun(const int ival) { m_CurrentRun = ival; }
+  int CurrentEvent() const {return m_CurrentEvent;}
   void CurrentEvent(const int evt);
   void Print(const std::string &what = "ALL") const override;
   void SegmentNumber(const int iseg) { m_PrdfSegment = iseg; }
@@ -52,9 +53,9 @@ class Fun4AllSyncManager : public Fun4AllBase
   void Repeat(const int i = -1) { m_Repeat = i; }
   void PushBackInputMgrsEvents(const int i);
   int ResetEvent();
-  const std::vector<Fun4AllInputManager *> GetInputManagers() const { return m_InManager; }
-  bool MixRunsOk() const {return m_MixRunsOkFlag;}
-  void MixRunsOk(bool b) {m_MixRunsOkFlag = b;}
+  const std::vector<Fun4AllInputManager *> &GetInputManagers() const { return m_InManager; }
+  bool MixRunsOk() const { return m_MixRunsOkFlag; }
+  void MixRunsOk(bool b) { m_MixRunsOkFlag = b; }
 
  private:
   void PrintSyncProblem() const;

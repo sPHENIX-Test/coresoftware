@@ -2,8 +2,6 @@
 
 #include "PHG4TpcCylinderGeom.h"
 
-using namespace std;
-
 PHG4TpcCylinderGeomContainer::~PHG4TpcCylinderGeomContainer()
 {
   while (layergeoms.begin() != layergeoms.end())
@@ -16,10 +14,10 @@ PHG4TpcCylinderGeomContainer::~PHG4TpcCylinderGeomContainer()
 
 void PHG4TpcCylinderGeomContainer::identify(std::ostream &os) const
 {
-  map<int, PHG4TpcCylinderGeom *>::const_iterator iter;
+  std::map<int, PHG4TpcCylinderGeom *>::const_iterator iter;
   for (iter = layergeoms.begin(); iter != layergeoms.end(); ++iter)
   {
-    cout << "layer " << iter->first << endl;
+    std::cout << "layer " << iter->first << std::endl;
     (iter->second)->identify(os);
   }
   return;
@@ -27,9 +25,9 @@ void PHG4TpcCylinderGeomContainer::identify(std::ostream &os) const
 
 int PHG4TpcCylinderGeomContainer::AddLayerCellGeom(const int i, PHG4TpcCylinderGeom *mygeom)
 {
-  if (layergeoms.find(i) != layergeoms.end())
+  if (layergeoms.contains(i))
   {
-    cout << "layer " << i << " already added to PHCylinderCellGeomContainer" << endl;
+    std::cout << "layer " << i << " already added to PHCylinderCellGeomContainer" << std::endl;
     return -1;
   }
   mygeom->set_layer(i);
@@ -40,9 +38,9 @@ int PHG4TpcCylinderGeomContainer::AddLayerCellGeom(const int i, PHG4TpcCylinderG
 int PHG4TpcCylinderGeomContainer::AddLayerCellGeom(PHG4TpcCylinderGeom *mygeom)
 {
   int layer = mygeom->get_layer();
-  if (layergeoms.find(layer) != layergeoms.end())
+  if (layergeoms.contains(layer))
   {
-    cout << "layer " << layer << " already added to PHCylinderCellGeomContainer" << endl;
+    std::cout << "layer " << layer << " already added to PHCylinderCellGeomContainer" << std::endl;
     return -1;
   }
   layergeoms[layer] = mygeom;
@@ -52,12 +50,12 @@ int PHG4TpcCylinderGeomContainer::AddLayerCellGeom(PHG4TpcCylinderGeom *mygeom)
 PHG4TpcCylinderGeom *
 PHG4TpcCylinderGeomContainer::GetLayerCellGeom(const int i)
 {
-  map<int, PHG4TpcCylinderGeom *>::const_iterator iter = layergeoms.find(i);
+  std::map<int, PHG4TpcCylinderGeom *>::const_iterator iter = layergeoms.find(i);
   if (iter != layergeoms.end())
   {
     return iter->second;
   }
-  cout << "Could not locate layer " << i << " in PHG4TpcCylinderGeomContainer" << endl;
+  std::cout << "Could not locate layer " << i << " in PHG4TpcCylinderGeomContainer" << std::endl;
   return nullptr;
 }
 

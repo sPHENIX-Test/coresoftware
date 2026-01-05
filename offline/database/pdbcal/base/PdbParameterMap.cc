@@ -1,28 +1,27 @@
 #include "PdbParameterMap.h"
 
 #include <boost/functional/hash.hpp>
-#include <iostream>
 
-using namespace std;
+#include <iostream>
 
 void PdbParameterMap::print() const
 {
-  cout << "PdbParameterMap::print - Hash 0x" << std::hex << get_hash() << std::dec << endl;
+  std::cout << "PdbParameterMap::print - Hash 0x" << std::hex << get_hash() << std::dec << std::endl;
 
-  cout << "double parameters: " << endl;
-  for (map<const string, double>::const_iterator iter = dparams.begin(); iter != dparams.end(); ++iter)
+  std::cout << "double parameters: " << std::endl;
+  for (const auto &dparam : dparams)
   {
-    cout << iter->first << ": " << iter->second << endl;
+    std::cout << dparam.first << ": " << dparam.second << std::endl;
   }
-  cout << "integer parameters: " << endl;
-  for (map<const string, int>::const_iterator iter = iparams.begin(); iter != iparams.end(); ++iter)
+  std::cout << "integer parameters: " << std::endl;
+  for (const auto &iparam : iparams)
   {
-    cout << iter->first << ": " << iter->second << endl;
+    std::cout << iparam.first << ": " << iparam.second << std::endl;
   }
-  cout << "string parameters: " << endl;
-  for (map<const string, string>::const_iterator iter = cparams.begin(); iter != cparams.end(); ++iter)
+  std::cout << "string parameters: " << std::endl;
+  for (const auto &cparam : cparams)
   {
-    cout << iter->first << ": " << iter->second << endl;
+    std::cout << cparam.first << ": " << cparam.second << std::endl;
   }
 }
 
@@ -44,7 +43,7 @@ void PdbParameterMap::set_double_param(const std::string &name, const double dva
   dparams[name] = dval;
 }
 
-void PdbParameterMap::set_string_param(const std::string &name, const string &str)
+void PdbParameterMap::set_string_param(const std::string &name, const std::string &str)
 {
   cparams[name] = str;
 }
@@ -54,31 +53,28 @@ PdbParameterMap::get_hash() const
 {
   size_t seed = 0;
 
-  for (dMap::const_iterator iter = dparams.begin();
-       iter != dparams.end(); ++iter)
+  for (const auto &dparam : dparams)
   {
     //      size_t seed = 0;
-    boost::hash_combine(seed, iter->first);
-    boost::hash_combine(seed, iter->second);
-    //      cout << iter->first << ": " << iter->second <<" -> "<<seed<< endl;
+    boost::hash_combine(seed, dparam.first);
+    boost::hash_combine(seed, dparam.second);
+    //      std::cout << iter->first << ": " << iter->second <<" -> "<<seed<< std::endl;
   }
 
-  for (iMap::const_iterator iter = iparams.begin();
-       iter != iparams.end(); ++iter)
+  for (const auto &iparam : iparams)
   {
     //      size_t seed = 0;
-    boost::hash_combine(seed, iter->first);
-    boost::hash_combine(seed, iter->second);
-    //      cout << iter->first << ": " << iter->second <<" -> "<<seed<< endl;
+    boost::hash_combine(seed, iparam.first);
+    boost::hash_combine(seed, iparam.second);
+    //      std::cout << iter->first << ": " << iter->second <<" -> "<<seed<< std::endl;
   }
 
-  for (strMap::const_iterator iter = cparams.begin();
-       iter != cparams.end(); ++iter)
+  for (const auto &cparam : cparams)
   {
     //      size_t seed = 0;
-    boost::hash_combine(seed, iter->first);
-    boost::hash_combine(seed, iter->second);
-    //      cout << iter->first << ": " << iter->second <<" -> "<<seed<< endl;
+    boost::hash_combine(seed, cparam.first);
+    boost::hash_combine(seed, cparam.second);
+    //      std::cout << iter->first << ": " << iter->second <<" -> "<<seed<< std::endl;
   }
 
   return seed;

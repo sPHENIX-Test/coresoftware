@@ -33,6 +33,7 @@ class Fun4AllServer : public Fun4AllBase
   static Fun4AllServer *instance();
   ~Fun4AllServer() override;
 
+  // cppcheck-suppress [virtualCallInConstructor]
   virtual bool registerHisto(const std::string &hname, TNamed *h1d, const int replace = 0);
   virtual bool registerHisto(TNamed *h1d, const int replace = 0);
   template <typename T>
@@ -83,8 +84,8 @@ class Fun4AllServer : public Fun4AllBase
   //! run n events (0 means up to end of file)
   int run(const int nevnts = 0, const bool require_nevents = false);
 
-  /*! 
-    \brief skip n events (0 means up to the end of file). 
+  /*!
+    \brief skip n events (0 means up to the end of file).
     Skip means read, don't process.
   */
   int skip(const int nevnts = 0);
@@ -97,7 +98,6 @@ class Fun4AllServer : public Fun4AllBase
   int BranchSelect(const std::string &branch, int iflag);
   int setBranches(const std::string &managername);
   int setBranches();
-  virtual int DisconnectDB();
   virtual void identify(std::ostream &out = std::cout) const;
   unsigned GetTopNodes(std::vector<std::string> &names) const;
   void GetInputFullFileList(std::vector<std::string> &fnames) const;
@@ -111,36 +111,41 @@ class Fun4AllServer : public Fun4AllBase
   void NodeIdentify(const std::string &name);
   void KeepDBConnection(const int i = 1) { keep_db_connected = i; }
   void PrintTimer(const std::string &name = "");
-  void PrintMemoryTracker(const std::string &name = "") const;
+  static void PrintMemoryTracker(const std::string &name = "");
   int RunNumber() const { return runnumber; }
   int EventCounter() const { return eventcounter; }
+  std::map<const std::string, PHTimer>::const_iterator timer_begin() { return timer_map.begin(); }
+  std::map<const std::string, PHTimer>::const_iterator timer_end() { return timer_map.end(); }
+  int UpdateRunNode();
+  void AddResetNodeName(const std::string &name) {ResetNodeList.emplace_back(name);}
 
  protected:
   Fun4AllServer(const std::string &name = "Fun4AllServer");
-  int InitNodeTree(PHCompositeNode *topNode);
+  static int InitNodeTree(PHCompositeNode *topNode);
   int CountOutNodes(PHCompositeNode *startNode);
   int CountOutNodesRecursive(PHCompositeNode *startNode, const int icount);
   int UpdateEventSelector(Fun4AllOutputManager *manager);
   int unregisterSubsystemsNow();
-  int setRun(const int runnumber);
+  int setRun(const int runno);
   static Fun4AllServer *__instance;
-  TH1 *FrameWorkVars = nullptr;
-  Fun4AllMemoryTracker *ffamemtracker = nullptr;
-  Fun4AllHistoManager *ServerHistoManager = nullptr;
-  PHTimeStamp *beginruntimestamp = nullptr;
-  PHCompositeNode *TopNode = nullptr;
-  Fun4AllSyncManager *defaultSyncManager = nullptr;
+  TH1 *FrameWorkVars{nullptr};
+  Fun4AllMemoryTracker *ffamemtracker{nullptr};
+  Fun4AllHistoManager *ServerHistoManager{nullptr};
+  PHTimeStamp *beginruntimestamp{nullptr};
+  PHCompositeNode *TopNode{nullptr};
+  Fun4AllSyncManager *defaultSyncManager{nullptr};
 
-  int OutNodeCount = 0;
-  int bortime_override = 0;
-  int ScreamEveryEvent = 0;
-  int unregistersubsystem = 0;
-  int runnumber = 0;
-  int eventnumber = 0;
-  int eventcounter = 0;
-  int keep_db_connected = 0;
+  int OutNodeCount{0};
+  int bortime_override{0};
+  int ScreamEveryEvent{0};
+  int unregistersubsystem{0};
+  int runnumber{0};
+  int eventnumber{0};
+  int eventcounter{0};
+  int keep_db_connected{0};
 
   std::vector<std::string> ComplaintList;
+  std::vector<std::string> ResetNodeList {"DST"};
   std::vector<std::pair<SubsysReco *, PHCompositeNode *>> Subsystems;
   std::vector<std::pair<SubsysReco *, PHCompositeNode *>> DeleteSubsystems;
   std::deque<std::pair<SubsysReco *, std::string>> NewSubsystems;
@@ -149,7 +154,7 @@ class Fun4AllServer : public Fun4AllBase
   std::vector<TDirectory *> TDirCollection;
   std::vector<Fun4AllHistoManager *> HistoManager;
   std::map<std::string, PHCompositeNode *> topnodemap;
-  std::string default_Tdirectory;
+  std::string default_Tdirectory = "Rint:/";
   std::vector<Fun4AllSyncManager *> SyncManagers;
   std::map<int, int> retcodesmap;
   std::map<const std::string, PHTimer> timer_map;

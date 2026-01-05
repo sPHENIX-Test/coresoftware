@@ -16,17 +16,17 @@ class PHCompositeNode;
  *  from this base class and you have to implement this class methods.
  *  None of these are strictly required as far as C++ is concerned, but as
  *  far as your job is concerned, at least process_event(), to do the
- *  job, and InitRun(), to initialize, should be implemented.  
- *  
+ *  job, and InitRun(), to initialize, should be implemented.
+ *
  */
 
 class SubsysReco : public Fun4AllBase
 {
  public:
-  /** dtor. 
+  /** dtor.
       Does nothing as this is a base class only.
   */
-  ~SubsysReco() override {}
+  ~SubsysReco() override = default;
 
   /// Called at the end of all processing.
   virtual int End(PHCompositeNode * /*topNode*/) { return 0; }
@@ -60,7 +60,10 @@ class SubsysReco : public Fun4AllBase
 
   void Print(const std::string & /*what*/ = "ALL") const override {}
 
- protected:
+  /// For new rollover DSTs - we need to be able to update the Run Node before the End()
+  virtual int UpdateRunNode(PHCompositeNode * /*topNode*/) { return 0; }
+
+protected:
   /** ctor.
       @param name is the reference used inside the Fun4AllServer
   */

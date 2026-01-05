@@ -5,17 +5,17 @@
 
 #include "RawTowerDefs.h"
 
-#include <TRotation.h>
 #include <TVector3.h>
-#include <cmath>
+
 #include <iostream>
+#include <limits>
 
 class RawTowerGeomv4 : public RawTowerGeom
 {
  public:
-  RawTowerGeomv4() {}
+  RawTowerGeomv4() = default;
   RawTowerGeomv4(RawTowerDefs::keytype id);
-  virtual ~RawTowerGeomv4() {}
+  virtual ~RawTowerGeomv4() = default;
 
   void identify(std::ostream& os = std::cout) const override;
 
@@ -71,13 +71,13 @@ class RawTowerGeomv4 : public RawTowerGeom
  protected:
   RawTowerDefs::keytype _towerid = ~0;  // complement = 0xFFFFF... independent of integer type (32/64/... bits)
 
-  double _center_x = NAN;
-  double _center_y = NAN;
-  double _center_z = NAN;
-  double _roty = NAN;
-  double _rotz = NAN;
+  double _center_x{std::numeric_limits<double>::quiet_NaN()};
+  double _center_y{std::numeric_limits<double>::quiet_NaN()};
+  double _center_z{std::numeric_limits<double>::quiet_NaN()};
+  double _roty{std::numeric_limits<double>::quiet_NaN()};
+  double _rotz{std::numeric_limits<double>::quiet_NaN()};
 
-  int _tower_type = -1;
+  int _tower_type{-1};
 
   ClassDefOverride(RawTowerGeomv4, 5)
 };

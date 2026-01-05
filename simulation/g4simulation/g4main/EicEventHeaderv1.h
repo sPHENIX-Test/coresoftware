@@ -6,15 +6,14 @@
 #include "EicEventHeader.h"
 
 #include <cstdint>
-#include <iostream>
 #include <map>
 
 class EicEventHeaderv1 : public EicEventHeader
 {
  public:
-  EicEventHeaderv1() {}
+  EicEventHeaderv1() = default;
   explicit EicEventHeaderv1(const EicEventHeader *eicevt);
-  ~EicEventHeaderv1() override {}
+  ~EicEventHeaderv1() override = default;
 
   //  void identify(std::ostream& os  = std::cout) const;
   void Reset() override;
@@ -53,7 +52,8 @@ class EicEventHeaderv1 : public EicEventHeader
   typedef uint32_t prop_storage_t;
   typedef std::map<prop_id_t, prop_storage_t> prop_map_t;
   //! convert between 32bit inputs and storage type prop_storage_t
-  union u_property {
+  union u_property
+  {
     float fdata;
     int32_t idata;
     uint32_t uidata;

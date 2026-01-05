@@ -1,12 +1,8 @@
 AUTOMAKE_OPTIONS = foreign
 
-lib_LTLIBRARIES = \
-  libphool.la \
-  libsph_onnx.la
-
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem`root-config --incdir`
 
 AM_LDFLAGS = \
@@ -14,25 +10,46 @@ AM_LDFLAGS = \
   -L$(OFFLINE_MAIN)/lib \
   -L$(OFFLINE_MAIN)/lib64
 
-libphool_la_LDFLAGS = \
-  -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib \
-  `root-config --libs`
+pcmdir = $(libdir)
+
+if USE_ONLINE
+lib_LTLIBRARIES = \
+  libphool.la
+
+ROOTDICTS = \
+  PHObject_Dict.cc
+
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
+
+libphool_la_SOURCES = \
+  $(ROOTDICTS) \
+  PHObject.cc
+
+pkginclude_HEADERS =  \
+  PHObject.h \
+  phool.h
+
+noinst_PROGRAMS = \
+  testexternals_phool
+
+else
+
+lib_LTLIBRARIES = \
+  libphool.la \
+  libsph_onnx.la
 
 ROOTDICTS = \
   PHObject_Dict.cc \
   PHTimeStamp_Dict.cc
 
-pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  PHObject_Dict_rdict.pcm \
-  PHTimeStamp_Dict_rdict.pcm
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 libphool_la_SOURCES = \
   $(ROOTDICTS) \
   PHCompositeNode.cc \
   PHFlag.cc \
-  PHMessage.cc \
   PHNode.cc \
   PHNodeIOManager.cc \
   PHNodeIntegrate.cc \
@@ -45,9 +62,6 @@ libphool_la_SOURCES = \
   PHTimeStamp.cc \
   recoConsts.cc
 
-libsph_onnx_la_SOURCES = \
-  onnxlib.cc
-
 pkginclude_HEADERS =  \
   getClass.h \
   onnxlib.h \
@@ -57,7 +71,6 @@ pkginclude_HEADERS =  \
   PHFlag.h \
   PHIODataNode.h \
   PHIOManager.h \
-  PHLog.h \
   PHNode.h \
   PHNodeIOManager.h \
   PHNodeIntegrate.h \
@@ -74,7 +87,28 @@ pkginclude_HEADERS =  \
   PHTimeServer.h \
   PHTimeStamp.h \
   PHTypedNodeIterator.h \
-  recoConsts.h
+  recoConsts.h \
+  RunnumberRange.h \
+  sphenix_constants.h
+
+noinst_PROGRAMS = \
+  testexternals_phool \
+  testexternals_sph_onnx
+
+bin_PROGRAMS = \
+  onnxtest
+
+endif
+
+libphool_la_LDFLAGS = \
+  -L$(libdir) \
+  -L$(OFFLINE_MAIN)/lib \
+  `root-config --libs`
+
+
+libsph_onnx_la_SOURCES = \
+  onnxlib.cc
+
 
 libsph_onnx_la_LIBADD = \
   -lonnxruntime
@@ -83,10 +117,10 @@ libsph_onnx_la_LIBADD = \
 BUILT_SOURCES = \
   testexternals.cc
 
-noinst_PROGRAMS = \
-  testexternals_phool \
-  testexternals_sph_onnx
+onnxtest_SOURCES = onnxtest.cc
 
+onnxtest_LDADD = \
+  libsph_onnx.la
 
 testexternals_phool_SOURCES = testexternals.cc
 testexternals_sph_onnx_SOURCES = testexternals.cc

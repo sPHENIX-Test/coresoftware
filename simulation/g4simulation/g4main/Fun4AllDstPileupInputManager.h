@@ -9,23 +9,23 @@
  */
 
 #include <fun4all/Fun4AllInputManager.h>
-#include <fun4all/Fun4AllReturnCodes.h>   // for SYNC_NOOBJECT, SYNC_OK
+#include <fun4all/Fun4AllReturnCodes.h>  // for SYNC_NOOBJECT, SYNC_OK
 
 #include <phool/PHCompositeNode.h>  // for PHCompositeNode
 #include <phool/PHNodeIOManager.h>  // for PHNodeIOManager
+#include <phool/sphenix_constants.h>
 
 #include <gsl/gsl_rng.h>
 
 #include <map>
 #include <memory>
 #include <string>
-
-class SyncObject;
+#include <utility>  // for pair
 
 /*!
  * dedicated input manager that merges single events into "merged" events, containing a trigger event
  * and a number of time-shifted pile-up events corresponding to a given pile-up rate
-*/
+ */
 class Fun4AllDstPileupInputManager : public Fun4AllInputManager
 {
  public:
@@ -39,17 +39,21 @@ class Fun4AllDstPileupInputManager : public Fun4AllInputManager
   int PushBackEvents(const int i) override;
 
   // Effectivly turn off the synchronization checking (copy from Fun4AllNoSyncDstInputManager)
-  int SyncIt(const SyncObject* /*mastersync*/) override { return Fun4AllReturnCodes::SYNC_OK; }
-  int GetSyncObject(SyncObject** /*mastersync*/) override { return Fun4AllReturnCodes::SYNC_NOOBJECT; }
+  int SyncIt(const SyncObject * /*mastersync*/) override { return Fun4AllReturnCodes::SYNC_OK; }
+  int GetSyncObject(SyncObject ** /*mastersync*/) override { return Fun4AllReturnCodes::SYNC_NOOBJECT; }
   int NoSyncPushBackEvents(const int nevt) override { return PushBackEvents(nevt); }
 
   /// collision rate in Hz
   void setCollisionRate(double Hz)
-  { m_collision_rate = Hz; }
+  {
+    m_collision_rate = Hz;
+  }
 
   /// time between bunch crossing in ns
   void setTimeBetweenCrossings(double nsec)
-  { m_time_between_crossings = nsec; }
+  {
+    m_time_between_crossings = nsec;
+  }
 
   //! set time window for pileup events (ns)
   void setPileupTimeWindow(double tmin, double tmax)
@@ -63,7 +67,6 @@ class Fun4AllDstPileupInputManager : public Fun4AllInputManager
   void setDetectorActiveCrossings(const std::string &name, const int min, const int max);
 
  private:
-
   //! loads one event on internal DST node
   int runOne(const int nevents = 0);
 
@@ -79,10 +82,10 @@ class Fun4AllDstPileupInputManager : public Fun4AllInputManager
   std::map<const std::string, int> m_branchread;
 
   //! dst node from TopNode
-  PHCompositeNode *m_dstNode = nullptr;
+  PHCompositeNode *m_dstNode{nullptr};
 
   //! run node from TopNode
-  PHCompositeNode *m_runNode = nullptr;
+  PHCompositeNode *m_runNode{nullptr};
 
   //! internal dst node to copy background events
   std::unique_ptr<PHCompositeNode> m_dstNodeInternal;
@@ -98,28 +101,27 @@ class Fun4AllDstPileupInputManager : public Fun4AllInputManager
   std::unique_ptr<PHNodeIOManager> m_IManager;
 
   //! time between crossings. This is a RHIC constant (ns)
-  double m_time_between_crossings = 106;
+  double m_time_between_crossings = sphenix_constants::time_between_crossings;
 
   //! collision rate (Hz)
-  double m_collision_rate = 5e4;
+  double m_collision_rate{5e4};
 
   //! min integration time for pileup in the TPC (ns)
-  double m_tmin = -13500;
+  double m_tmin{-13500};
 
   //! max integration time for pileup in the TPC (ns)
-  double m_tmax = 13500;
+  double m_tmax{13500};
 
   //! random generator
   class Deleter
   {
-    public:
-    void operator() (gsl_rng* rng) const { gsl_rng_free(rng); }
+   public:
+    void operator()(gsl_rng *rng) const { gsl_rng_free(rng); }
   };
 
   std::unique_ptr<gsl_rng, Deleter> m_rng;
 
-  std::map<std::string,std::pair<double,double>> m_DetectorTiming;
-
+  std::map<std::string, std::pair<double, double>> m_DetectorTiming;
 };
 
-#endif /* __Fun4AllDstPileupInputManager_H__ */
+#endif /* G4MAIN_FUN4ALLDSTPILEUPINPUTMANAGER_H_ */

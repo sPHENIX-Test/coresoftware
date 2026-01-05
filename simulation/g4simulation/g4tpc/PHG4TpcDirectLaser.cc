@@ -20,10 +20,15 @@
 #include <phool/getClass.h>
 #include <phool/phool.h>  // for PHWHERE
 
+#include <g4detectors/PHG4TpcGeom.h>
+#include <g4detectors/PHG4TpcGeomContainer.h>
+
 #include <trackbase_historic/SvtxTrackMap.h>
 #include <trackbase_historic/SvtxTrackMap_v2.h>
 #include <trackbase_historic/SvtxTrack_v2.h>
 
+#include <TFile.h>
+#include <TNtuple.h>
 #include <TVector3.h>  // for TVector3, operator*
 
 #include <gsl/gsl_const_mksa.h>  // for the speed of light
@@ -40,74 +45,80 @@ namespace
 
   // utility
   template <class T>
-  inline constexpr T square(const T& x)
+  constexpr T square(const T& x)
   {
     return x * x;
   }
 
   // unique detector id for all direct lasers
-  static const int detId = PHG4HitDefs::get_volume_id("PHG4TpcDirectLaser");
+  const int detId = PHG4HitDefs::get_volume_id("PHG4TpcDirectLaser");
 
   ///@name units
   //@{
-  static constexpr double cm = 1.0;
+  constexpr double cm = 1.0;
   //@}
 
   /// speed of light, in cm per ns
-  static constexpr double speed_of_light = GSL_CONST_MKSA_SPEED_OF_LIGHT * 1e-7;
+  constexpr double speed_of_light = GSL_CONST_MKSA_SPEED_OF_LIGHT * 1e-7;
 
   /// length of generated G4Hits along laser track
-  static constexpr double maxHitLength = 1. * cm;
-
-  /// TPC half length
-  static constexpr double halflength_tpc = 105.5 * cm;
+  constexpr double maxHitLength = 1. * cm;
 
   // inner and outer radii of field cages/TPC
-  static constexpr double begin_CM = 20. * cm;
-  static constexpr double end_CM = 78. * cm;
-
-  //half the thickness of the CM;
-  static constexpr double halfwidth_CM = 0.5 * cm;
+  constexpr double begin_CM = 20. * cm;
+  constexpr double end_CM = 78. * cm;
 
   //_____________________________________________________________
-  std::optional<TVector3> central_membrane_intersection(TVector3 start, TVector3 direction)
+  std::optional<TVector3> central_membrane_intersection(const TVector3& start, const TVector3& direction, double halfwidth_CM)
   {
     const double end = start.z() > 0 ? halfwidth_CM : -halfwidth_CM;
     const double dist = end - start.z();
 
     // if line is vertical, it will never intercept the endcap
-    if (direction.z() == 0) return std::nullopt;
+    if (direction.z() == 0)
+    {
+      return std::nullopt;
+    }
 
     // check that distance and direction have the same sign
-    if (dist * direction.z() < 0) return std::nullopt;
+    if (dist * direction.z() < 0)
+    {
+      return std::nullopt;
+    }
 
     const double direction_scale = dist / direction.z();
     return start + direction * direction_scale;
   }
 
   //_____________________________________________________________
-  std::optional<TVector3> endcap_intersection(TVector3 start, TVector3 direction)
+  std::optional<TVector3> endcap_intersection(const TVector3& start, const TVector3& direction, double halflength_tpc)
   {
     const double end = start.z() > 0 ? halflength_tpc : -halflength_tpc;
     const double dist = end - start.z();
 
     // if line is vertical, it will never intercept the endcap
-    if (direction.z() == 0) return std::nullopt;
+    if (direction.z() == 0)
+    {
+      return std::nullopt;
+    }
 
     // check that distance and direction have the same sign
-    if (dist * direction.z() < 0) return std::nullopt;
+    if (dist * direction.z() < 0)
+    {
+      return std::nullopt;
+    }
 
     const double direction_scale = dist / direction.z();
     return start + direction * direction_scale;
   }
 
   //_____________________________________________________________
-  std::optional<TVector3> cylinder_line_intersection(TVector3 s, TVector3 v, double radius)
+  std::optional<TVector3> cylinder_line_intersection(const TVector3& s, const TVector3& v, double radius)
   {
     const double R2 = square(radius);
 
-    //Generalized Parameters for collision with cylinder of radius R:
-    //from quadratic formula solutions of when a vector intersects a circle:
+    // Generalized Parameters for collision with cylinder of radius R:
+    // from quadratic formula solutions of when a vector intersects a circle:
     const double a = square(v.x()) + square(v.y());
     const double b = 2 * (v.x() * s.x() + v.y() * s.y());
     const double c = square(s.x()) + square(s.y()) - R2;
@@ -119,41 +130,54 @@ namespace
      * if the rootterm is negative, we will have no real roots,
      * we are outside the cylinder and pointing skew to the cylinder such that we never cross.
      */
-    if (rootterm < 0 || a == 0) return std::nullopt;
+    if (rootterm < 0 || a == 0)
+    {
+      return std::nullopt;
+    }
 
-    //Find the (up to) two points where we collide with the cylinder:
+    // Find the (up to) two points where we collide with the cylinder:
     const double sqrtterm = std::sqrt(rootterm);
     const double t1 = (-b + sqrtterm) / (2 * a);
     const double t2 = (-b - sqrtterm) / (2 * a);
 
     /*
-    * if either of the t's are nonzero, we have a collision
-    * the collision closest to the start (hence with the smallest t that is greater than zero) is the one that happens.
-    */
+     * if either of the t's are nonzero, we have a collision
+     * the collision closest to the start (hence with the smallest t that is greater than zero) is the one that happens.
+     */
     const double& min_t = (t2 < t1 && t2 > 0) ? t2 : t1;
     return s + v * min_t;
   }
 
   //_____________________________________________________________
-  std::optional<TVector3> field_cage_intersection(TVector3 start, TVector3 direction)
+  std::optional<TVector3> field_cage_intersection(const TVector3& start, const TVector3& direction)
   {
-    const auto ofc_strike = cylinder_line_intersection(start, direction, end_CM);
-    const auto ifc_strike = cylinder_line_intersection(start, direction, begin_CM);
+    auto ofc_strike = cylinder_line_intersection(start, direction, end_CM);
+    auto ifc_strike = cylinder_line_intersection(start, direction, begin_CM);
 
     // if either of the two intersection is invalid, return the other
-    if (!ifc_strike) return ofc_strike;
-    if (!ofc_strike) return ifc_strike;
+    if (!ifc_strike)
+    {
+      return ofc_strike;
+    }
+    if (!ofc_strike)
+    {
+      return ifc_strike;
+    }
 
     // both intersection are valid, calculate signed distance to start z
     const auto ifc_dist = (ifc_strike->Z() - start.Z()) / direction.Z();
     const auto ofc_dist = (ofc_strike->Z() - start.Z()) / direction.Z();
 
     if (ifc_dist < 0)
+    {
       return (ofc_dist > 0) ? ofc_strike : std::nullopt;
-    else if (ofc_dist < 0)
+    }
+    if (ofc_dist < 0)
+    {
       return ifc_strike;
-    else
-      return (ifc_dist < ofc_dist) ? ifc_strike : ofc_strike;
+    }
+
+    return (ifc_dist < ofc_dist) ? ifc_strike : ofc_strike;
   }
 
   /// TVector3 stream
@@ -183,7 +207,7 @@ int PHG4TpcDirectLaser::InitRun(PHCompositeNode* topNode)
     std::cout << "Fun4AllDstPileupMerger::load_nodes - creating node G4TruthInfo" << std::endl;
 
     PHNodeIterator iter(topNode);
-    auto dstNode = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "DST"));
+    auto* dstNode = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "DST"));
     if (!dstNode)
     {
       std::cout << PHWHERE << "DST Node missing, aborting." << std::endl;
@@ -196,7 +220,7 @@ int PHG4TpcDirectLaser::InitRun(PHCompositeNode* topNode)
 
   // load and check G4Hit node
   hitnodename = "G4HIT_" + detector;
-  auto* g4hit = findNode::getClass<PHG4HitContainer>(topNode, hitnodename.c_str());
+  auto* g4hit = findNode::getClass<PHG4HitContainer>(topNode, hitnodename);
   if (!g4hit)
   {
     std::cout << Name() << " Could not locate G4HIT node " << hitnodename << std::endl;
@@ -210,7 +234,7 @@ int PHG4TpcDirectLaser::InitRun(PHCompositeNode* topNode)
   {
     // find DST node and check
     PHNodeIterator iter(topNode);
-    auto dstNode = static_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "DST"));
+    auto* dstNode = static_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "DST"));
     if (!dstNode)
     {
       std::cout << PHWHERE << "DST Node missing, aborting." << std::endl;
@@ -219,8 +243,11 @@ int PHG4TpcDirectLaser::InitRun(PHCompositeNode* topNode)
 
     // find or create SVTX node
     iter = PHNodeIterator(dstNode);
-    auto node = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "SVTX"));
-    if (!node) dstNode->addNode(node = new PHCompositeNode("SVTX"));
+    auto* node = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "SVTX"));
+    if (!node)
+    {
+      dstNode->addNode(node = new PHCompositeNode("SVTX"));
+    }
 
     // add track node
     m_track_map = new SvtxTrackMap_v2;
@@ -232,17 +259,40 @@ int PHG4TpcDirectLaser::InitRun(PHCompositeNode* topNode)
   electrons_per_cm = get_int_param("electrons_per_cm");
   electrons_per_gev = get_double_param("electrons_per_gev");
 
+    PHG4TpcGeomContainer *GeomContainer = findNode::getClass<PHG4TpcGeomContainer>(topNode, "TPCGEOMCONTAINER");
+   
+  PHG4TpcGeom *layergeom = GeomContainer->GetLayerCellGeom(20);  // z geometry is the same for all layers
+  double maxdriftlength = layergeom->get_max_driftlength();
+  halfwidth_CM = layergeom->get_CM_halfwidth();
+  halflength_tpc = maxdriftlength + halfwidth_CM;
+  
   // setup lasers
   SetupLasers();
 
   // print configuration
-  std::cout << "PHG4TpcDirectLaser::InitRun - m_autoAdvanceDirectLaser: " << m_autoAdvanceDirectLaser << std::endl;
-  std::cout << "PHG4TpcDirectLaser::InitRun - phi steps: " << nPhiSteps << " min: " << minPhi << " max: " << maxPhi << std::endl;
-  std::cout << "PHG4TpcDirectLaser::InitRun - theta steps: " << nThetaSteps << " min: " << minTheta << " max: " << maxTheta << std::endl;
-  std::cout << "PHG4TpcDirectLaser::InitRun - nTotalSteps: " << nTotalSteps << std::endl;
-
+  if (m_steppingpattern == true)
+  {
+    std::cout << "PHG4TpcDirectLaser::InitRun - m_steppingpattern: " << m_steppingpattern << std::endl;
+    std::cout << "PHG4TpcDirectLaser::InitRun - nTotalSteps: " << nTotalSteps << std::endl;
+  }
+  else
+  {
+    std::cout << "PHG4TpcDirectLaser::InitRun - m_autoAdvanceDirectLaser: " << m_autoAdvanceDirectLaser << std::endl;
+    std::cout << "PHG4TpcDirectLaser::InitRun - phi steps: " << nPhiSteps << " min: " << minPhi << " max: " << maxPhi << std::endl;
+    std::cout << "PHG4TpcDirectLaser::InitRun - theta steps: " << nThetaSteps << " min: " << minTheta << " max: " << maxTheta << std::endl;
+    std::cout << "PHG4TpcDirectLaser::InitRun - nTotalSteps: " << nTotalSteps << std::endl;
+  }
   std::cout << "PHG4TpcDirectLaser::InitRun - electrons_per_cm: " << electrons_per_cm << std::endl;
   std::cout << "PHG4TpcDirectLaser::InitRun - electrons_per_gev " << electrons_per_gev << std::endl;
+
+  // TFile * infile1 = TFile::Open("theta_phi_laser.root");
+
+  std::string LASER_ANGLES_ROOTFILE = std::string(getenv("CALIBRATIONROOT")) + "/TPC/DirectLaser/theta_phi_laser.root";
+  TFile* infile1 = TFile::Open(LASER_ANGLES_ROOTFILE.c_str());
+
+  pattern = (TNtuple*) infile1->Get("angles");
+  pattern->SetBranchAddress("#theta", &theta_p);
+  pattern->SetBranchAddress("#phi", &phi_p);
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
@@ -255,21 +305,22 @@ int PHG4TpcDirectLaser::process_event(PHCompositeNode* topNode)
   assert(m_g4truthinfo);
 
   // load g4hit container
-  m_g4hitcontainer = findNode::getClass<PHG4HitContainer>(topNode, hitnodename.c_str());
+  m_g4hitcontainer = findNode::getClass<PHG4HitContainer>(topNode, hitnodename);
   assert(m_g4hitcontainer);
 
   // load track map
   m_track_map = findNode::getClass<SvtxTrackMap>(topNode, m_track_map_name);
   assert(m_track_map);
 
-  if (m_autoAdvanceDirectLaser)
+  if (m_autoAdvanceDirectLaser || m_steppingpattern)
   {
     AimToNextPatternStep();
   }
+  //_________________________________________________
   else
   {
     // use arbitrary direction
-    AimToThetaPhi( arbitrary_theta, arbitrary_phi);
+    AimToThetaPhi(arbitrary_theta, arbitrary_phi);
   }
 
   return Fun4AllReturnCodes::EVENT_OK;
@@ -294,6 +345,9 @@ void PHG4TpcDirectLaser::SetDefaultParameters()
 
   // number of electrons per deposited GeV in TPC gas
   set_default_double_param("electrons_per_gev", Tpc_ElectronsPerKeV * 1e6);
+
+  //  set_default_double_param("tpc_half_length", 102.325);
+  //  set_default_double_param("CM_halfwidth", 0.28);
 
   // number of electrons deposited by laser per cm
   set_default_int_param("electrons_per_cm", 72);
@@ -330,6 +384,20 @@ void PHG4TpcDirectLaser::SetThetaStepping(int n, double min, double max)
 }
 
 //_____________________________________________________________
+void PHG4TpcDirectLaser::SetFileStepping(int n)
+{
+  if (n < 0 || n > 13802)  // 13802 = hard coded number of tuple entries
+  {
+    std::cout << PHWHERE << " - invalid" << std::endl;
+    return;
+  }
+  nTotalSteps = n;
+
+  return;
+}
+
+//_____________________________________________________________
+
 void PHG4TpcDirectLaser::SetupLasers()
 {
   // clear previous lasers
@@ -353,19 +421,23 @@ void PHG4TpcDirectLaser::SetupLasers()
     {
       laser.m_position.SetZ(position_base.z());
       laser.m_direction = -1;
-      laser.m_phi = M_PI / 2 * i + (15 * M_PI/180); //additional offset of 15 deg.
+      laser.m_phi = M_PI / 2 * i - (15 * M_PI / 180);  // additional offset of 15 deg.
     }
     else
     {
       laser.m_position.SetZ(-position_base.z());
       laser.m_direction = 1;
-      laser.m_phi = M_PI / 2 * i - (15 * M_PI/180); //additional offset of 15 deg.
+      laser.m_phi = M_PI / 2 * i + (15 * M_PI / 180);  // additional offset of 15 deg.
     }
+
     // rotate around z
     laser.m_position.RotateZ(laser.m_phi);
 
     // append
-    m_lasers.push_back(laser);
+    m_lasers.push_back(laser);  // All lasers
+    //  if(i==0) m_lasers.push_back(laser);//Only laser 1
+    //  if(i==3) m_lasers.push_back(laser);// Laser 4
+    // if(i<4) m_lasers.push_back(laser);//Lasers 1, 2, 3, 4
   }
 }
 
@@ -374,8 +446,16 @@ void PHG4TpcDirectLaser::AimToNextPatternStep()
 {
   if (nTotalSteps >= 1)
   {
-    AimToPatternStep(currentPatternStep);
-    ++currentPatternStep;
+    if (m_steppingpattern)
+    {
+      AimToPatternStep_File(currentPatternStep);
+      ++currentPatternStep;
+    }
+    else
+    {
+      AimToPatternStep(currentPatternStep);
+      ++currentPatternStep;
+    }
   }
 }
 
@@ -397,7 +477,7 @@ void PHG4TpcDirectLaser::AimToThetaPhi(double theta, double phi)
 //_____________________________________________________________
 void PHG4TpcDirectLaser::AimToPatternStep(int n)
 {
-  //trim against overflows
+  // trim against overflows
   n = n % nTotalSteps;
 
   if (Verbosity())
@@ -423,6 +503,38 @@ void PHG4TpcDirectLaser::AimToPatternStep(int n)
 }
 
 //_____________________________________________________________
+
+void PHG4TpcDirectLaser::AimToPatternStep_File(int n)
+{
+  // trim against overflows
+  n = n % nTotalSteps;
+
+  if (Verbosity())
+  {
+    std::cout << "PHG4TpcDirectLaser::AimToPatternStep_File - step: " << n << "/" << nTotalSteps << std::endl;
+  }
+
+  // store as current pattern
+  currentPatternStep = n;
+
+  pattern->GetEntry(n);
+
+  // calculate theta
+  std::cout << "From file, current entry = " << n << " Theta: " << theta_p << " Phi: " << phi_p << std::endl;
+
+  const double theta = theta_p * M_PI / 180.;
+
+  // calculate phi
+  const double phi = phi_p * M_PI / 180.;
+
+  // generate laser tracks
+  AimToThetaPhi(theta, phi);
+
+  return;
+}
+
+//_____________________________________________________________
+
 void PHG4TpcDirectLaser::AppendLaserTrack(double theta, double phi, const PHG4TpcDirectLaser::Laser& laser)
 {
   if (!m_g4hitcontainer)
@@ -438,11 +550,17 @@ void PHG4TpcDirectLaser::AppendLaserTrack(double theta, double phi, const PHG4Tp
   const auto& direction = laser.m_direction;
   TVector3 dir(0, 0, direction);
 
-  //adjust direction
+  // adjust direction
   dir.RotateY(theta * direction);
 
-  if(laser.m_direction == -1) dir.RotateZ(phi); //if +z facing -z
-  else dir.RotateZ(-phi); //if -z facting +z
+  if (laser.m_direction == -1)
+  {
+    dir.RotateZ(phi);  // if +z facing -z
+  }
+  else
+  {
+    dir.RotateZ(-phi);  // if -z facting +z
+  }
 
   // also rotate by laser azimuth
   dir.RotateZ(laser.m_phi);
@@ -464,14 +582,14 @@ void PHG4TpcDirectLaser::AppendLaserTrack(double theta, double phi, const PHG4Tp
   {
     // add vertex
     const auto vtxid = m_g4truthinfo->maxvtxindex() + 1;
-    const auto vertex = new PHG4VtxPoint_t(pos.x(), pos.y(), pos.z(), 0, vtxid);
+    auto* const vertex = new PHG4VtxPoint_t(pos.x(), pos.y(), pos.z(), 0, vtxid);
     m_g4truthinfo->AddVertex(vtxid, vertex);
 
     // increment track id
     trackid = m_g4truthinfo->maxtrkindex() + 1;
 
     // create new g4particle
-    auto particle = new PHG4Particle_t();
+    auto* particle = new PHG4Particle_t();
     particle->set_track_id(trackid);
     particle->set_vtx_id(vtxid);
     particle->set_parent_id(0);
@@ -511,19 +629,22 @@ void PHG4TpcDirectLaser::AppendLaserTrack(double theta, double phi, const PHG4Tp
    * if the position along beam and laser direction have the same sign, it will intercept the endcap
    * otherwise will intercept the central membrane
    */
-  const auto plane_strike = (pos.z() * dir.z() > 0) ? endcap_intersection(pos, dir) : central_membrane_intersection(pos, dir);
+  const auto plane_strike = (pos.z() * dir.z() > 0) ? endcap_intersection(pos, dir,halflength_tpc) : central_membrane_intersection(pos, dir, halfwidth_CM);
 
   // field cage intersection
   const auto fc_strike = field_cage_intersection(pos, dir);
 
   // if none of the strikes is valid, there is no valid information found.
-  if (!(plane_strike || fc_strike)) return;
+  if (!(plane_strike || fc_strike))
+  {
+    return;
+  }
 
   // decide relevant end of laser
   /* chose field cage intersection if valid, and if either plane intersection is invalid or happens on a larger z along the laser direction) */
   const TVector3& strike = (fc_strike && (!plane_strike || fc_strike->z() / dir.z() < plane_strike->z() / dir.z())) ? *fc_strike : *plane_strike;
 
-  //find length
+  // find length
   TVector3 delta = (strike - pos);
   double fullLength = delta.Mag();
   int nHitSteps = fullLength / maxHitLength + 1;
@@ -543,27 +664,27 @@ void PHG4TpcDirectLaser::AppendLaserTrack(double theta, double phi, const PHG4Tp
 
   for (int i = 0; i < nHitSteps; i++)
   {
-    start = end;  //new starting point is the previous ending point.
+    start = end;  // new starting point is the previous ending point.
     if (i + 1 == nHitSteps)
     {
-      //last step is the remainder size
+      // last step is the remainder size
       end = strike;
       delta = start - end;
       stepLength = delta.Mag();
     }
     else
     {
-      //all other steps are uniform length
+      // all other steps are uniform length
       end = start + step;
       stepLength = step.Mag();
     }
 
-    //from phg4tpcsteppingaction.cc
-    auto hit = new PHG4Hit_t;
+    // from phg4tpcsteppingaction.cc
+    auto* hit = new PHG4Hit_t;
     hit->set_trkid(trackid);
     hit->set_layer(99);
 
-    //here we set the entrance values in cm
+    // here we set the entrance values in cm
     hit->set_x(0, start.X() / cm);
     hit->set_y(0, start.Y() / cm);
     hit->set_z(0, start.Z() / cm);

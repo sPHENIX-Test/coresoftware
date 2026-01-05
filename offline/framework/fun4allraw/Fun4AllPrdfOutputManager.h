@@ -14,7 +14,7 @@ class Fun4AllPrdfOutputManager : public Fun4AllOutputManager
 {
  public:
   //! constructor
-  Fun4AllPrdfOutputManager(const std::string &myname = "PRDFOUT", const std::string &filename = "data_out.prdf");
+  Fun4AllPrdfOutputManager(const std::string &myname = "PRDFOUT", const std::string &fname = "data_out.prdf");
 
   //! destructor
   virtual ~Fun4AllPrdfOutputManager();
@@ -29,8 +29,8 @@ class Fun4AllPrdfOutputManager : public Fun4AllOutputManager
   int Write(PHCompositeNode *startNode);
 
  private:
-  /*! 
-    initialize prdf output manager every time 
+  /*!
+    initialize prdf output manager every time
     the output file name is changed including first event
   */
   int InitPrdfManager();

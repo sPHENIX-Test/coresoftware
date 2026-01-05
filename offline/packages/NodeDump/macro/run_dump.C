@@ -1,15 +1,18 @@
 #ifndef MACRO_RUNDUMP_C
 #define MACRO_RUNDUMP_C
 
-
 #include <nodedump/Dumper.h>
+
 #include <fun4all/Fun4AllServer.h>
 #include <fun4all/Fun4AllDstInputManager.h>
+
+#include <Rtypes.h> // R__LOAD_LIBRARY defined for clang-tidy
+#include <TSystem.h>
 
 R__LOAD_LIBRARY(libfun4all.so)
 R__LOAD_LIBRARY(libphnodedump.so)
 
-void run_dump(const char *infile, const int evts=100)
+void run_dump(const std::string &infile, const int evts=100)
 {
   gSystem->Load("libg4dst.so");
   Fun4AllServer* se = Fun4AllServer::instance();

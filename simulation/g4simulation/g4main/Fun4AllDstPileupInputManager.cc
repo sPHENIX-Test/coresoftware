@@ -6,12 +6,13 @@
 #include "Fun4AllDstPileupInputManager.h"
 #include "Fun4AllDstPileupMerger.h"
 
-#include <fun4all/Fun4AllReturnCodes.h>
-#include <fun4all/Fun4AllServer.h>
-
 #include <ffaobjects/RunHeader.h>
 
-#include <frog/FROG.h>
+#include <fun4all/DBInterface.h>
+#include <fun4all/InputFileHandlerReturnCodes.h>
+#include <fun4all/Fun4AllInputManager.h>  // for Fun4AllInputManager
+#include <fun4all/Fun4AllReturnCodes.h>
+#include <fun4all/Fun4AllServer.h>
 
 #include <phool/PHCompositeNode.h>
 #include <phool/PHNodeIOManager.h>
@@ -33,8 +34,8 @@ Fun4AllDstPileupInputManager::Fun4AllDstPileupInputManager(const std::string &na
 {
   // initialize random generator
   const uint seed = PHRandomSeed();
-  m_rng.reset( gsl_rng_alloc(gsl_rng_mt19937) );
-  gsl_rng_set( m_rng.get(), seed );
+  m_rng.reset(gsl_rng_alloc(gsl_rng_mt19937));
+  gsl_rng_set(m_rng.get(), seed);
 }
 
 //_____________________________________________________________________________
@@ -45,7 +46,7 @@ int Fun4AllDstPileupInputManager::fileopen(const std::string &filenam)
   with additional code to handle the background IManager
   */
 
-  auto se = Fun4AllServer::instance();
+  auto *se = Fun4AllServer::instance();
   if (IsOpen())
   {
     std::cout << "Closing currently open file "
@@ -54,15 +55,14 @@ int Fun4AllDstPileupInputManager::fileopen(const std::string &filenam)
     fileclose();
   }
   FileName(filenam);
-  FROG frog;
-  m_fullfilename = frog.location(FileName());
+  m_fullfilename = DBInterface::instance()->location(FileName());
   if (Verbosity() > 0)
   {
     std::cout << Name() << ": opening file " << m_fullfilename << std::endl;
   }
   // sanity check - the IManager must be nullptr when this method is executed
   // if not something is very very wrong and we must not continue
-  assert( !m_IManager );
+  assert(!m_IManager);
 
   // first read the runnode if not disabled
   if (m_ReadRunTTree)
@@ -74,13 +74,13 @@ int Fun4AllDstPileupInputManager::fileopen(const std::string &filenam)
       m_IManager->read(m_runNode);
 
       // get the current run number
-      auto runheader = findNode::getClass<RunHeader>(m_runNode, "RunHeader");
+      auto *runheader = findNode::getClass<RunHeader>(m_runNode, "RunHeader");
       if (runheader)
       {
         SetRunNumber(runheader->get_RunNumber());
       }
       // delete our internal copy of the runnode when opening subsequent files
-      assert( !m_runNodeCopy );
+      assert(!m_runNodeCopy);
       m_runNodeCopy.reset(new PHCompositeNode("RUNNODECOPY"));
       if (!m_runNodeSum)
       {
@@ -127,23 +127,26 @@ int Fun4AllDstPileupInputManager::fileopen(const std::string &filenam)
     AddToFileOpened(FileName());  // add file to the list of files which were opened
     return 0;
   }
-  else
-  {
-    std::cout << PHWHERE << ": " << Name() << " Could not open file " << FileName() << std::endl;
-    m_IManager.reset();
-    return -1;
-  }
+
+  std::cout << PHWHERE << ": " << Name() << " Could not open file " << FileName() << std::endl;
+  m_IManager.reset();
+  return -1;
 }
 
 //_____________________________________________________________________________
 int Fun4AllDstPileupInputManager::run(const int nevents)
 {
-
-  if( nevents == 0 ) return runOne( nevents );
-  else if( nevents > 1 )
+  if (nevents == 0)
   {
-    const auto result = runOne( nevents-1 );
-    if( result != 0 ) return result;
+    return runOne(nevents);
+  }
+  if (nevents > 1)
+  {
+    const auto result = runOne(nevents - 1);
+    if (result != 0)
+    {
+      return result;
+    }
   }
 
   /*
@@ -151,9 +154,9 @@ int Fun4AllDstPileupInputManager::run(const int nevents)
    * this normally happens in ::fileopen however, when the file is not oppened during first event, for instance because background rate is too low,
    * this can cause fun4all server to bark with "Someone changed the number of Output Nodes on the fly"
    */
-  if( !m_dstNode )
+  if (!m_dstNode)
   {
-    auto se = Fun4AllServer::instance();
+    auto *se = Fun4AllServer::instance();
     m_dstNode = se->getNode(InputNode(), TopNodeName());
   }
 
@@ -168,28 +171,29 @@ int Fun4AllDstPileupInputManager::run(const int nevents)
   merger.load_nodes(m_dstNode);
 
   // generate background collisions
-  const double mu = m_collision_rate*m_time_between_crossings*1e-9;
+  const double mu = m_collision_rate * m_time_between_crossings * 1e-9;
 
-  const int min_crossing = m_tmin/m_time_between_crossings;
-  const int max_crossing = m_tmax/m_time_between_crossings;
-  for( int icrossing = min_crossing; icrossing <= max_crossing; ++icrossing )
+  const int min_crossing = m_tmin / m_time_between_crossings;
+  const int max_crossing = m_tmax / m_time_between_crossings;
+  for (int icrossing = min_crossing; icrossing <= max_crossing; ++icrossing)
   {
     const double crossing_time = m_time_between_crossings * icrossing;
     const int ncollisions = gsl_ran_poisson(m_rng.get(), mu);
     for (int icollision = 0; icollision < ncollisions; ++icollision)
     {
-
       // read one event
-      const auto result = runOne( 1 );
-      if( result != 0 ) return result;
+      const auto result = runOne(1);
+      if (result != 0)
+      {
+        return result;
+      }
 
       // merge
       if (Verbosity() > 0)
       {
-	std::cout << "Fun4AllDstPileupInputManager::run - merged background event " << m_ievent_thisfile << " time: " << crossing_time << std::endl;
+        std::cout << "Fun4AllDstPileupInputManager::run - merged background event " << m_ievent_thisfile << " time: " << crossing_time << std::endl;
       }
       merger.copy_background_event(m_dstNodeInternal.get(), crossing_time);
-
     }
   }
 
@@ -258,7 +262,7 @@ int Fun4AllDstPileupInputManager::setBranches()
       std::map<const std::string, int>::const_iterator branchiter;
       for (branchiter = m_branchread.begin(); branchiter != m_branchread.end(); ++branchiter)
       {
-        m_IManager->selectObjectToRead(branchiter->first.c_str(), branchiter->second);
+        m_IManager->selectObjectToRead(branchiter->first, branchiter->second);
         if (Verbosity() > 0)
         {
           std::cout << branchiter->first << " set to " << branchiter->second << std::endl;
@@ -342,13 +346,11 @@ int Fun4AllDstPileupInputManager::runOne(const int nevents)
       }
       return -1;
     }
-    else
+
+    if (OpenNextFile() == InputFileHandlerReturnCodes::FAILURE)
     {
-      if (OpenNextFile())
-      {
-        std::cout << Name() << ": No Input file from filelist opened" << std::endl;
-        return -1;
-      }
+      std::cout << Name() << ": No Input file from filelist opened" << std::endl;
+      return -1;
     }
   }
   if (Verbosity() > 3)
@@ -359,7 +361,7 @@ int Fun4AllDstPileupInputManager::runOne(const int nevents)
 readagain:
 
   // read main event to dstNode
-  auto dummy = m_IManager->read(m_dstNodeInternal.get());
+  auto *dummy = m_IManager->read(m_dstNodeInternal.get());
   int ncount = 0;
   while (dummy)
   {
@@ -373,9 +375,9 @@ readagain:
   if (!dummy)
   {
     fileclose();
-    if (!OpenNextFile())
+    if (OpenNextFile() == InputFileHandlerReturnCodes::SUCCESS)
     {
-      goto readagain;
+      goto readagain; // NOLINT(hicpp-avoid-goto)
     }
     return -1;
   }
@@ -384,20 +386,20 @@ readagain:
   // check if the local SubsysReco discards this event
   if (RejectEvent() != Fun4AllReturnCodes::EVENT_OK)
   {
-    goto readagain;
+    goto readagain; // NOLINT(hicpp-avoid-goto)
   }
   return 0;
 }
 
 void Fun4AllDstPileupInputManager::setDetectorActiveCrossings(const std::string &name, const int nbcross)
 {
-  setDetectorActiveCrossings(name,-nbcross,nbcross);
+  setDetectorActiveCrossings(name, -nbcross, nbcross);
 }
 
 void Fun4AllDstPileupInputManager::setDetectorActiveCrossings(const std::string &name, const int min, const int max)
 {
   std::string nodename = "G4HIT_" + name;
-// compensate that active for one bunch crossign means delta_t = 0
-  m_DetectorTiming.insert(std::make_pair(nodename,std::make_pair(m_time_between_crossings * (min+1), m_time_between_crossings * (max-1))));
+  // compensate that active for one bunch crossign means delta_t = 0
+  m_DetectorTiming.insert(std::make_pair(nodename, std::make_pair(m_time_between_crossings * (min + 1), m_time_between_crossings * (max - 1))));
   return;
 }

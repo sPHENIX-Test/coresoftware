@@ -30,14 +30,10 @@
 class G4VPhysicalVolume;
 class PHCompositeNode;
 
-using namespace std;
 //____________________________________________________________________________..
 PHG4ConeSteppingAction::PHG4ConeSteppingAction(PHG4ConeDetector* detector)
   : PHG4SteppingAction(detector->GetName())
   , detector_(detector)
-  , hits_(nullptr)
-  , hit(nullptr)
-  , saveshower(nullptr)
 {
 }
 
@@ -51,7 +47,7 @@ PHG4ConeSteppingAction::~PHG4ConeSteppingAction()
 }
 
 //____________________________________________________________________________..
-bool PHG4ConeSteppingAction::UserSteppingAction(const G4Step* aStep, bool)
+bool PHG4ConeSteppingAction::UserSteppingAction(const G4Step* aStep, bool /*was_used*/)
 {
   // get volume of the current step
   G4VPhysicalVolume* volume = aStep->GetPreStepPoint()->GetTouchableHandle()->GetVolume();
@@ -70,15 +66,15 @@ bool PHG4ConeSteppingAction::UserSteppingAction(const G4Step* aStep, bool)
     // an expensive string compare for every track when we know
     // geantino or chargedgeantino has pid=0
     if (aTrack->GetParticleDefinition()->GetPDGEncoding() == 0 &&
-        aTrack->GetParticleDefinition()->GetParticleName().find("geantino") != string::npos)
+        aTrack->GetParticleDefinition()->GetParticleName().find("geantino") != std::string::npos)
     {
       geantino = true;
     }
     G4StepPoint* prePoint = aStep->GetPreStepPoint();
     G4StepPoint* postPoint = aStep->GetPostStepPoint();
-    //       cout << "track id " << aTrack->GetTrackID() << endl;
-    //       cout << "time prepoint: " << prePoint->GetGlobalTime() << endl;
-    //       cout << "time postpoint: " << postPoint->GetGlobalTime() << endl;
+    //       std::cout << "track id " << aTrack->GetTrackID() << std::endl;
+    //       std::cout << "time prepoint: " << prePoint->GetGlobalTime() << std::endl;
+    //       std::cout << "time postpoint: " << postPoint->GetGlobalTime() << std::endl;
     switch (prePoint->GetStepStatus())
     {
     case fGeomBoundary:
@@ -87,15 +83,15 @@ bool PHG4ConeSteppingAction::UserSteppingAction(const G4Step* aStep, bool)
       {
         hit = new PHG4Hitv1();
       }
-      //here we set the entrance values in cm
+      // here we set the entrance values in cm
       hit->set_x(0, prePoint->GetPosition().x() / cm);
       hit->set_y(0, prePoint->GetPosition().y() / cm);
       hit->set_z(0, prePoint->GetPosition().z() / cm);
       // time in ns
       hit->set_t(0, prePoint->GetGlobalTime() / nanosecond);
-      //set the track ID
+      // set the track ID
       hit->set_trkid(aTrack->GetTrackID());
-      //set the initial energy deposit
+      // set the initial energy deposit
       hit->set_edep(0);
 
       if (G4VUserTrackInformation* p = aTrack->GetUserInformation())
@@ -120,7 +116,7 @@ bool PHG4ConeSteppingAction::UserSteppingAction(const G4Step* aStep, bool)
     hit->set_z(1, postPoint->GetPosition().z() / cm);
 
     hit->set_t(1, postPoint->GetGlobalTime() / nanosecond);
-    //sum up the energy to get total deposited
+    // sum up the energy to get total deposited
     hit->set_edep(hit->get_edep() + edep);
     if (geantino)
     {
@@ -168,16 +164,15 @@ bool PHG4ConeSteppingAction::UserSteppingAction(const G4Step* aStep, bool)
     // return true to indicate the hit was used
     return true;
   }
-  else
-  {
-    return false;
-  }
+  
+      return false;
+ 
 }
 
 //____________________________________________________________________________..
 void PHG4ConeSteppingAction::SetInterfacePointers(PHCompositeNode* topNode)
 {
-  string hitnodename;
+  std::string hitnodename;
   if (detector_->SuperDetector() != "NONE")
   {
     hitnodename = "G4HIT_" + detector_->SuperDetector();
@@ -187,7 +182,7 @@ void PHG4ConeSteppingAction::SetInterfacePointers(PHCompositeNode* topNode)
     hitnodename = "G4HIT_" + detector_->GetName();
   }
 
-  //now look for the map and grab a pointer to it.
+  // now look for the map and grab a pointer to it.
   hits_ = findNode::getClass<PHG4HitContainer>(topNode, hitnodename);
 
   // if we do not find the node we need to scream.

@@ -10,11 +10,11 @@
 
 Shifter::Shifter(const std::string &truthfilename, const std::string &correctionfilename)
 {
-  //load a 'truth' distortion map and, optionally, a map of a measured correction to those distortions
-  //this code is currently set up to load a particular correction map that doesn't have distortions
-  // in X,Y, and Z components, but rather only in R, R*Phi, and Z components.
+  // load a 'truth' distortion map and, optionally, a map of a measured correction to those distortions
+  // this code is currently set up to load a particular correction map that doesn't have distortions
+  //  in X,Y, and Z components, but rather only in R, R*Phi, and Z components.
 
-  //single event distortion file
+  // single event distortion file
   if (!truthfilename.empty())
   {
     forward = TFile::Open(truthfilename.c_str(), "READ");
@@ -24,7 +24,7 @@ Shifter::Shifter(const std::string &truthfilename, const std::string &correction
       forward->GetObject("hIntDistortionY", hY);
       forward->GetObject("hIntDistortionZ", hZ);
 
-      //not strictly needed, but handy:
+      // not strictly needed, but handy:
       forward->GetObject("hIntDistortionR", hR);
       forward->GetObject("hIntDistortionP", hPhi);
     }
@@ -34,11 +34,11 @@ Shifter::Shifter(const std::string &truthfilename, const std::string &correction
     hasTruth = true;
   }
 
-  //single event distortion file
+  // single event distortion file
   if (!correctionfilename.empty())
   {
-    //average=TFile::Open(correctionfilename,"READ");
-    // hardcoded????????
+    // average=TFile::Open(correctionfilename,"READ");
+    //  hardcoded????????
     std::string correction_filename = std::string(getenv("CALIBRATIONROOT")) + "/distortion_maps/Distortions_full_realistic_micromegas_all-coarse.root";
     average = TFile::Open(correction_filename.c_str(), "READ");
     if (average)
@@ -57,11 +57,16 @@ Shifter::Shifter(const std::string &truthfilename, const std::string &correction
   }
 }
 
-TVector3 Shifter::ShiftForward(const TVector3 &position)
+TVector3 Shifter::ShiftForward(const TVector3 &position) const
 {
-  double x, y, z, xshift, yshift, zshift;
-  //const double mm = 1.0;
-  //const double cm = 10.0;
+  double x;
+  double y;
+  double z;
+  double xshift;
+  double yshift;
+  double zshift;
+  // const double mm = 1.0;
+  // const double cm = 10.0;
   TVector3 shiftposition;
 
   x = position.X();
@@ -75,7 +80,7 @@ TVector3 Shifter::ShiftForward(const TVector3 &position)
     phi = position.Phi() + 2.0 * M_PI;
   }
 
-  //distort coordinate of stripe
+  // distort coordinate of stripe
   xshift = 0;
   yshift = 0;
   zshift = 0;
@@ -86,11 +91,11 @@ TVector3 Shifter::ShiftForward(const TVector3 &position)
     zshift = hZ->Interpolate(phi, r, z);
   }
 
-  //remove average distortion
+  // remove average distortion
   if (hasCorrection)
   {
     double raveshift = hRave->Interpolate(phi, r, z);
-    double paveshift = hPhiave->Interpolate(phi, r, z);  //hugo confirms the units are cm
+    double paveshift = hPhiave->Interpolate(phi, r, z);  // hugo confirms the units are cm
     double cosphi = cos(phi);
     double sinphi = sin(phi);
     xshift -= raveshift * cosphi - paveshift * sinphi;
@@ -104,11 +109,13 @@ TVector3 Shifter::ShiftForward(const TVector3 &position)
   return forwardshift;
 }
 
-TVector3 Shifter::ShiftBack(const TVector3 &forwardshift)
+TVector3 Shifter::ShiftBack(const TVector3 &forwardshift) const
 {
-  double x, y, z;
+  double x;
+  double y;
+  double z;
   // const double mm = 1.0;
-  //const double cm = 10.0;
+  // const double cm = 10.0;
   TVector3 shiftposition;
 
   x = forwardshift.X();
@@ -131,7 +138,7 @@ TVector3 Shifter::ShiftBack(const TVector3 &forwardshift)
   return shiftposition;
 }
 
-TVector3 Shifter::Shift(const TVector3 &position)
+TVector3 Shifter::Shift(const TVector3 &position) const
 {
   return ShiftBack(ShiftForward(position));
 }

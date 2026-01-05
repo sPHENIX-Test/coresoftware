@@ -26,7 +26,7 @@ class PHG4InttDetector : public PHG4Detector
   PHG4InttDetector(PHG4Subsystem *subsys, PHCompositeNode *Node, PHParametersContainer *parameters, const std::string &dnam, const std::pair<std::vector<std::pair<int, int>>::const_iterator, std::vector<std::pair<int, int>>::const_iterator> &layer_b_e);
 
   //! destructor
-  ~PHG4InttDetector() override {}
+  ~PHG4InttDetector() override = default;
   //! construct
   void ConstructMe(G4LogicalVolume *world) override;
 
@@ -39,7 +39,7 @@ class PHG4InttDetector : public PHG4Detector
   {
     m_SuperDetector = name;
   }
-  const std::string SuperDetector() const
+  const std::string &SuperDetector() const
   {
     return m_SuperDetector;
   }
@@ -47,9 +47,13 @@ class PHG4InttDetector : public PHG4Detector
   {
     m_DetectorType = name;
   }
-  const std::string Detector() const
+  const std::string &Detector() const
   {
     return m_DetectorType;
+  }
+  void useSurveyGeometry(bool b)
+  {
+    useSurvey = b;
   }
 
   std::map<G4VPhysicalVolume *, std::tuple<int, int, int, int>>::const_iterator get_ActiveVolumeTuple(G4VPhysicalVolume *physvol) const;
@@ -57,20 +61,22 @@ class PHG4InttDetector : public PHG4Detector
 
  private:
   void AddGeometryNode();
-  int ConstructIntt(G4LogicalVolume *sandwich);
+  int ConstructIntt(G4LogicalVolume *trackerenvelope);
 
-  PHG4InttDisplayAction *m_DisplayAction = nullptr;
-  PHParametersContainer *m_ParamsContainer = nullptr;
+  PHG4InttDisplayAction *m_DisplayAction{nullptr};
+  PHParametersContainer *m_ParamsContainer{nullptr};
+
+  double m_PosZ[8][2]{};
+  double m_SensorRadius[8]{};
+  double m_StripOffsetX[8]{};
+
+  int m_IsSupportActive{0};
+  int m_IsEndcapActive{0};
+
+  bool useSurvey{true};
 
   std::string m_DetectorType;
   std::string m_SuperDetector;
-
-  int m_IsSupportActive = 0;
-  int m_IsEndcapActive = 0;
-
-  double m_PosZ[8][2];
-  double m_SensorRadius[8];
-  double m_StripOffsetX[8];
 
   std::set<G4LogicalVolume *> m_ActiveLogVols;
   std::map<int, int> m_IsActiveMap;

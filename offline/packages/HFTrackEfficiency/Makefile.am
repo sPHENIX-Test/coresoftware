@@ -10,13 +10,11 @@ AM_LDFLAGS = \
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -isystem$(ROOTSYS)/include \
-  -I$(OFFLINE_MAIN)/include
+  -isystem$(OFFLINE_MAIN)/include \
+  -isystem$(ROOTSYS)/include
 
 pkginclude_HEADERS = \
   HFTrackEfficiency.h
-
-pcmdir = $(libdir)
 
 libhftrackefficiency_la_SOURCES = \
   HFTrackEfficiency.cc
@@ -27,13 +25,6 @@ libhftrackefficiency_la_LIBADD = \
   -ltrackbase_historic_io \
   -lphg4hit \
   -lphhepmc
-
-# Rule for generating table CINT dictionaries.
-%_Dict.cc: %.h %LinkDef.h
-	rootcint -f $@ @CINTDEFS@ $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) $^
-
-#just to get the dependency
-%_Dict_rdict.pcm: %_Dict.cc ;
 
 ################################################
 # linking tests
@@ -54,4 +45,4 @@ testexternals.cc:
 	echo "}" >> $@
 
 clean-local:
-	rm -f *Dict* $(BUILT_SOURCES) *.pcm
+	rm -f $(BUILT_SOURCES)

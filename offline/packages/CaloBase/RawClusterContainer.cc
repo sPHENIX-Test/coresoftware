@@ -2,21 +2,18 @@
 
 #include "RawCluster.h"
 
-#include <cstdlib>
 #include <iostream>
-
-using namespace std;
 
 RawClusterContainer::ConstRange
 RawClusterContainer::getClusters() const
 {
-  return make_pair(_clusters.begin(), _clusters.end());
+  return std::make_pair(_clusters.begin(), _clusters.end());
 }
 
 RawClusterContainer::Range
 RawClusterContainer::getClusters()
 {
-  return make_pair(_clusters.begin(), _clusters.end());
+  return std::make_pair(_clusters.begin(), _clusters.end());
 }
 
 RawClusterContainer::ConstIterator
@@ -26,7 +23,7 @@ RawClusterContainer::AddCluster(RawCluster* rawcluster)
   // just to be safe in case someone deleted a cluster and key is
   // a valid index of a cluster, increment key until there is no cluster
   // in our map
-  while (_clusters.find(key) != _clusters.end())
+  while (_clusters.contains(key))
   {
     key++;
   }

@@ -4,14 +4,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
-#include <memory>
-
-using namespace std;
 
 RawTowerGeomContainer_Cylinderv1::RawTowerGeomContainer_Cylinderv1(RawTowerDefs::CalorimeterId caloid)
   : RawTowerGeomContainerv1(caloid)
-  , radius(NAN)
-  , thickness(NAN)
 {
   return;
 }
@@ -28,14 +23,14 @@ void RawTowerGeomContainer_Cylinderv1::Reset()
 void RawTowerGeomContainer_Cylinderv1::set_etabins(const int i)
 {
   assert(i > 0);
-  bound_t invalid_bound(NAN, NAN);
+  bound_t invalid_bound(std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN());
   eta_bound_map.resize(i, invalid_bound);
 }
 
 void RawTowerGeomContainer_Cylinderv1::set_phibins(const int i)
 {
   assert(i > 0);
-  bound_t invalid_bound(NAN, NAN);
+  bound_t invalid_bound(std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN());
   phi_bound_map.resize(i, invalid_bound);
 }
 
@@ -52,7 +47,7 @@ void RawTowerGeomContainer_Cylinderv1::identify(std::ostream& os) const
        << ")  ";
     i++;
   }
-  os << endl;
+  os << std::endl;
   i = 0;
   for (const auto& iter : phi_bound_map)
   {
@@ -60,33 +55,33 @@ void RawTowerGeomContainer_Cylinderv1::identify(std::ostream& os) const
        << ")  ";
     i++;
   }
-  os << endl;
+  os << std::endl;
   return;
 }
 
-pair<double, double>
+std::pair<double, double>
 RawTowerGeomContainer_Cylinderv1::get_etabounds(const int ibin) const
 {
   if (ibin < 0 || ibin > get_etabins())
   {
     identify();
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::get_etabounds - Asking for invalid bin in eta: "
-        << ibin << endl;
+        << ibin << std::endl;
     exit(1);
   }
   return eta_bound_map[ibin];
 }
 
-pair<double, double>
+std::pair<double, double>
 RawTowerGeomContainer_Cylinderv1::get_phibounds(const int ibin) const
 {
   if (ibin < 0 || ibin > get_phibins())
   {
     identify();
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::get_phibounds - Asking for invalid bin in phi: "
-        << ibin << endl;
+        << ibin << std::endl;
     exit(1);
   }
   return phi_bound_map[ibin];
@@ -112,24 +107,21 @@ int RawTowerGeomContainer_Cylinderv1::get_etabin(const double eta) const
       ibin = i;
       break;
     }
-    else
+    const double deta = std::abs(mean_eta - eta);
+    if (deta < min_deta)
     {
-      const double deta = fabs(mean_eta - eta);
-      if (deta < min_deta)
-      {
-        min_deta = deta;
-        ibin = i;
-      }  // keep searching
-    }
+      min_deta = deta;
+      ibin = i;
+    }  // keep searching
 
     i++;
   }
 
   if (ibin < 0)
   {
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::get_etabin - ERROR - Asking for invalid bin in eta "
-        << eta << endl;
+        << eta << std::endl;
     exit(1);
   }
 
@@ -158,24 +150,21 @@ int RawTowerGeomContainer_Cylinderv1::get_phibin(const double phi) const
       ibin = i;
       break;
     }
-    else
+    const double dphi = std::abs(mean_phi - phi_fold);
+    if (dphi < min_dphi)
     {
-      const double dphi = fabs(mean_phi - phi_fold);
-      if (dphi < min_dphi)
-      {
-        min_dphi = dphi;
-        ibin = i;
-      }  // keep searching
-    }
+      min_dphi = dphi;
+      ibin = i;
+    }  // keep searching
 
     i++;
   }
 
   if (ibin < 0)
   {
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::get_phibin - ERROR - Asking for invalid bin in phi "
-        << phi << endl;
+        << phi << std::endl;
     exit(1);
   }
 
@@ -187,10 +176,10 @@ RawTowerGeomContainer_Cylinderv1::get_etacenter(const int ibin) const
 {
   if (ibin < 0 || ibin >= get_etabins())
   {
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::get_etacenter - Asking for invalid bin in eta: "
-        << ibin << endl;
-    cout << "minbin: 0, maxbin " << get_etabins() << endl;
+        << ibin << std::endl;
+    std::cout << "minbin: 0, maxbin " << get_etabins() << std::endl;
     exit(1);
   }
   return (eta_bound_map[ibin].first + eta_bound_map[ibin].second) / 2.;
@@ -201,10 +190,10 @@ void RawTowerGeomContainer_Cylinderv1::set_etabounds(const int ibin,
 {
   if (ibin < 0 || ibin >= get_etabins())
   {
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::set_bounds - Asking for invalid bin in eta: "
-        << ibin << endl;
-    cout << "minbin: 0, maxbin " << get_etabins() << endl;
+        << ibin << std::endl;
+    std::cout << "minbin: 0, maxbin " << get_etabins() << std::endl;
     exit(1);
   }
 
@@ -223,10 +212,10 @@ RawTowerGeomContainer_Cylinderv1::get_phicenter(const int ibin) const
 {
   if (ibin < 0 || ibin >= get_phibins())
   {
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::get_phicenter - Asking for invalid bin in phi: "
-        << ibin << endl;
-    cout << "minbin: 0, maxbin " << get_phibins() << endl;
+        << ibin << std::endl;
+    std::cout << "minbin: 0, maxbin " << get_phibins() << std::endl;
     exit(1);
   }
   return (phi_bound_map[ibin].first + phi_bound_map[ibin].second) / 2.;
@@ -237,10 +226,10 @@ void RawTowerGeomContainer_Cylinderv1::set_phibounds(const int ibin,
 {
   if (ibin < 0 || ibin >= get_phibins())
   {
-    cout
+    std::cout
         << "RawTowerGeomContainer_Cylinderv1::set_bounds - Asking for invalid bin in phi: "
-        << ibin << endl;
-    cout << "minbin: 0, maxbin " << get_phibins() << endl;
+        << ibin << std::endl;
+    std::cout << "minbin: 0, maxbin " << get_phibins() << std::endl;
     exit(1);
   }
 

@@ -6,6 +6,7 @@
 #include "PHG4BlockGeom.h"
 
 #include <iostream>  // for cout, ostream
+#include <limits>
 
 class PHG4BlockGeomv1 : public PHG4BlockGeom
 {
@@ -16,7 +17,7 @@ class PHG4BlockGeomv1 : public PHG4BlockGeom
                   const double centerx, const double centery, const double centerz,
                   const double zrot);
 
-  ~PHG4BlockGeomv1() override {}
+  ~PHG4BlockGeomv1() override = default;
 
   // from PHObject
   void identify(std::ostream &os = std::cout) const override;
@@ -56,13 +57,13 @@ class PHG4BlockGeomv1 : public PHG4BlockGeom
                                  double &, double &, double &) const;
 
  protected:
-  int _layer;
-  double _size[3];
-  double _center[3];
-  double _rotation_z;
+  int _layer{-1};
+  double _size[3]{};
+  double _center[3]{};
+  double _rotation_z{std::numeric_limits<double>::quiet_NaN()};
 
   void _build_rot_matrix();
-  double _rot_matrix[3][3];  // global -> local coordinates rotation matrix
+  double _rot_matrix[3][3]{};  // global -> local coordinates rotation matrix
 
   ClassDefOverride(PHG4BlockGeomv1, 1)
 };

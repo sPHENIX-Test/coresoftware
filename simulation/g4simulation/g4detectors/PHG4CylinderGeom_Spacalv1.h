@@ -39,6 +39,7 @@ class PHG4CylinderGeom_Spacalv1 : public PHG4CylinderGeomv2
   // from TObject
   void Print(Option_t *option = "") const override;
 
+  // cppcheck-suppress virtualCallInConstructor
   virtual void SetDefault();
 
   //! load parameters from PHParameters, which interface to Database/XML/ROOT files
@@ -190,8 +191,8 @@ class PHG4CylinderGeom_Spacalv1 : public PHG4CylinderGeomv2
   /** @name Materials
    */
   ///@{
-  std::string
-  get_absorber_mat() const
+  const std::string
+  &get_absorber_mat() const
   {
     return absorber_mat;
   }
@@ -202,8 +203,8 @@ class PHG4CylinderGeom_Spacalv1 : public PHG4CylinderGeomv2
     absorber_mat = absorberMat;
   }
 
-  std::string
-  get_fiber_clading_mat() const
+  const std::string
+  &get_fiber_clading_mat() const
   {
     return fiber_clading_mat;
   }
@@ -214,8 +215,8 @@ class PHG4CylinderGeom_Spacalv1 : public PHG4CylinderGeomv2
     fiber_clading_mat = fiberCladingMat;
   }
 
-  std::string
-  get_fiber_core_mat() const
+  const std::string
+  &get_fiber_core_mat() const
   {
     return fiber_core_mat;
   }
@@ -311,15 +312,15 @@ class PHG4CylinderGeom_Spacalv1 : public PHG4CylinderGeomv2
   std::string absorber_mat;
   std::string fiber_core_mat;
   std::string fiber_clading_mat;
-  double xpos;
-  double ypos;
-  double zpos;
-  double fiber_core_diameter;
-  double fiber_clading_thickness;
-  double fiber_distance;
-  config_t config;
-  bool virualize_fiber;
-  int construction_verbose;
+  double xpos{std::numeric_limits<double>::quiet_NaN()};
+  double ypos{std::numeric_limits<double>::quiet_NaN()};
+  double zpos{std::numeric_limits<double>::quiet_NaN()};
+  double fiber_core_diameter{std::numeric_limits<double>::quiet_NaN()};
+  double fiber_clading_thickness{std::numeric_limits<double>::quiet_NaN()};
+  double fiber_distance{std::numeric_limits<double>::quiet_NaN()};
+  config_t config{kInvalidSpacalConfig};
+  bool virualize_fiber{false};
+  int construction_verbose{0};
 
   //! sector map sector_ID -> azimuthal rotation.
   sector_map_t sector_map;

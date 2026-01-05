@@ -18,10 +18,10 @@ class PHG4ConeSubsystem : public PHG4DetectorSubsystem
 {
  public:
   //! constructor
-  PHG4ConeSubsystem(const std::string& name = "CONE", const int layer = 0);
+  PHG4ConeSubsystem(const std::string& name = "CONE", const int lyr = 0);
 
   //! destructor
-  ~PHG4ConeSubsystem(void) override;
+  ~PHG4ConeSubsystem() override;
 
   //! init runwise stuff
   /*!
@@ -39,8 +39,8 @@ class PHG4ConeSubsystem : public PHG4DetectorSubsystem
   int process_event(PHCompositeNode*) override;
 
   //! accessors (reimplemented)
-  PHG4Detector* GetDetector(void) const override;
-  PHG4SteppingAction* GetSteppingAction(void) const override { return m_SteppingAction; };
+  PHG4Detector* GetDetector() const override;
+  PHG4SteppingAction* GetSteppingAction() const override { return m_SteppingAction; };
 
   PHG4DisplayAction* GetDisplayAction() const override { return m_DisplayAction; }
   void set_color(const double red, const double green, const double blue, const double alpha = 1.)
@@ -51,10 +51,10 @@ class PHG4ConeSubsystem : public PHG4DetectorSubsystem
     m_ColorArray[3] = alpha;
   }
 
-  //!set inner and outter radius1
+  //! set inner and outter radius1
   void SetR1(const double min, const double max);
 
-  //!set inner and outter radius2
+  //! set inner and outter radius2
   void SetR2(const double min, const double max);
 
   //! set length in Z
@@ -93,7 +93,7 @@ class PHG4ConeSubsystem : public PHG4DetectorSubsystem
   PHG4DisplayAction* m_DisplayAction = nullptr;
 
   //! Color setting if we want to override the default
-  std::array<double, 4> m_ColorArray;
+  std::array<double, 4> m_ColorArray{};
 };
 
 #endif  // G4DETECTORS_PHG4CONESUBSYSTEM_H

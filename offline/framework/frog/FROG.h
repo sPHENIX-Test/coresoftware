@@ -3,34 +3,32 @@
 #ifndef FROG_FROG_H
 #define FROG_FROG_H
 
+#include <map>
 #include <string>
-
-namespace odbc
-{
-  class Connection;
-}
 
 class FROG
 {
  public:
-  FROG() {}
-  virtual ~FROG() {}
+  FROG() = default;
+  virtual ~FROG() = default;
 
   const char *location(const std::string &logical_name);
-  bool localSearch(const std::string &lname);
+  bool localSearch(const std::string &logical_name);
   bool dCacheSearch(const std::string &lname);
   bool XRootDSearch(const std::string &lname);
   bool LustreSearch(const std::string &lname);
   bool MinIOSearch(const std::string &lname);
+  bool RawDataSearch(const std::string &lname);
+  bool HpssRawDataSearch(const std::string &lname);
   bool PGSearch(const std::string &lname);
   void Verbosity(const int i) { m_Verbosity = i; }
   int Verbosity() const { return m_Verbosity; }
+  void AutoDisconnect(bool b) { m_DisconnectFlag = b; }
 
  private:
-  bool GetConnection();
   void Disconnect();
-  odbc::Connection *m_OdbcConnection = nullptr;
-  int m_Verbosity = 0;
+  int m_Verbosity{0};
+  bool m_DisconnectFlag{true};
   std::string pfn;
 };
 

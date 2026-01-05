@@ -179,13 +179,15 @@ class Pythia6
   // ****** constructors and destructor
   Pythia6();
   virtual ~Pythia6();
+  explicit Pythia6(const Pythia6&) = delete;
+  Pythia6& operator=(const Pythia6&) = delete;
 
   static Pythia6* Instance();
 
   // ****** TPYTHIA routines
   //
   int Pycomp(int kf);
-  void Py1ent(int line, int kf, double pe, double theta, double phi);
+  void Py1ent(int ip, int kf, double pe, double theta, double phi);
   ParticleVector* ImportParticles();
   int ImportParticles(ParticleVector* particles, const char* option = "");
 

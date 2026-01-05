@@ -29,7 +29,7 @@ class PHG4Subsystem : public SubsysReco
   }
 
   //! destructor
-  ~PHG4Subsystem(void) override {}
+  ~PHG4Subsystem() = default;
 
   //! event processing
   virtual int process_after_geant(PHCompositeNode *)
@@ -38,25 +38,25 @@ class PHG4Subsystem : public SubsysReco
   }
 
   //! return pointer to created detector object
-  virtual PHG4Detector *GetDetector(void) const
+  virtual PHG4Detector *GetDetector() const
   {
     return nullptr;
   }
 
   //! return pointer to this subsystem event action
-  virtual PHG4EventAction *GetEventAction(void) const
+  virtual PHG4EventAction *GetEventAction() const
   {
     return nullptr;
   }
 
   //! return pointer to this subsystem stepping action
-  virtual PHG4SteppingAction *GetSteppingAction(void) const
+  virtual PHG4SteppingAction *GetSteppingAction() const
   {
     return nullptr;
   }
 
   //! return pointer to this subsystem stepping action
-  virtual PHG4TrackingAction *GetTrackingAction(void) const
+  virtual PHG4TrackingAction *GetTrackingAction() const
   {
     return nullptr;
   }
@@ -67,7 +67,7 @@ class PHG4Subsystem : public SubsysReco
     return nullptr;
   }
 
-  virtual PHG4StackingAction *GetStackingAction() const {return nullptr;}
+  virtual PHG4StackingAction *GetStackingAction() const { return nullptr; }
 
   void OverlapCheck(const bool chk = true) { overlapcheck = chk; }
 
@@ -79,15 +79,15 @@ class PHG4Subsystem : public SubsysReco
   void SetLogicalVolume(G4LogicalVolume *vol) { m_MyLogicalVolume = vol; }
   G4LogicalVolume *GetLogicalVolume() const { return m_MyLogicalVolume; }
 
-// this method is used to check if it can be used as mothervolume
-// Subsystems which can be mothervolume need to implement this 
-// and return true
-  virtual bool CanBeMotherSubsystem() const {return false;}
+  // this method is used to check if it can be used as mothervolume
+  // Subsystems which can be mothervolume need to implement this
+  // and return true
+  virtual bool CanBeMotherSubsystem() const { return false; }
 
-//
-  virtual void AddProcesses(G4ParticleDefinition */*particle*/) {}
+  //
+  virtual void AddProcesses(G4ParticleDefinition * /*particle*/) {}
 
-// define materials used in detector
+  // define materials used in detector
   virtual void DefineMaterials() {}
 
  private:

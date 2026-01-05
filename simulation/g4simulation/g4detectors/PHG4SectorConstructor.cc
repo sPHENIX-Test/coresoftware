@@ -1,6 +1,6 @@
 /*!
  * \file PHG4SectorConstructor.cc
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision: 1.6 $
  * \date $Date: 2014/07/31 15:52:37 $
@@ -74,7 +74,7 @@ void PHG4Sector::PHG4SectorConstructor::Construct_Sectors(G4LogicalVolume *World
     geom.set_max_polar_angle(geom.get_min_polar_angle());
     geom.set_min_polar_angle(t);
   }
-  if ((geom.get_min_polar_edge() == Sector_Geometry::kFlatEdge or geom.get_max_polar_edge() == Sector_Geometry::kFlatEdge) and geom.get_N_Sector() <= 2)
+  if ((geom.get_min_polar_edge() == Sector_Geometry::kFlatEdge || geom.get_max_polar_edge() == Sector_Geometry::kFlatEdge) && geom.get_N_Sector() <= 2)
   {
     G4Exception(
         (std::string("PHG4SectorConstructor::Construct_Sectors::") + (name_base)).c_str(),
@@ -99,7 +99,7 @@ void PHG4Sector::PHG4SectorConstructor::Construct_Sectors(G4LogicalVolume *World
   G4VSolid *SecConeBoundary_Hall = new G4Sphere("SecConeBoundary_Hall",                                           //
                                                 geom.get_normal_start(), geom.get_max_R(),                        // G4double pRmin, G4double pRmax,
                                                 pi / 2 - pi / geom.get_N_Sector(), 2 * pi / geom.get_N_Sector(),  //  G4double pSPhi, G4double pDPhi,
-                                                sph_min_polar_angle, sph_max_polar_angle - sph_min_polar_angle    //G4double pSTheta, G4double pDTheta
+                                                sph_min_polar_angle, sph_max_polar_angle - sph_min_polar_angle    // G4double pSTheta, G4double pDTheta
   );
 
   G4VSolid *SecConeBoundary_Det = new G4DisplacedSolid("SecConeBoundary_Det",
@@ -107,7 +107,7 @@ void PHG4Sector::PHG4SectorConstructor::Construct_Sectors(G4LogicalVolume *World
 
   G4VSolid *Boundary_Det = SecConeBoundary_Det;
 
-  if (geom.get_min_polar_edge() != Sector_Geometry::kConeEdge or geom.get_max_polar_edge() != Sector_Geometry::kConeEdge)
+  if (geom.get_min_polar_edge() != Sector_Geometry::kConeEdge || geom.get_max_polar_edge() != Sector_Geometry::kConeEdge)
   {
     // build a flat edge
 
@@ -210,11 +210,11 @@ PHG4Sector::PHG4SectorConstructor::Construct_Sectors_Plane(  //
     const double start_z,                                    //
     const double thickness,                                  //
     G4VSolid *SecConeBoundary_Det                            //
-)
+) const
 {
   assert(SecConeBoundary_Det);
 
-  G4VSolid *Sol_Raw = new G4Tubs(name + "_Raw",     //const G4String& pName,
+  G4VSolid *Sol_Raw = new G4Tubs(name + "_Raw",     // const G4String& pName,
                                  0,                 //      G4double pRMin,
                                  geom.get_max_R(),  //      G4double pRMax,
                                  thickness / 2,     //      G4double pDz,
@@ -264,7 +264,7 @@ PHG4Sector::PHG4SectorConstructor::RegisterLogicalVolume(G4LogicalVolume *v)
         << std::endl;
     return v;
   }
-  if (map_log_vol.find(v->GetName()) != map_log_vol.end())
+  if (map_log_vol.contains(v->GetName()))
   {
     std::cout << "PHG4SectorConstructor::RegisterVolume - Warning - replacing "
               << v->GetName() << std::endl;
@@ -289,7 +289,7 @@ PHG4Sector::PHG4SectorConstructor::RegisterPhysicalVolume(G4PVPlacement *v,
 
   phy_vol_idx_t id(v->GetName(), v->GetCopyNo());
 
-  if (map_phy_vol.find(id) != map_phy_vol.end())
+  if (map_phy_vol.contains(id))
   {
     std::cout
         << "PHG4SectorConstructor::RegisterPhysicalVolume - Warning - replacing "
@@ -299,7 +299,9 @@ PHG4Sector::PHG4SectorConstructor::RegisterPhysicalVolume(G4PVPlacement *v,
   map_phy_vol[id] = v;
 
   if (active)
+  {
     map_active_phy_vol[id] = v;
+  }
 
   return v;
 }
@@ -358,14 +360,12 @@ PHG4Sector::Sector_Geometry::get_max_R() const
 
     return (get_normal_start() + get_total_thickness()) * sqrt(1 + max_tan_angle * max_tan_angle);
   }
-  else
-  {
-    const double max_angle = std::max(
-        std::abs(min_polar_angle - normal_polar_angle),
-        std::abs(max_polar_angle - normal_polar_angle));
 
-    return (get_normal_start() + get_total_thickness()) * sqrt(1 + pow(tan(max_angle), 2) + pow(tan(2 * pi / N_Sector), 2)) * 2;
-  }
+  const double max_angle = std::max(
+      std::abs(min_polar_angle - normal_polar_angle),
+      std::abs(max_polar_angle - normal_polar_angle));
+
+  return (get_normal_start() + get_total_thickness()) * sqrt(1 + pow(tan(max_angle), 2) + pow(tan(2 * pi / N_Sector), 2)) * 2;
 }
 
 //! add Entrace window and drift volume
@@ -468,7 +468,7 @@ void PHG4Sector::Sector_Geometry::AddLayers_AeroGel_ePHENIX(const double radiato
   AddLayer("AeroGel", radiator, radiator_length, false, 100);
   AddLayer("ExpansionVol", "G4_AIR", expansion_length, false, 100);
 
-  //Some readout
+  // Some readout
   AddLayer(G4String("ReadoutFR4"), "G10", 0.05 * cm, false, 100);
   AddLayer(G4String("ReadoutCu"), "G4_Cu", 0.001 * cm, false, 100);
   AddLayer(G4String("SocketsCu"), "G4_Cu", 0.0005 * cm, false, 100);

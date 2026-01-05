@@ -18,29 +18,22 @@
 #include <cassert>
 #include <cmath>     // for isfinite
 #include <iostream>  // for operator<<
-#include <sstream>
-#include <utility>  // for pair
-
-using namespace std;
+#include <utility>   // for pair
 
 G4CellNtuple::G4CellNtuple(const std::string &name, const std::string &filename)
   : SubsysReco(name)
-  , nblocks(0)
-  , hm(nullptr)
   , _filename(filename)
-  , ntup(nullptr)
-  , outfile(nullptr)
 {
 }
 
 G4CellNtuple::~G4CellNtuple()
 {
-  //  delete ntup;
   delete hm;
 }
 
-int G4CellNtuple::Init(PHCompositeNode *)
+int G4CellNtuple::Init(PHCompositeNode * /*unused*/)
 {
+  delete hm; // make cppcheck happy
   hm = new Fun4AllHistoManager(Name());
   outfile = new TFile(_filename.c_str(), "RECREATE");
   ntup = new TNtuple("cellntup", "G4Cells", "detid:layer:phi:eta:edep");
@@ -54,24 +47,20 @@ int G4CellNtuple::Init(PHCompositeNode *)
 
 int G4CellNtuple::process_event(PHCompositeNode *topNode)
 {
-  ostringstream nodename;
-  ostringstream geonodename;
-  set<string>::const_iterator iter;
-  vector<TH1 *>::const_iterator eiter;
-  for (iter = _node_postfix.begin(); iter != _node_postfix.end(); ++iter)
+  std::string nodename;
+  std::string geonodename;
+  for (const auto &iter : _node_postfix)
   {
-    int detid = (_detid.find(*iter))->second;
-    nodename.str("");
-    nodename << "G4CELL_" << *iter;
-    geonodename.str("");
-    geonodename << "CYLINDERCELLGEOM_" << *iter;
-    PHG4TpcCylinderGeomContainer *cellgeos = findNode::getClass<PHG4TpcCylinderGeomContainer>(topNode, geonodename.str());
+    int detid = (_detid.find(iter))->second;
+    nodename = "G4CELL_" + iter;
+    geonodename = "CYLINDERCELLGEOM_" + iter;
+    PHG4TpcCylinderGeomContainer *cellgeos = findNode::getClass<PHG4TpcCylinderGeomContainer>(topNode, geonodename);
     if (!cellgeos)
     {
-      cout << "no geometry node " << geonodename.str() << " for " << *iter << endl;
+      std::cout << "no geometry node " << geonodename << " for " << iter << std::endl;
       continue;
     }
-    PHG4CellContainer *cells = findNode::getClass<PHG4CellContainer>(topNode, nodename.str());
+    PHG4CellContainer *cells = findNode::getClass<PHG4CellContainer>(topNode, nodename);
     if (cells)
     {
       int previouslayer = -1;
@@ -79,21 +68,21 @@ int G4CellNtuple::process_event(PHCompositeNode *topNode)
       double esum = 0;
       //          double numcells = cells->size();
       //          ncells[i]->Fill(numcells);
-      //	  cout << "number of cells: " << cells->size() << endl;
+      //	  std::cout << "number of cells: " << cells->size() << std::endl;
       PHG4CellContainer::ConstRange cell_range = cells->getCells();
       for (PHG4CellContainer::ConstIterator cell_iter = cell_range.first; cell_iter != cell_range.second; cell_iter++)
 
       {
         double edep = cell_iter->second->get_edep();
-        if (!isfinite(edep))
+        if (!std::isfinite(edep))
         {
-          cout << "invalid edep: " << edep << endl;
+          std::cout << "invalid edep: " << edep << std::endl;
         }
         esum += cell_iter->second->get_edep();
-        int phibin = ~0x0;
-        int etabin = ~0x0;
-        double phi = NAN;
-        double eta = NAN;
+        int phibin = std::numeric_limits<int>::min();
+        int etabin = std::numeric_limits<int>::min();
+        double phi = std::numeric_limits<double>::quiet_NaN();
+        double eta = std::numeric_limits<double>::quiet_NaN();
         int layer = cell_iter->second->get_layer();
         // to search the map fewer times, cache the geom object until the layer changes
         if (layer != previouslayer)
@@ -122,16 +111,16 @@ int G4CellNtuple::process_event(PHCompositeNode *topNode)
                    eta,
                    cell_iter->second->get_edep());
       }
-      for (eiter = eloss.begin(); eiter != eloss.end(); ++eiter)
+      for (auto *eiter : eloss)
       {
-        (*eiter)->Fill(esum);
+        eiter->Fill(esum);
       }
     }
   }
   return 0;
 }
 
-int G4CellNtuple::End(PHCompositeNode */*topNode*/)
+int G4CellNtuple::End(PHCompositeNode * /*topNode*/)
 {
   outfile->cd();
   ntup->Write();

@@ -24,16 +24,16 @@ class PHG4BbcDetector;
 class PHG4SteppingAction;
 
 /**
-   * \brief Fun4All module to simulate the BBC detector, aka MBD.
-   *
-   * The detector is constructed and registered via PHG4BbcDetector
-   *
-   * The PHG4SteppingAction needs to be updated more, but will provide the info for the hit time
-   *
-   * \see PHG4BbcDetector
-   * \see PHG4BbcSubsystem
-   *
-   */
+ * \brief Fun4All module to simulate the BBC detector, aka MBD.
+ *
+ * The detector is constructed and registered via PHG4BbcDetector
+ *
+ * The PHG4SteppingAction needs to be updated more, but will provide the info for the hit time
+ *
+ * \see PHG4BbcDetector
+ * \see PHG4BbcSubsystem
+ *
+ */
 class PHG4BbcSubsystem : public PHG4DetectorSubsystem
 {
  public:
@@ -41,7 +41,7 @@ class PHG4BbcSubsystem : public PHG4DetectorSubsystem
   PHG4BbcSubsystem(const std::string& name = "BBC");
 
   //! destructor
-  ~PHG4BbcSubsystem(void) override;
+  ~PHG4BbcSubsystem() override;
 
   /*!
   creates relevant hit nodes that will be populated by the stepping action and stored in the output DST
@@ -57,7 +57,7 @@ class PHG4BbcSubsystem : public PHG4DetectorSubsystem
 
   //! accessors (reimplemented)
   PHG4Detector* GetDetector() const override;
-  PHG4SteppingAction* GetSteppingAction(void) const override { return m_SteppingAction; };
+  PHG4SteppingAction* GetSteppingAction() const override { return m_SteppingAction; };
   PHG4DisplayAction* GetDisplayAction() const override { return m_DisplayAction; }
 
   //! Print info (from SubsysReco)
@@ -69,15 +69,15 @@ class PHG4BbcSubsystem : public PHG4DetectorSubsystem
 
   //! MBD geometry and construction
   /*! derives from PHG4Detector */
-  PHG4BbcDetector* m_Detector = nullptr;
+  PHG4BbcDetector* m_Detector {nullptr};
 
   //! particle tracking "stepping" action
   /*! derives from PHG4SteppingActions */
-  PHG4SteppingAction* m_SteppingAction = nullptr;
+  PHG4SteppingAction* m_SteppingAction {nullptr};
 
   //! display attribute setting
   /*! derives from PHG4DisplayAction */
-  PHG4DisplayAction* m_DisplayAction = nullptr;
+  PHG4DisplayAction* m_DisplayAction {nullptr};
 
   std::string m_HitNodeName;
   std::string m_SupportNodeName;

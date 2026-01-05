@@ -6,9 +6,7 @@
 #include <TSystem.h>
 
 #include <iostream>
-#include <utility>                     // for pair
-
-using namespace std;
+#include <utility>  // for pair
 
 PHG4PhenixDisplayAction::PHG4PhenixDisplayAction(const std::string &name)
   : PHG4DisplayAction(name)
@@ -24,10 +22,10 @@ PHG4PhenixDisplayAction::~PHG4PhenixDisplayAction()
   m_VisAttVec.clear();
 }
 
-void PHG4PhenixDisplayAction::ApplyDisplayAction(G4VPhysicalVolume */*physvol*/)
+void PHG4PhenixDisplayAction::ApplyDisplayAction(G4VPhysicalVolume * /*physvol*/)
 {
   // check if vis attributes exist, if so someone else has set them and we do nothing
-  for (auto it : m_LogicalVolumeMap)
+  for (const auto &it : m_LogicalVolumeMap)
   {
     G4LogicalVolume *logvol = it.first;
     if (logvol->GetVisAttributes())
@@ -42,7 +40,7 @@ void PHG4PhenixDisplayAction::ApplyDisplayAction(G4VPhysicalVolume */*physvol*/)
     }
     else
     {
-      cout << "unknown logical volume " << it.second << endl;
+      std::cout << "unknown logical volume " << it.second << std::endl;
       gSystem->Exit(1);
     }
     logvol->SetVisAttributes(visatt);

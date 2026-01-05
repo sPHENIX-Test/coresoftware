@@ -12,6 +12,7 @@
 #ifndef G4DETECTORS_PHG4SPACALDETECTOR_H
 #define G4DETECTORS_PHG4SPACALDETECTOR_H
 
+#include "PHG4CellDefs.h"
 #include "PHG4CylinderGeom_Spacalv1.h"
 
 #include <g4main/PHG4Detector.h>
@@ -19,6 +20,7 @@
 #include <Geant4/G4Transform3D.hh>
 #include <Geant4/G4Types.hh>  // for G4double
 
+#include <limits>
 #include <map>
 #include <string>   // for string
 #include <utility>  // for pair
@@ -32,6 +34,7 @@ class PHG4GDMLConfig;
 class PHG4SpacalDisplayAction;
 class PHParameters;
 class PHG4Subsystem;
+class RawTowerGeomContainer;
 
 class PHG4SpacalDetector : public PHG4Detector
 {
@@ -39,9 +42,9 @@ class PHG4SpacalDetector : public PHG4Detector
   typedef PHG4CylinderGeom_Spacalv1 SpacalGeom_t;
 
   PHG4SpacalDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const std::string& dnam,
-                     PHParameters* parameters, const int layer = 0, bool init_geom = true);
+                     PHParameters* parameters, const int lyr = 0, bool init_geom = true);
 
-  ~PHG4SpacalDetector(void) override;
+  ~PHG4SpacalDetector() override;
 
   void
   ConstructMe(G4LogicalVolume* world) override;
@@ -78,8 +81,7 @@ class PHG4SpacalDetector : public PHG4Detector
     superdetector = name;
   }
 
-  const std::string
-  SuperDetector() const
+  const std::string& SuperDetector() const
   {
     return superdetector;
   }
@@ -121,6 +123,8 @@ class PHG4SpacalDetector : public PHG4Detector
   PHG4SpacalDisplayAction* m_DisplayAction = nullptr;
 
  protected:
+  void AddTowerGeometryNode();
+  void AddCellGeometryNode();
   std::map<const G4VPhysicalVolume*, int> fiber_core_vol;
 
   //! map for G4VPhysicalVolume -> fiber ID
@@ -132,22 +136,34 @@ class PHG4SpacalDetector : public PHG4Detector
   //! map for G4VPhysicalVolume -> towers ID
   std::map<const G4VPhysicalVolume*, int> block_vol;
 
-  int active = 0;
-  int absorberactive = 0;
-  int layer = -9999;
-  int m_CosmicSetupFlag = 0;
+  int active{0};
+  int absorberactive{0};
+  int layer{-9999};
+  int m_CosmicSetupFlag{0};
+  int m_CellBinning{PHG4CellDefs::undefined};
+  int m_NumLayers{-1};
+  int m_NumPhiBins{-1};
+  int m_NumEtaBins{-1};
+  double m_Emin{1e-6};
+  double m_EtaMin{std::numeric_limits<double>::quiet_NaN()};
+  double m_PhiMin{std::numeric_limits<double>::quiet_NaN()};
+  double m_EtaStep{std::numeric_limits<double>::quiet_NaN()};
+  double m_PhiStep{std::numeric_limits<double>::quiet_NaN()};
   std::string detector_type;
   std::string superdetector;
 
   //  G4UserLimits * step_limits;
   //  G4UserLimits * clading_step_limits;
-  G4UserLimits* fiber_core_step_limits = nullptr;
+  G4UserLimits* fiber_core_step_limits{nullptr};
 
   //! registry for volumes that should not be exported, i.e. fibers
-  PHG4GDMLConfig* gdml_config = nullptr;
-  //private:
+  PHG4GDMLConfig* gdml_config{nullptr};
+  // private:
 
-  SpacalGeom_t* _geom = nullptr;
+  SpacalGeom_t* _geom{nullptr};
+
+  RawTowerGeomContainer* m_RawTowerGeomContainer{nullptr};
+  std::string m_TowerGeomNodeName;
 };
 
 #endif

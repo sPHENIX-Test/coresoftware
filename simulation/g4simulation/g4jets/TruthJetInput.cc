@@ -1,11 +1,11 @@
 
 #include "TruthJetInput.h"
 
-#include "Jet.h"
-#include "Jetv1.h"
-
 #include <g4main/PHG4Particle.h>
 #include <g4main/PHG4TruthInfoContainer.h>
+
+#include <jetbase/Jet.h>
+#include <jetbase/Jetv2.h>
 
 #include <phool/getClass.h>
 #include <phool/phool.h>  // for PHWHERE
@@ -22,6 +22,7 @@
 TruthJetInput::TruthJetInput(Jet::SRC input)
   : m_Input(input)
 {
+  return;
 }
 
 void TruthJetInput::identify(std::ostream &os)
@@ -40,7 +41,10 @@ void TruthJetInput::identify(std::ostream &os)
 
 std::vector<Jet *> TruthJetInput::get_input(PHCompositeNode *topNode)
 {
-  if (Verbosity() > 0) std::cout << "TruthJetInput::process_event -- entered" << std::endl;
+  if (Verbosity() > 0)
+  {
+    std::cout << "TruthJetInput::process_event -- entered" << std::endl;
+  }
 
   // Pull the reconstructed track information off the node tree...
   PHG4TruthInfoContainer *truthinfo = findNode::getClass<PHG4TruthInfoContainer>(topNode, "G4TruthInfo");
@@ -50,8 +54,14 @@ std::vector<Jet *> TruthJetInput::get_input(PHCompositeNode *topNode)
     return std::vector<Jet *>();
   }
 
+  // FIXME
+  //   - This requires care: selecting only charged primary particles will
+  //     miss the decay products of resonances like D0, B0, etc.
+  //   - For charged particle input, it might be better to
+  //     (1) Loop on GetPrimaryParticleRange
+  //     (2) Or add a loop on GetSecondaryParticleRange
   std::vector<Jet *> pseudojets;
-  PHG4TruthInfoContainer::ConstRange range = truthinfo->GetPrimaryParticleRange();
+  PHG4TruthInfoContainer::ConstRange range = truthinfo->GetSPHENIXPrimaryParticleRange();
   for (PHG4TruthInfoContainer::ConstIterator iter = range.first;
        iter != range.second;
        ++iter)
@@ -74,15 +84,39 @@ std::vector<Jet *> TruthJetInput::get_input(PHCompositeNode *topNode)
     // 14 == nu_mu
     // 15 == taus
     // 16 == nu_tau
-    if ((abs(part->get_pid()) >= 12) && (abs(part->get_pid()) <= 16)) continue;
+    if ((abs(part->get_pid()) >= 12) && (abs(part->get_pid()) <= 16))
+    {
+      continue;
+    }
+
+    // if looking at only charged particles, remove neutrals
+    if (m_Input == Jet::CHARGED_PARTICLE)
+    {
+      // FIXME
+      //   - Confirm if TDatabasePDG is needed
+      //   - Use epsilon comparison here
+      if (part->get_IonCharge() == 0.0)
+      {
+        continue;
+      }
+    }
 
     // remove acceptance... _etamin,_etamax
-    if ((part->get_px() == 0.0) && (part->get_py() == 0.0)) continue;  // avoid pt=0
+    if ((part->get_px() == 0.0) && (part->get_py() == 0.0))
+    {
+      continue;  // avoid pt=0
+    }
     float eta = asinh(part->get_pz() / sqrt(pow(part->get_px(), 2) + pow(part->get_py(), 2)));
-    if (eta < m_EtaMin) continue;
-    if (eta > m_EtaMax) continue;
+    if (eta < m_EtaMin)
+    {
+      continue;
+    }
+    if (eta > m_EtaMax)
+    {
+      continue;
+    }
 
-    Jet *jet = new Jetv1();
+    Jet *jet = new Jetv2();
     jet->set_px(part->get_px());
     jet->set_py(part->get_py());
     jet->set_pz(part->get_pz());
@@ -91,7 +125,10 @@ std::vector<Jet *> TruthJetInput::get_input(PHCompositeNode *topNode)
     pseudojets.push_back(jet);
   }
 
-  if (Verbosity() > 0) std::cout << "TruthJetInput::process_event -- exited" << std::endl;
+  if (Verbosity() > 0)
+  {
+    std::cout << "TruthJetInput::process_event -- exited" << std::endl;
+  }
 
   return pseudojets;
 }

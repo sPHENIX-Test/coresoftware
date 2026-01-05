@@ -2,6 +2,7 @@
 
 #include <fun4all/Fun4AllInputManager.h>
 #include <fun4all/Fun4AllReturnCodes.h>
+#include <fun4all/SubsysReco.h>  // for SubsysReco
 
 #include <phool/PHCompositeNode.h>
 #include <phool/PHDataNode.h>
@@ -13,6 +14,11 @@
 #include <Event/oncsEvent.h>
 
 #include <TSystem.h>
+
+#include <iostream>  // for operator<<, endl, basic_ost...
+#include <utility>   // for pair
+#include <vector>    // for vector
+
 //____________________________________________________________________________..
 EventCombiner::EventCombiner(const std::string &name)
   : SubsysReco(name)
@@ -40,7 +46,7 @@ int EventCombiner::process_event(PHCompositeNode *topNode)
 {
   std::vector<Event *> subeventeventvec;
   unsigned int total_length = 0;
-  for (auto &nam : m_PrdfInputNodeNameSet)
+  for (const auto &nam : m_PrdfInputNodeNameSet)
   {
     Event *evt = findNode::getClass<Event>(topNode, nam);
     subeventeventvec.push_back(evt);

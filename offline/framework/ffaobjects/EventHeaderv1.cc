@@ -1,7 +1,7 @@
 #include "EventHeaderv1.h"
 
-#include <cmath>  // for NAN
 #include <iostream>
+#include <limits>
 #include <utility>  // for pair
 
 void EventHeaderv1::Reset()
@@ -39,6 +39,20 @@ int EventHeaderv1::isValid() const
   return ((RunNumber) ? 1 : 0);  // return 1 if runnumber is not zero
 }
 
+void EventHeaderv1::CopyTo(EventHeader *to_copy)
+{
+  to_copy->set_RunNumber(get_RunNumber());
+  to_copy->set_EvtSequence(get_EvtSequence());
+  for (auto const &it : m_IntEventProperties)
+  {
+    to_copy->set_intval(it.first, it.second);
+  }
+  for (auto const &it : m_FloatEventProperties)
+  {
+    to_copy->set_floatval(it.first, it.second);
+  }
+}
+
 void EventHeaderv1::set_floatval(const std::string &name, const float fval)
 {
   m_FloatEventProperties[name] = fval;
@@ -51,7 +65,7 @@ float EventHeaderv1::get_floatval(const std::string &name) const
   {
     return iter->second;
   }
-  return NAN;
+  return std::numeric_limits<float>::quiet_NaN();
 }
 
 void EventHeaderv1::set_intval(const std::string &name, const int64_t ival)

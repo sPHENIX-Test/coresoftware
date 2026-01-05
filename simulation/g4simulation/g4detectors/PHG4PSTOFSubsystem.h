@@ -23,16 +23,16 @@ class PHG4PSTOFDetector;
 class PHG4SteppingAction;
 
 /**
-   * \brief Fun4All module to simulate the Barrel PSTOF detector.
-   *
-   * The detector is constructed and registered via PHG4PSTOFDetector
-   *
-   * The PHG4SteppingAction needs to be written, but will provide the info for the hit time
-   *
-   * \see PHG4PSTOFDetector
-   * \see PHG4PSTOFSubsystem
-   *
-   */
+ * \brief Fun4All module to simulate the Barrel PSTOF detector.
+ *
+ * The detector is constructed and registered via PHG4PSTOFDetector
+ *
+ * The PHG4SteppingAction needs to be written, but will provide the info for the hit time
+ *
+ * \see PHG4PSTOFDetector
+ * \see PHG4PSTOFSubsystem
+ *
+ */
 class PHG4PSTOFSubsystem : public PHG4DetectorGroupSubsystem
 {
  public:
@@ -40,7 +40,7 @@ class PHG4PSTOFSubsystem : public PHG4DetectorGroupSubsystem
   PHG4PSTOFSubsystem(const std::string& name = "PSTOF");
 
   //! destructor
-  ~PHG4PSTOFSubsystem(void) override
+  ~PHG4PSTOFSubsystem() override
   {
   }
 
@@ -59,8 +59,8 @@ class PHG4PSTOFSubsystem : public PHG4DetectorGroupSubsystem
   int process_event(PHCompositeNode*) override;
 
   //! accessors (reimplemented)
-  PHG4Detector* GetDetector(void) const override;
-  PHG4SteppingAction* GetSteppingAction(void) const override;
+  PHG4Detector* GetDetector() const override;
+  PHG4SteppingAction* GetSteppingAction() const override;
   //! Print info (from SubsysReco)
   void Print(const std::string& what = "ALL") const override;
 

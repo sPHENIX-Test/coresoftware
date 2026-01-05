@@ -2,8 +2,8 @@
 
 #include <phool/PHIODataNode.h>
 
-#include <trackbase_historic/SvtxVertex.h>
-#include <trackbase_historic/SvtxVertexMap.h>
+#include <globalvertex/SvtxVertex.h>
+#include <globalvertex/SvtxVertexMap.h>
 
 #include <map>
 #include <ostream>
@@ -21,7 +21,7 @@ DumpSvtxVertexMap::DumpSvtxVertexMap(const std::string &NodeName)
 int DumpSvtxVertexMap::process_Node(PHNode *myNode)
 {
   SvtxVertexMap *svtxvertexmap = nullptr;
-  MyNode_t *thisNode = static_cast<MyNode_t *>(myNode);
+  MyNode_t *thisNode = static_cast<MyNode_t *>(myNode);  // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
   if (thisNode)
   {
     svtxvertexmap = thisNode->getData();

@@ -24,9 +24,7 @@ class PHG4CylinderGeom_Spacalv2 : public PHG4CylinderGeom_Spacalv1
  public:
   PHG4CylinderGeom_Spacalv2();
 
-  ~PHG4CylinderGeom_Spacalv2() override
-  {
-  }
+  ~PHG4CylinderGeom_Spacalv2() override = default;
 
   // from PHObject
   void identify(std::ostream& os = std::cout) const override;
@@ -34,6 +32,7 @@ class PHG4CylinderGeom_Spacalv2 : public PHG4CylinderGeom_Spacalv1
   // from TObject
   void Print(Option_t* option = "") const override;
 
+  // cppcheck-suppress virtualCallInConstructor
   void SetDefault() override;
 
   //! load parameters from PHParameters, which interface to Database/XML/ROOT files
@@ -82,7 +81,7 @@ class PHG4CylinderGeom_Spacalv2 : public PHG4CylinderGeom_Spacalv1
   {
     const double available_depth = get_thickness() - (sqrt((get_radius()) * (get_radius()) + (get_sec_azimuthal_width() / 2) * (get_sec_azimuthal_width() / 2)) - get_radius()) - get_assembly_spacing();
     if (available_depth < get_sec_azimuthal_width())
-      return NAN;
+      return std::numeric_limits<double>::quiet_NaN();
     else
       return sqrt(
           available_depth * available_depth - get_sec_azimuthal_width() * get_sec_azimuthal_width());
@@ -120,13 +119,13 @@ class PHG4CylinderGeom_Spacalv2 : public PHG4CylinderGeom_Spacalv1
   get_reg_fiber_grid_distance_nontaper() const;
 
  protected:
-  int azimuthal_n_sec;
+  int azimuthal_n_sec{std::numeric_limits<int>::min()};
 
   //! azimuthal tilt in rad
-  double azimuthal_tilt;
-  bool azimuthal_seg_visible;
-  double polar_taper_ratio;
-  double assembly_spacing;
+  double azimuthal_tilt{std::numeric_limits<double>::quiet_NaN()};
+  bool azimuthal_seg_visible{false};
+  double polar_taper_ratio{std::numeric_limits<double>::quiet_NaN()};
+  double assembly_spacing{std::numeric_limits<double>::quiet_NaN()};
 
   ClassDefOverride(PHG4CylinderGeom_Spacalv2, 2)
 };

@@ -13,13 +13,9 @@
 #include <phool/getClass.h>
 #include <phool/phool.h>  // for PHWHERE
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <HepMC/GenEvent.h>
-#include <HepMC/GenVertex.h>
-#pragma GCC diagnostic pop
-
 #include <HepMC/GenParticle.h>  // for GenParticle
+#include <HepMC/GenVertex.h>
 #include <HepMC/PdfInfo.h>       // for PdfInfo
 #include <HepMC/SimpleVector.h>  // for FourVector
 #include <HepMC/Units.h>         // for GEV, MM
@@ -42,13 +38,10 @@
 
 class PHHepMCGenEvent;
 
-using namespace std;
-
 ///////////////////////////////////////////////////////////////////
 
-ReadEICFiles::ReadEICFiles(const string &name)
+ReadEICFiles::ReadEICFiles(const std::string &name)
   : SubsysReco(name)
-  , filename("")
   , Tin(nullptr)
   , nEntries(0)
   , entry(0)
@@ -69,7 +62,7 @@ ReadEICFiles::~ReadEICFiles()
 
 ///////////////////////////////////////////////////////////////////
 
-bool ReadEICFiles::OpenInputFile(const string &name)
+bool ReadEICFiles::OpenInputFile(const std::string &name)
 {
   filename = name;
   Tin = new TChain("EICTree", "EICTree");
@@ -84,18 +77,18 @@ void ReadEICFiles::GetTree()
 {
   /* Print the actual class of the event branch record,
      i.e. erhic::EventMilou or other */
-  string EventClass(Tin->GetBranch("event")->GetClassName());
+  std::string EventClass(Tin->GetBranch("event")->GetClassName());
   if (Verbosity() > 0)
   {
-    cout << "ReadEICFiles: Input Branch Event Class = "
-         << EventClass << endl;
+    std::cout << "ReadEICFiles: Input Branch Event Class = "
+              << EventClass << std::endl;
   }
-  if (EventClass.find("Milou") != string::npos)
+  if (EventClass.find("Milou") != std::string::npos)
   {
     m_EvtGenId = EvtGen::Milou;
   }
 
-  if (EventClass.find("DEMP") != string::npos)
+  if (EventClass.find("DEMP") != std::string::npos)
   {
     m_EvtGenId = EvtGen::DEMP;
   }
@@ -116,13 +109,13 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
   /* Check if there is an unused event left in input file */
   if (entry >= nEntries)
   {
-    if (filename.size() > 0)
+    if (!filename.empty())
     {
-      cout << "input file " << filename << " exhausted" << endl;
+      std::cout << "input file " << filename << " exhausted" << std::endl;
     }
     else
     {
-      cout << "no file opened" << endl;
+      std::cout << "no file opened" << std::endl;
     }
     return Fun4AllReturnCodes::ABORTRUN;
   }
@@ -150,10 +143,10 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
   }
   break;
   case EvtGen::Unknown:
-    cout << "unknown event generator" << endl;
+    std::cout << "unknown event generator" << std::endl;
     break;
   default:
-    cout << "what is this " << m_EvtGenId << " ????" << endl;
+    std::cout << "what is this " << m_EvtGenId << " ????" << std::endl;
     break;
   }
 
@@ -178,8 +171,8 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
 
   /* Loop over all particles for this event in input file and fill
    * vector with HepMC particles */
-  vector<HepMC::GenParticle *> hepmc_particles;
-  vector<unsigned> origin_index;
+  std::vector<HepMC::GenParticle *> hepmc_particles;
+  std::vector<unsigned> origin_index;
 
   /* save pointers to beam particles */
   HepMC::GenParticle *hepmc_beam1 = nullptr;
@@ -194,10 +187,10 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
 
     if (Verbosity() > 1)
     {
-      cout << __PRETTY_FUNCTION__ << " : " << __LINE__ << endl;
-      cout << "\ttrack " << ii << endl;
-      cout << "\t4mom\t" << track_ii->GetPx() << "\t" << track_ii->GetPy() << "\t" << track_ii->GetPz() << "\t" << track_ii->GetE() << endl;
-      cout << "\tstatus= " << track_ii->GetStatus() << "\tindex= " << track_ii->GetIndex() << "\tmass= " << track_ii->GetM() << endl;
+      std::cout << __PRETTY_FUNCTION__ << " : " << __LINE__ << std::endl;
+      std::cout << "\ttrack " << ii << std::endl;
+      std::cout << "\t4mom\t" << track_ii->GetPx() << "\t" << track_ii->GetPy() << "\t" << track_ii->GetPz() << "\t" << track_ii->GetE() << std::endl;
+      std::cout << "\tstatus= " << track_ii->GetStatus() << "\tindex= " << track_ii->GetIndex() << "\tmass= " << track_ii->GetM() << std::endl;
     }
 
     /* Create HepMC particle record */
@@ -225,7 +218,9 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
 
     /* assume the first two particles are the beam particles (which getsHepMC status 4)*/
     if (ii < 2)
+    {
       hepmcpart->set_status(4);
+    }
 
     /* add particle information */
     hepmcpart->setGeneratedMass(track_ii->GetM());
@@ -236,17 +231,21 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
 
     /* if first particle, call this the first beam particle */
     if (ii == 0)
+    {
       hepmc_beam1 = hepmcpart;
+    }
 
     /* if second particle, call this the second beam particle */
     if (ii == 1)
+    {
       hepmc_beam2 = hepmcpart;
+    }
   }
 
   /* Check if hepmc_particles and origin_index vectors are the same size */
   if (hepmc_particles.size() != origin_index.size())
   {
-    cout << "ReadEICFiles::process_event - Lengths of HepMC particles and Origin index vectors do not match!" << endl;
+    std::cout << "ReadEICFiles::process_event - Lengths of HepMC particles and Origin index vectors do not match!" << std::endl;
 
     delete evt;
     return Fun4AllReturnCodes::ABORTRUN;
@@ -254,7 +253,7 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
 
   /* add HepMC particles to Hep MC vertices; skip first two particles
    * in loop, assuming that they are the beam particles */
-  vector<HepMC::GenVertex *> hepmc_vertices;
+  std::vector<HepMC::GenVertex *> hepmc_vertices;
 
   for (unsigned p = 2; p < hepmc_particles.size(); p++)
   {
@@ -262,7 +261,9 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
 
     /* continue if vertices for particle are already set */
     if (pp->production_vertex() && pp->end_vertex())
+    {
       continue;
+    }
 
     /* access mother particle vertex */
     erhic::ParticleMC *track_pp = GenEvent->GetTrack(p);
@@ -291,7 +292,7 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
       continue;
     }
     /* if mother exists and has end vertex: add this particle as outgoing to the mother's end vertex */
-    else if (pmother->end_vertex())
+    if (pmother->end_vertex())
     {
       pmother->end_vertex()->add_particle_out(pp);
     }
@@ -330,16 +331,16 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
   {
     if (!hepmc_particles.at(p)->production_vertex())
     {
-      cout << "ReadEICFiles::process_event - Missing production vertex for one or more non-beam particles!" << endl;
+      std::cout << "ReadEICFiles::process_event - Missing production vertex for one or more non-beam particles!" << std::endl;
       delete evt;
       return Fun4AllReturnCodes::ABORTRUN;
     }
   }
 
   /* Add HepMC vertices to event */
-  for (unsigned v = 0; v < hepmc_vertices.size(); v++)
+  for (auto &hepmc_vertice : hepmc_vertices)
   {
-    evt->add_vertex(hepmc_vertices.at(v));
+    evt->add_vertex(hepmc_vertice);
   }
 
   /* set beam particles */
@@ -349,14 +350,15 @@ int ReadEICFiles::process_event(PHCompositeNode *topNode)
   PHHepMCGenEvent *success = PHHepMCGenHelper::insert_event(evt);
   if (Verbosity() > 1)
   {
-    cout << __PRETTY_FUNCTION__ << " : " << __LINE__ << endl;
+    std::cout << __PRETTY_FUNCTION__ << " : " << __LINE__ << std::endl;
     evt->print();
-    cout << endl << endl;
+    std::cout << std::endl
+              << std::endl;
   }
 
   if (!success)
   {
-    cout << "ReadEICFiles::process_event - Failed to add event to HepMC record!" << endl;
+    std::cout << "ReadEICFiles::process_event - Failed to add event to HepMC record!" << std::endl;
     return Fun4AllReturnCodes::ABORTRUN;
   }
   /* Count up number of 'used' events from input file */
@@ -375,7 +377,7 @@ int ReadEICFiles::CreateNodeTree(PHCompositeNode *topNode)
   PHCompositeNode *dstNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "DST"));
   if (!dstNode)
   {
-    cout << PHWHERE << "DST Node missing, doing nothing." << endl;
+    std::cout << PHWHERE << "DST Node missing, doing nothing." << std::endl;
     return Fun4AllReturnCodes::ABORTRUN;
   }
   EicEventHeader *evthead = findNode::getClass<EicEventHeader>(topNode, "EicEventHeader");

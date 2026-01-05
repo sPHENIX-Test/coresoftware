@@ -6,10 +6,9 @@
 
 #include "DecayFinderContainerBase.h"
 
-//#include <iterator>  // for reverse_iterator
-#include <map>       // for _Rb_tree_const_iterator, _Rb_tree_iterator
-#include <ostream>   // for operator<<, endl, ostream, basic_ostream, bas...
-#include <utility>   // for pair, make_pair
+#include <map>      // for _Rb_tree_const_iterator, _Rb_tree_iterator
+#include <ostream>  // for operator<<, endl, ostream, basic_ostream, bas...
+#include <utility>  // for pair, make_pair
 
 DecayFinderContainerBase::Decay DummyDecay;
 DecayFinderContainerBase::Map DummyMap;
@@ -24,12 +23,12 @@ void DecayFinderContainerBase::clear()
   DummyMap.clear();
 }
 
-const DecayFinderContainerBase::Decay DecayFinderContainerBase::get(unsigned int) const
+DecayFinderContainerBase::Decay DecayFinderContainerBase::get(unsigned int /*unused*/) const
 {
   return DummyDecay;
 }
 
-DecayFinderContainerBase::Decay DecayFinderContainerBase::get(unsigned int)
+DecayFinderContainerBase::Decay DecayFinderContainerBase::get(unsigned int /*unused*/)
 {
   return DummyDecay;
 }
@@ -39,7 +38,7 @@ DecayFinderContainerBase::ConstIter DecayFinderContainerBase::begin() const
   return DummyMap.end();
 }
 
-DecayFinderContainerBase::ConstIter DecayFinderContainerBase::find(unsigned int) const
+DecayFinderContainerBase::ConstIter DecayFinderContainerBase::find(unsigned int /*unused*/) const
 {
   return DummyMap.end();
 }
@@ -49,13 +48,12 @@ DecayFinderContainerBase::ConstIter DecayFinderContainerBase::end() const
   return DummyMap.end();
 }
 
-
 DecayFinderContainerBase::Iter DecayFinderContainerBase::begin()
 {
   return DummyMap.end();
 }
 
-DecayFinderContainerBase::Iter DecayFinderContainerBase::find(unsigned int)
+DecayFinderContainerBase::Iter DecayFinderContainerBase::find(unsigned int /*unused*/)
 {
   return DummyMap.end();
 }
@@ -65,12 +63,12 @@ DecayFinderContainerBase::Iter DecayFinderContainerBase::end()
   return DummyMap.end();
 }
 
-DecayFinderContainerBase::Decay DecayFinderContainerBase::insert(const Decay)
+DecayFinderContainerBase::Decay DecayFinderContainerBase::insert(const Decay& /*unused*/)
 {
   return DummyDecay;
 }
 
-DecayFinderContainerBase::Map DecayFinderContainerBase::returnDecaysByPDGid(int)
+DecayFinderContainerBase::Map DecayFinderContainerBase::returnDecaysByPDGid(int /*unused*/)
 {
   return DummyMap;
 }

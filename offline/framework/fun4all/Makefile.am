@@ -2,15 +2,16 @@ AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include \
-  -I$(OPT_SPHENIX)/include
+  -isystem$(OPT_SPHENIX)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
   -L$(OFFLINE_MAIN)/lib
 
 pkginclude_HEADERS = \
+  DBInterface.h \
   Fun4AllBase.h \
   Fun4AllDstInputManager.h \
   Fun4AllDstOutputManager.h \
@@ -23,9 +24,12 @@ pkginclude_HEADERS = \
   Fun4AllNoSyncDstInputManager.h \
   Fun4AllOutputManager.h \
   Fun4AllReturnCodes.h \
+  Fun4AllRunNodeInputManager.h \
   Fun4AllServer.h \
   Fun4AllSyncManager.h \
   Fun4AllUtils.h \
+  InputFileHandler.h \
+  InputFileHandlerReturnCodes.h \
   PHTFileServer.h \
   SubsysReco.h \
   TDirectoryHelper.h
@@ -42,6 +46,7 @@ libTDirectoryHelper_la_LDFLAGS = \
     `root-config --libs`
 
 libfun4all_la_SOURCES = \
+  DBInterface.cc \
   Fun4AllDstInputManager.cc \
   Fun4AllDstOutputManager.cc \
   Fun4AllDummyInputManager.cc \
@@ -51,9 +56,11 @@ libfun4all_la_SOURCES = \
   Fun4AllMemoryTracker.cc \
   Fun4AllNoSyncDstInputManager.cc \
   Fun4AllOutputManager.cc \
+  Fun4AllRunNodeInputManager.cc \
   Fun4AllServer.cc \
   Fun4AllSyncManager.cc \
   Fun4AllUtils.cc \
+  InputFileHandler.cc \
   PHTFileServer.cc
 
 libfun4all_la_LIBADD = \
@@ -62,7 +69,8 @@ libfun4all_la_LIBADD = \
   -lboost_filesystem \
   -lFROG \
   -lffaobjects \
-  -lphool
+  -lphool \
+  -lsphenixodbc
 
 libSubsysReco_la_SOURCES = \
   Fun4AllBase.cc

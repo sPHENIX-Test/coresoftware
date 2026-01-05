@@ -18,8 +18,6 @@
 #include <iostream>
 #include <sstream>
 
-using namespace std;
-
 PdbParameterMapContainer::~PdbParameterMapContainer()
 {
   while (parametermap.begin() != parametermap.end())
@@ -32,11 +30,10 @@ PdbParameterMapContainer::~PdbParameterMapContainer()
 
 void PdbParameterMapContainer::print() const
 {
-  for (map<int, PdbParameterMap *>::const_iterator iter = parametermap.begin();
-       iter != parametermap.end(); ++iter)
+  for (auto iter : parametermap)
   {
-    cout << "layer " << iter->first << endl;
-    iter->second->print();
+    std::cout << "layer " << iter.first << std::endl;
+    iter.second->print();
   }
   return;
 }
@@ -52,14 +49,14 @@ void PdbParameterMapContainer::Reset()
 
 void PdbParameterMapContainer::AddPdbParameterMap(const int layer, PdbParameterMap *params)
 {
-  if (parametermap.find(layer) != parametermap.end())
+  if (parametermap.contains(layer))
   {
-    cout << PHWHERE << " layer " << layer << " already exists" << endl;
-    cout << "Here is the stacktrace: " << endl;
-    cout << boost::stacktrace::stacktrace();
-    cout << endl
-         << "DO NOT PANIC - this is not a segfault" << endl;
-    cout << "Check the stacktrace for the guilty party (typically #2)" << endl;
+    std::cout << PHWHERE << " layer " << layer << " already exists" << std::endl;
+    std::cout << "Here is the stacktrace: " << std::endl;
+    std::cout << boost::stacktrace::stacktrace();
+    std::cout << std::endl
+              << "DO NOT PANIC - this is not a segfault" << std::endl;
+    std::cout << "Check the stacktrace for the guilty party (typically #2)" << std::endl;
     gSystem->Exit(1);
   }
   parametermap[layer] = params;
@@ -68,7 +65,7 @@ void PdbParameterMapContainer::AddPdbParameterMap(const int layer, PdbParameterM
 const PdbParameterMap *
 PdbParameterMapContainer::GetParameters(const int layer) const
 {
-  map<int, PdbParameterMap *>::const_iterator iter = parametermap.find(layer);
+  std::map<int, PdbParameterMap *>::const_iterator iter = parametermap.find(layer);
   if (iter == parametermap.end())
   {
     return nullptr;
@@ -79,7 +76,7 @@ PdbParameterMapContainer::GetParameters(const int layer) const
 PdbParameterMap *
 PdbParameterMapContainer::GetParametersToModify(const int layer)
 {
-  map<int, PdbParameterMap *>::iterator iter = parametermap.find(layer);
+  std::map<int, PdbParameterMap *>::iterator iter = parametermap.find(layer);
   if (iter == parametermap.end())
   {
     return nullptr;
@@ -88,12 +85,12 @@ PdbParameterMapContainer::GetParametersToModify(const int layer)
 }
 
 int PdbParameterMapContainer::WriteToFile(const std::string &detector_name,
-                                          const string &extension, const string &dir)
+                                          const std::string &extension, const std::string &dir)
 {
-  //Note the naming convention should be consistent with PHParameters::WriteToFile
+  // Note the naming convention should be consistent with PHParameters::WriteToFile
 
-  ostringstream fullpath;
-  ostringstream fnamestream;
+  std::ostringstream fullpath;
+  std::ostringstream fnamestream;
   PdbBankID bankID(0);  // lets start at zero
   PHTimeStamp TStart(0);
   PHTimeStamp TStop(0xffffffff);
@@ -106,13 +103,13 @@ int PdbParameterMapContainer::WriteToFile(const std::string &detector_name,
   fnamestream << detector_name << "_geoparams"
               << "-"
               << bankID.getInternalValue() << "-" << TStart.getTics() << "-"
-              << TStop.getTics() << "-" << time(0) << "." << extension;
-  string fname = fnamestream.str();
+              << TStop.getTics() << "-" << time(nullptr) << "." << extension;
+  std::string fname = fnamestream.str();
   std::transform(fname.begin(), fname.end(), fname.begin(), ::tolower);
   fullpath << fname;
 
-  cout << "PdbParameterMapContainer::WriteToFile - save to " << fullpath.str()
-       << endl;
+  std::cout << "PdbParameterMapContainer::WriteToFile - save to " << fullpath.str()
+            << std::endl;
 
   TFile *f = TFile::Open(fullpath.str().c_str(), "recreate");
 
@@ -121,19 +118,19 @@ int PdbParameterMapContainer::WriteToFile(const std::string &detector_name,
            parametermap.begin();
        it != parametermap.end(); ++it)
   {
-    PdbParameterMap *myparm = static_cast<PdbParameterMap *>(it->second->CloneMe());
+    PdbParameterMap *myparm = dynamic_cast<PdbParameterMap *>(it->second->CloneMe());
     container->AddPdbParameterMap(it->first, myparm);
   }
 
   // force xml file writing to use extended precision shown experimentally
   // to not modify input parameters (.15e)
-  string floatformat = TBufferXML::GetFloatFormat();
+  std::string floatformat = TBufferXML::GetFloatFormat();
   TBufferXML::SetFloatFormat("%.17g");  // for IEEE 754 double
   container->Write("PdbParameterMapContainer");
   delete f;
   // restore previous xml float format
   TBufferXML::SetFloatFormat(floatformat.c_str());
-  cout << "sleeping 1 second to prevent duplicate inserttimes" << endl;
+  std::cout << "sleeping 1 second to prevent duplicate inserttimes" << std::endl;
   sleep(1);
   return 0;
 }

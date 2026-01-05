@@ -10,25 +10,27 @@
 #include <fun4all/SubsysReco.h>
 #include <trackbase/TrkrDefs.h>
 
-#include <string>                // for string
+#include <string>  // for string
 #include <utility>
 class PHCompositeNode;
 class TrkrHit;
 class TrkrHitSetContainer;
 
 /**
- * @brief Clusterizer for the MVTX
+ * @brief Hit pruner for the MVTX
  */
 class MvtxHitPruner : public SubsysReco
 {
  public:
-  typedef std::pair<unsigned int, unsigned int> pixel;
 
+  //! constructor
   MvtxHitPruner(const std::string &name = "MvtxHitPruner");
-  ~MvtxHitPruner() override {}
+
+  //! destructor
+  ~MvtxHitPruner() override = default;
 
   //! module initialization
-  int Init(PHCompositeNode */*topNode*/) override { return 0; }
+  int Init(PHCompositeNode * /*topNode*/) override { return 0; }
 
   //! run initialization
   int InitRun(PHCompositeNode * /*topNode*/) override;
@@ -37,15 +39,11 @@ class MvtxHitPruner : public SubsysReco
   int process_event(PHCompositeNode * /*topNode*/) override;
 
   //! end of process
-  int End(PHCompositeNode */*topNode*/) override { return 0; }
+  int End(PHCompositeNode * /*topNode*/) override { return 0; }
 
  private:
-
   // node tree storage pointers
-  TrkrHitSetContainer *m_hits;
-
-  // settings
-
+  TrkrHitSetContainer *m_hits = nullptr;
 };
 
 #endif  // MVTX_MVTXHITPRUNER_H

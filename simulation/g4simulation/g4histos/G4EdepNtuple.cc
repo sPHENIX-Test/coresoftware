@@ -4,7 +4,7 @@
 #include <g4main/PHG4HitContainer.h>
 
 #include <fun4all/Fun4AllHistoManager.h>
-#include <fun4all/SubsysReco.h>           // for SubsysReco
+#include <fun4all/SubsysReco.h>  // for SubsysReco
 
 #include <phool/getClass.h>
 
@@ -12,17 +12,11 @@
 #include <TNtuple.h>
 
 #include <sstream>
-#include <utility>                        // for pair
-
-using namespace std;
+#include <utility>  // for pair
 
 G4EdepNtuple::G4EdepNtuple(const std::string &name, const std::string &filename)
   : SubsysReco(name)
-  , nblocks(0)
-  , hm(nullptr)
   , _filename(filename)
-  , ntup(nullptr)
-  , outfile(nullptr)
 {
 }
 
@@ -31,8 +25,9 @@ G4EdepNtuple::~G4EdepNtuple()
   delete hm;
 }
 
-int G4EdepNtuple::Init(PHCompositeNode *)
+int G4EdepNtuple::Init(PHCompositeNode * /*unused*/)
 {
+  delete hm; // make cppcheck happy
   hm = new Fun4AllHistoManager(Name());
   outfile = new TFile(_filename.c_str(), "RECREATE");
   ntup = new TNtuple("edepntup", "G4Edeps", "detid:layer:edep");
@@ -41,17 +36,14 @@ int G4EdepNtuple::Init(PHCompositeNode *)
 
 int G4EdepNtuple::process_event(PHCompositeNode *topNode)
 {
-  ostringstream nodename;
-  set<string>::const_iterator iter;
-  map<int, double> layer_edep_map;
-  map<int, double>::const_iterator edepiter;
-  for (iter = _node_postfix.begin(); iter != _node_postfix.end(); ++iter)
+  std::string nodename;
+  std::map<int, double> layer_edep_map;
+  for (const auto &iter : _node_postfix)
   {
     layer_edep_map.clear();
-    int detid = (_detid.find(*iter))->second;
-    nodename.str("");
-    nodename << "G4HIT_" << *iter;
-    PHG4HitContainer *hits = findNode::getClass<PHG4HitContainer>(topNode, nodename.str());
+    int detid = (_detid.find(iter))->second;
+    nodename = "G4HIT_" + iter;
+    PHG4HitContainer *hits = findNode::getClass<PHG4HitContainer>(topNode, nodename);
     if (hits)
     {
       double esum = 0;
@@ -64,9 +56,9 @@ int G4EdepNtuple::process_event(PHCompositeNode *topNode)
         layer_edep_map[hit_iter->second->get_layer()] += hit_iter->second->get_edep();
         esum += hit_iter->second->get_edep();
       }
-      for (edepiter = layer_edep_map.begin(); edepiter != layer_edep_map.end(); ++edepiter)
+      for (auto edepiter : layer_edep_map)
       {
-        ntup->Fill(detid, edepiter->first, edepiter->second);
+        ntup->Fill(detid, edepiter.first, edepiter.second);
       }
       ntup->Fill(detid, -1, esum);  // fill sum over all layers for each detector
     }
@@ -74,7 +66,7 @@ int G4EdepNtuple::process_event(PHCompositeNode *topNode)
   return 0;
 }
 
-int G4EdepNtuple::End(PHCompositeNode */*topNode*/)
+int G4EdepNtuple::End(PHCompositeNode * /*topNode*/)
 {
   outfile->cd();
   ntup->Write();

@@ -2,16 +2,7 @@
 
 #include <cmath>
 #include <iostream>
-
-ParticleFlowElementv1::ParticleFlowElementv1()
-  : _mom() , _e(NAN)
-{
-  for (int i = 0; i < 3; ++i) _mom[i] = NAN;
-
-  _id = 0;
-
-  _type = ParticleFlowElement::PFLOWTYPE::UNASSIGNED;
-}
+#include <limits>
 
 void ParticleFlowElementv1::identify(std::ostream& os) const
 {
@@ -25,18 +16,27 @@ void ParticleFlowElementv1::identify(std::ostream& os) const
 
 void ParticleFlowElementv1::Reset()
 {
-  for (int i = 0; i < 3; ++i) _mom[i] = NAN;
-  _e = NAN;
+  for (float& i : _mom)
+  {
+    i = std::numeric_limits<float>::quiet_NaN();
+  }
+  _e = std::numeric_limits<float>::quiet_NaN();
 }
 
 int ParticleFlowElementv1::isValid() const
 {
-  for (int i = 0; i < 3; ++i)
+  for (float i : _mom)
+  {
+    if (std::isnan(i))
     {
-      if (std::isnan(_mom[i])) return 0;
+      return 0;
     }
-  if (std::isnan(_e)) return 0;
-  
+  }
+  if (std::isnan(_e))
+  {
+    return 0;
+  }
+
   return 1;
 }
 
@@ -67,8 +67,5 @@ float ParticleFlowElementv1::get_phi() const
 
 float ParticleFlowElementv1::get_mass() const
 {
-  
-  return std::sqrt( get_e() * get_e() - get_px() * get_px() + get_py() * get_py() + get_pz() * get_pz() );
-
+  return std::sqrt(get_e() * get_e() - get_px() * get_px() + get_py() * get_py() + get_pz() * get_pz());
 }
-

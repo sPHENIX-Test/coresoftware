@@ -3,13 +3,14 @@
 #include "PHG4Particle.h"  // for PHG4Particle
 #include "PHG4Particlev2.h"
 #include "PHG4Particlev3.h"
+#include "PHG4ProcessMapPhysics.h"
 #include "PHG4Shower.h"  // for PHG4Shower
 #include "PHG4Showerv1.h"
 #include "PHG4TrackUserInfoV1.h"
 #include "PHG4TruthEventAction.h"
 #include "PHG4TruthInfoContainer.h"
 #include "PHG4UserPrimaryParticleInformation.h"
-#include "PHG4VtxPointv1.h"
+#include "PHG4VtxPointv2.h"
 
 #include <phool/getClass.h>
 
@@ -24,19 +25,14 @@
 #include <Geant4/G4VUserTrackInformation.hh>  // for G4VUserTrackInformation
 
 #include <cmath>     // for sqrt
-#include <cstddef>   // for size_t
 #include <iostream>  // for operator<<, endl
 #include <utility>   // for pair
-
-using namespace std;
 
 //________________________________________________________
 PHG4TruthTrackingAction::PHG4TruthTrackingAction(PHG4TruthEventAction* eventAction)
   : m_EventAction(eventAction)
-  , m_TruthInfoList(nullptr)
-  , m_G4ParticleStack()
-  , m_CurrG4Particle()
 {
+  return;
 }
 
 void PHG4TruthTrackingAction::PreUserTrackingAction(const G4Track* track)
@@ -71,10 +67,29 @@ void PHG4TruthTrackingAction::PreUserTrackingAction(const G4Track* track)
   {
     // primary track - propagate the barcode information
     PHG4UserPrimaryParticleInformation* userdata = static_cast<PHG4UserPrimaryParticleInformation*>(track->GetDynamicParticle()->GetPrimaryParticle()->GetUserInformation());
-    if (userdata) ti->set_barcode(userdata->get_user_barcode());
+    if (userdata)
+    {
+      ti->set_barcode(userdata->get_user_barcode());
+    }
   }
 
   int vtxindex = ti->get_vtx_id();
+
+  // maybe we should do the sPHENIX primary tracking here as here is the place where the parent id etc. are finally set
+
+  if (issPHENIXPrimary(*m_TruthInfoList, ti))
+  {
+    // we also want to set keep this track
+    PHG4TrackUserInfoV1* userinfo = dynamic_cast<PHG4TrackUserInfoV1*>(track->GetUserInformation());
+    if (userinfo)
+    {
+      userinfo->SetKeep(true);
+    }
+
+    PHG4Particle* newparticle = dynamic_cast<PHG4Particle*>(ti->CloneMe());
+
+    m_TruthInfoList->AddsPHENIXPrimaryParticle(trackid, newparticle);
+  }
 
   m_CurrG4Particle = {track_id_g4, trackid, vtxindex};
 
@@ -135,9 +150,8 @@ void PHG4TruthTrackingAction::PostUserTrackingAction(const G4Track* track)
     G4TrackVector* secondaries = fpTrackingManager->GimmeSecondaries();
     if (secondaries)
     {
-      for (size_t i = 0; i < secondaries->size(); ++i)
+      for (auto* secondary : *secondaries)
       {
-        G4Track* secondary = (*secondaries)[i];
         PHG4TrackUserInfo::SetUserParentId(const_cast<G4Track*>(secondary), trackid);
         PHG4TrackUserInfo::SetUserPrimaryId(const_cast<G4Track*>(secondary), primaryid);
         PHG4TrackUserInfo::SetShower(const_cast<G4Track*>(secondary), shower);
@@ -165,18 +179,16 @@ void PHG4TruthTrackingAction::UpdateG4ParticleStack(const G4Track* track)
 {
   while (!m_G4ParticleStack.empty())
   {
-    if ( std::abs(m_G4ParticleStack.back().g4track_id) == track->GetParentID() )
+    if (std::abs(m_G4ParticleStack.back().g4track_id) == track->GetParentID())
     {
       break;
     }
-    else
+
+    if (m_G4ParticleStack.back().g4track_id < 0)
     {
-      if (m_G4ParticleStack.back().g4track_id < 0)
-      {
-        m_TruthInfoList->delete_particle( m_G4ParticleStack.back().particle_id );
-      }
-      m_G4ParticleStack.pop_back();
+      m_TruthInfoList->delete_particle(m_G4ParticleStack.back().particle_id);
     }
+    m_G4ParticleStack.pop_back();
   }
 
   m_G4ParticleStack.push_back(m_CurrG4Particle);
@@ -196,7 +208,7 @@ void PHG4TruthTrackingAction::UpdateG4ParticleStack(const G4Track* track)
 
 void PHG4TruthTrackingAction::SetInterfacePointers(PHCompositeNode* topNode)
 {
-  //now look for the map and grab a pointer to it.
+  // now look for the map and grab a pointer to it.
   m_TruthInfoList = findNode::getClass<PHG4TruthInfoContainer>(topNode, "G4TruthInfo");
 
   // if we do not find the node we need to make it.
@@ -206,15 +218,15 @@ void PHG4TruthTrackingAction::SetInterfacePointers(PHCompositeNode* topNode)
   }
 }
 
-int PHG4TruthTrackingAction::ResetEvent(PHCompositeNode*)
+int PHG4TruthTrackingAction::ResetEvent(PHCompositeNode* /*unused*/)
 {
   m_VertexMap.clear();
 
   while (!m_G4ParticleStack.empty())
   {
-    if ( m_G4ParticleStack.back().g4track_id < 0)
+    if (m_G4ParticleStack.back().g4track_id < 0)
     {
-      m_TruthInfoList->delete_particle( m_G4ParticleStack.back().particle_id );
+      m_TruthInfoList->delete_particle(m_G4ParticleStack.back().particle_id);
     }
     m_G4ParticleStack.pop_back();
   }
@@ -272,6 +284,24 @@ PHG4Particle* PHG4TruthTrackingAction::AddParticle(PHG4TruthInfoContainer& truth
   PHG4VtxPoint* vtx = AddVertex(truth, track);
   ti->set_vtx_id(vtx->get_id());
 
+  // use a new map to hold the new primary particle list
+  // some debug print
+  /*
+  {
+    float vtx_x = vtx->get_x() * cm;
+    float vtx_y = vtx->get_y() * cm;
+    float vtx_z = vtx->get_z() * cm;
+    auto process = vtx->get_process();
+    std::cout << "PHG4TruthTrackingAction::AddParticle - Adding particle with track id " << trackid
+              << ", vtx id " << ti->get_vtx_id()
+              << ", vtx position (" << vtx_x << ", " << vtx_y << ", " << vtx_z << ") cm"
+              << ", process: " << process
+              << ", parent id: " << ti->get_parent_id()
+              << ", pid: " << ti->get_pid()
+              << ", name: " << ti->get_name()
+              << std::endl;
+  }
+  */
   return truth.AddParticle(trackid, ti)->second;
 }
 
@@ -287,8 +317,131 @@ PHG4VtxPoint* PHG4TruthTrackingAction::AddVertex(PHG4TruthInfoContainer& truth, 
   {
     return truth.GetVtxMap().find(iter->second)->second;
   }
+  // get G4Track creator process
+  const auto* const g4Process = track.GetCreatorProcess();
+  // convert G4 Process to MC process
+  const auto process = PHG4ProcessMapPhysics::Instance().GetMCProcess(g4Process);
   // otherwise, create and add a new one
-  PHG4VtxPoint* vtxpt = new PHG4VtxPointv1(v[0]/cm, v[1]/cm, v[2]/cm, track.GetGlobalTime()/ns, vtxindex);
+  PHG4VtxPoint* vtxpt = new PHG4VtxPointv2(v[0] / cm, v[1] / cm, v[2] / cm, track.GetGlobalTime() / ns, vtxindex, process);
 
   return truth.AddVertex(vtxindex, vtxpt)->second;
+}
+
+bool PHG4TruthTrackingAction::issPHENIXPrimary(PHG4TruthInfoContainer& truth, PHG4Particle* particle) const
+{
+  PHG4VtxPoint* vtx = truth.GetVtx(particle->get_vtx_id());
+  if (!vtx)
+  {
+    // something is very very wrong... I guess
+    std::cerr << "PHG4TruthTrackingAction::issPHENIXPrimary - no vertex found for particle with track id " << particle->get_track_id() << std::endl;
+    return false;
+  }
+  auto process = vtx->get_process();
+  int pdgid = particle->get_pid();
+  // if not long-lived, then it is not a primary
+  if (!isLongLived(pdgid))
+  {
+    return false;
+  }
+  // check the production process
+  // if not decay or primary, then it is not a primary
+  // debug print for pid, track id, parent id, and process
+  /*
+  std::cout << "PHG4TruthTrackingAction::issPHENIXPrimary - checking particle with track id " << particle->get_track_id()
+            << ", pid: " << pdgid
+            << ", parent id: " << particle->get_parent_id()
+            << ", process: " << process
+            << std::endl;
+            */
+  if (!(process == PHG4MCProcess::kPPrimary || process == PHG4MCProcess::kPDecay) && particle->get_parent_id())  // all primary particles seems to have unkown process id
+  {
+    return false;
+  }
+  // now we are clear from particle produced from material interactions
+  if (particle->get_parent_id() == 0)
+  {
+    // conditioning on the above, if the track is primary, then it is a sPHENIX primary
+    return true;
+  }
+  // not we want to check if their parent is long-lived or primary
+  // in G4 parent should always process before child, so we can just go up the tree
+  PHG4Particle* parent = truth.GetParticle(particle->get_parent_id());
+  // if there is a loop of the parent, then we have a problem lol with this while loop btw
+  while (parent)
+  {
+    if (isLongLived(parent->get_pid()))
+    {
+      // if the parent is long-lived or primary, then it is not a sPHENIX primary
+      return false;
+    }
+    PHG4VtxPoint* vtx_parent = truth.GetVtx(parent->get_vtx_id());
+    if (!vtx_parent)
+    {
+      // something is very very wrong... I guess
+      std::cerr << "PHG4TruthTrackingAction::issPHENIXPrimary - no vertex found for parent particle with track id " << parent->get_track_id() << std::endl;
+      return false;
+    }
+    process = vtx_parent->get_process();
+    // if parent is not from decay or primary, then it is not a sPHENIX primary
+    if (!(process == PHG4MCProcess::kPPrimary || process == PHG4MCProcess::kPDecay) && parent->get_parent_id())
+    {
+      return false;
+    }
+    // otherwise, go up the tree
+    parent = truth.GetParticle(parent->get_parent_id());
+  }
+
+  return true;
+}
+
+bool PHG4TruthTrackingAction::isLongLived(int pid) const
+{
+  // see https://inspirehep.net/files/4c26ef5fb432df99bdc1ff847653502f
+  // Check nuclus
+  if (pid > 1000000000)
+  {
+    return true;
+  }
+  // this needs to be hardcoded somehow... :(
+  // but in the future we can find a better home for this piece of code
+  switch (pid)
+  {
+  case 11:     // electron
+  case -11:    // positron
+  case 13:     // muon
+  case -13:    // antimuon
+  case 22:     // photon
+  case 211:    // pi+
+  case -211:   // pi-
+  case 321:    // K+
+  case -321:   // K-
+  case 310:    // K0S
+  case 130:    // K0L
+  case 2212:   // proton
+  case -2212:  // antiproton
+  case 2112:   // neutron
+  case -2112:  // antineutron
+  case 3122:   // Lambda
+  case -3122:  // anti-Lambda
+  case 3222:   // Sigma+
+  case -3222:  // anti-Sigma+ ?
+  case 3112:   // Sigma-
+  case -3112:  // anti-Sigma-
+  case 3312:   // Xi-
+  case -3312:  // anti-Xi-
+  case 3322:   // Xi0
+  case -3322:  // anti-Xi0
+  case 3334:   // Omega-
+  case -3334:  // anti-Omega-
+  case 12:     // neutrino
+  case -12:    // antineutrino
+  case 14:     // muon neutrino
+  case -14:    // muon antineutrino
+  case 16:     // tau neutrino
+  case -16:    // tau antineutrino
+
+    return true;
+  default:
+    return false;
+  }
 }

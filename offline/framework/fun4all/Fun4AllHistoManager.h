@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 
+class Fun4AllOutputManager;
 class TNamed;
 
 class Fun4AllHistoManager : public Fun4AllBase
@@ -42,11 +43,38 @@ class Fun4AllHistoManager : public Fun4AllBase
   std::string getHistoName(const unsigned int ihisto) const;
   unsigned int nHistos() const { return Histo.size(); }
   void Reset();
+  int RunAfterClosing();
   int dumpHistos(const std::string &filename = "", const std::string &openmode = "RECREATE");
-  void setOutfileName(const std::string &filename) { outfilename = filename; }
+  const std::string &OutFileName() { return m_outfilename; }
+  void setOutfileName(const std::string &filename) { m_outfilename = filename; }
+  void SetClosingScript(const std::string &script) { m_RunAfterClosingScript = script; }
+  void SetClosingScriptArgs(const std::string &args) { m_ClosingArgs = args; }
+  void segment(const int segment) { m_CurrentSegment = segment; }
+  int GetEventNumberRollover() const { return m_EventRollover; }
+  void SetEventNumberRollover(const int evtno) { m_EventRollover = evtno; }
+  int LastEventNumber() const { return m_LastEventNumber; }
+  void SetLastEventNumber(int ival) { m_LastEventNumber = ival; }
+  void UpdateLastEvent() { m_LastEventNumber += m_EventRollover; }
+  void InitializeLastEvent(int eventnumber);
+  void StartSegment(int iseg) { m_CurrentSegment = iseg; }
+  void UseFileRule(bool b = true) { m_UseFileRuleFlag = b; }
+  bool ApplyFileRule() const { return m_UseFileRuleFlag; }
+  void CopyRolloverSetting(const Fun4AllOutputManager *outman);
+  const std::string &LastClosedFileName() const { return m_LastClosedFileName; }
+  bool isEmpty() const;
 
- private:
-  std::string outfilename;
+private:
+  bool m_LastEventInitializedFlag{false};
+  bool m_UseFileRuleFlag{false};
+  int m_CurrentSegment{0};
+  int m_EventRollover{0};
+  int m_LastEventNumber{std::numeric_limits<int>::max()};
+
+  std::string m_FileRule{"-%08d-%05d"};
+  std::string m_outfilename;
+  std::string m_RunAfterClosingScript;
+  std::string m_ClosingArgs;
+  std::string m_LastClosedFileName;
   std::map<const std::string, TNamed *> Histo;
 };
 

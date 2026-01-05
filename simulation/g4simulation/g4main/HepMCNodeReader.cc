@@ -5,6 +5,7 @@
 
 #include <fun4all/Fun4AllReturnCodes.h>
 
+#include <phhepmc/PHHepMCDefs.h>
 #include <phhepmc/PHHepMCGenEvent.h>
 #include <phhepmc/PHHepMCGenEventMap.h>
 
@@ -18,10 +19,7 @@
 #include <phool/phool.h>
 #include <phool/recoConsts.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include <HepMC/GenEvent.h>
-#pragma GCC diagnostic pop
 #include <HepMC/GenParticle.h>
 #include <HepMC/GenVertex.h>
 #include <HepMC/IteratorRange.h>
@@ -29,10 +27,14 @@
 #include <HepMC/Units.h>
 
 #include <CLHEP/Vector/LorentzRotation.h>
+#include <CLHEP/Vector/LorentzVector.h>
 
 #include <gsl/gsl_const.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
+
+#include <TDatabasePDG.h>
+#include <TLorentzVector.h>
 
 #include <cassert>
 #include <cmath>
@@ -40,17 +42,16 @@
 #include <iostream>
 #include <iterator>
 #include <list>
+#include <ranges>
 #include <utility>
-
-using namespace std;
 
 //// All length Units are in cm, no conversion to G4 internal units since
 //// this is filled into our objects (PHG4VtxPoint and PHG4Particle)
 //
 //// pythia vtx time seems to be in mm/c
-//const double mm_over_c_to_sec = 0.1 / GSL_CONST_CGS_SPEED_OF_LIGHT;
+// const double mm_over_c_to_sec = 0.1 / GSL_CONST_CGS_SPEED_OF_LIGHT;
 //// pythia vtx time seems to be in mm/c
-//const double mm_over_c_to_nanosecond = mm_over_c_to_sec * 1e9;
+// const double mm_over_c_to_nanosecond = mm_over_c_to_sec * 1e9;
 /// \class  IsStateFinal
 
 /// this predicate returns true if the input has no decay vertex
@@ -60,27 +61,23 @@ class IsStateFinal
   /// returns true if the GenParticle does not decay
   bool operator()(const HepMC::GenParticle *p)
   {
-    if (!p->end_vertex() && p->status() == 1) return 1;
-    return 0;
+    if (!p->end_vertex() && p->status() == 1)
+    {
+      return true;
+    }
+    return false;
   }
 };
 
-static IsStateFinal isfinal;
+namespace
+{
+  IsStateFinal isfinal;
+}
 
 HepMCNodeReader::HepMCNodeReader(const std::string &name)
   : SubsysReco(name)
-  , is_pythia(false)
-  , use_seed(0)
-  , seed(0)
-  , vertex_pos_x(0.0)
-  , vertex_pos_y(0.0)
-  , vertex_pos_z(0.0)
-  , vertex_t0(0.0)
-  , width_vx(0.0)
-  , width_vy(0.0)
-  , width_vz(0.0)
+  , RandomGenerator(gsl_rng_alloc(gsl_rng_mt19937))
 {
-  RandomGenerator = gsl_rng_alloc(gsl_rng_mt19937);
   return;
 }
 
@@ -107,9 +104,68 @@ int HepMCNodeReader::Init(PHCompositeNode *topNode)
   if (use_seed)
   {
     phseed = seed;
-    cout << Name() << " override random seed: " << phseed << endl;
+    std::cout << Name() << " override random seed: " << phseed << std::endl;
   }
   gsl_rng_set(RandomGenerator, phseed);
+
+  if (addfraction < 0.0)
+  {
+    std::cout << "[WARNING] addfraction is negative which is not allowed. Setting addfraction to 0." << std::endl;
+    addfraction = 0.0;
+  }
+
+  if (addfraction != 0.0)
+  {
+    fpt = new TF1("fpt", EMGFunction, -10, 10, 4);
+    fpt->SetParameter(0, 1);            // normalization
+    fpt->SetParameter(1, 4.71648e-01);  // mu
+    fpt->SetParameter(2, 1.89602e-01);  // sigma
+    fpt->SetParameter(3, 2.26981e+00);  // lambda
+
+    std::cout << "[INFO] eta is sampled between [" << -1 * sel_eta << "," << sel_eta << "]" << std::endl;
+    feta = new TF1("feta", DBGFunction, -1 * sel_eta, sel_eta, 4);
+    feta->SetParameter(0, 1);             // normalization
+    feta->SetParameter(1, -4.08301e-01);  // mu1
+    feta->SetParameter(2, 4.11930e-01);   // mu2
+    feta->SetParameter(3, 3.59063e-01);   // sigma
+
+    std::vector<std::pair<int, double>> l_PIDProb;
+    l_PIDProb.reserve(list_strangePID.size());
+    for (size_t i = 0; i < list_strangePID.size(); i++)
+    {
+      l_PIDProb.emplace_back(list_strangePID[i], list_strangePIDprob[i]);
+    }
+
+    std::sort(l_PIDProb.begin(), l_PIDProb.end(),
+              [](const std::pair<int, double> &a, const std::pair<int, double> &b) -> bool
+              {
+                return a.second < b.second;
+              });
+
+    double sum = 0.0;
+    for (const auto &it : l_PIDProb)
+    {
+      sum += it.second;
+      list_strangePID_probrange.emplace_back(it.first, std::make_pair(sum - it.second, sum));
+    }
+
+    if (Verbosity() > 0)
+    {
+      std::cout << "[INFO] Sorted list of strange particles and their probabilities: " << std::endl;
+
+      for (const auto &it : l_PIDProb)
+      {
+        std::cout << "PID: " << it.first << " Probability: " << it.second << std::endl;
+      }
+
+      std::cout << "[INFO] List of strange particles and their probability ranges: " << std::endl;
+      for (const auto &it : list_strangePID_probrange)
+      {
+        std::cout << "PID: " << it.first << " Probability range: [" << it.second.first << "," << it.second.second << "]" << std::endl;
+      }
+    }
+  }
+
   return 0;
 }
 
@@ -122,11 +178,11 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
   {
     static bool once = true;
 
-    if (once and Verbosity())
+    if (once && Verbosity())
     {
       once = false;
 
-      cout << "HepMCNodeReader::process_event - No PHHepMCGenEventMap node. Do not perform HepMC->Geant4 input" << endl;
+      std::cout << "HepMCNodeReader::process_event - No PHHepMCGenEventMap node. Do not perform HepMC->Geant4 input" << std::endl;
     }
 
     return Fun4AllReturnCodes::DISCARDEVENT;
@@ -135,7 +191,7 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
   PHG4InEvent *ineve = findNode::getClass<PHG4InEvent>(topNode, "PHG4INEVENT");
   if (!ineve)
   {
-    cout << PHWHERE << "no PHG4INEVENT node" << endl;
+    std::cout << PHWHERE << "no PHG4INEVENT node" << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 
@@ -144,7 +200,7 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
   float worldsizex = rc->get_FloatFlag("WorldSizex");
   float worldsizey = rc->get_FloatFlag("WorldSizey");
   float worldsizez = rc->get_FloatFlag("WorldSizez");
-  string worldshape = rc->get_StringFlag("WorldShape");
+  std::string worldshape = rc->get_StringFlag("WorldShape");
 
   enum
   {
@@ -163,23 +219,32 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
   }
   else
   {
-    cout << PHWHERE << " unknown world shape " << worldshape << endl;
+    std::cout << PHWHERE << " unknown world shape " << worldshape << std::endl;
     exit(1);
   }
 
   // For pile-up simulation: loop over PHHepMC event map
   // insert highest embedding ID event first, whose vertex maybe resued in  PHG4ParticleGeneratorBase::ReuseExistingVertex()
   int vtxindex = -1;
-  for (PHHepMCGenEventMap::ReverseIter iter = genevtmap->rbegin(); iter != genevtmap->rend(); ++iter)
+  bool use_embedding_vertex = false;
+  HepMC::FourVector collisionVertex;
+  PHHepMCGenEvent *evtvertex = genevtmap->get(PHHepMCDefs::DataVertexIndex);
+  if (evtvertex)
   {
-    PHHepMCGenEvent *genevt = iter->second;
+    collisionVertex = evtvertex->get_collision_vertex();
+    genevtmap->erase(PHHepMCDefs::DataVertexIndex);
+    use_embedding_vertex = true;
+  }
+  for (auto &iter : std::ranges::reverse_view(*genevtmap))
+  {
+    PHHepMCGenEvent *genevt = iter.second;
     assert(genevt);
 
     if (genevt->is_simulated())
     {
       if (Verbosity())
       {
-        cout << "HepMCNodeReader::process_event - this event is already simulated. Move on: ";
+        std::cout << "HepMCNodeReader::process_event - this event is already simulated. Move on: ";
         genevt->identify();
       }
 
@@ -188,54 +253,71 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
 
     if (Verbosity())
     {
-      cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found PHHepMCGenEvent:" << endl;
+      std::cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found PHHepMCGenEvent:" << std::endl;
       genevt->identify();
     }
 
-    const auto collisionVertex = genevt->get_collision_vertex();
-
+    if (!use_embedding_vertex)
+    {
+      collisionVertex = genevt->get_collision_vertex();
+    }
+    else
+    {
+      genevt->set_collision_vertex(collisionVertex);  // save used vertex in HepMC
+    }
+    const int embed_flag = genevt->get_embedding_id();
     HepMC::GenEvent *evt = genevt->getEvent();
     if (!evt)
     {
-      cout << PHWHERE << " no evt pointer under HEPMC Node found:";
+      std::cout << PHWHERE << " no evt pointer under HEPMC Node found";
       genevt->identify();
       return Fun4AllReturnCodes::ABORTEVENT;
     }
 
     if (Verbosity())
     {
-      cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found HepMC::GenEvent:" << endl;
+      std::cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found HepMC::GenEvent:" << std::endl;
       evt->print();
     }
 
     genevt->is_simulated(true);
-
-    const int embed_flag = genevt->get_embedding_id();
-
     double xshift = vertex_pos_x + genevt->get_collision_vertex().x();
     double yshift = vertex_pos_y + genevt->get_collision_vertex().y();
     double zshift = vertex_pos_z + genevt->get_collision_vertex().z();
     double tshift = vertex_t0 + genevt->get_collision_vertex().t();
-
     const CLHEP::HepLorentzRotation lortentz_rotation(genevt->get_LorentzRotation_EvtGen2Lab());
 
     if (width_vx > 0.0)
+    {
       xshift += smeargauss(width_vx);
+    }
     else if (width_vx < 0.0)
+    {
       xshift += smearflat(width_vx);
+    }
 
     if (width_vy > 0.0)
+    {
       yshift += smeargauss(width_vy);
+    }
     else if (width_vy < 0.0)
+    {
       yshift += smearflat(width_vy);
+    }
 
     if (width_vz > 0.0)
+    {
       zshift += smeargauss(width_vz);
+    }
     else if (width_vz < 0.0)
+    {
       zshift += smearflat(width_vz);
+    }
 
     std::list<HepMC::GenParticle *> finalstateparticles;
     std::list<HepMC::GenParticle *>::const_iterator fiter;
+
+    int Nstrange = 0;  // count the number of strange particles with PID in list_strangePID per event
 
     // units in G4 interface are GeV and CM as in PHENIX convention
     const double mom_factor = HepMC::Units::conversion_factor(evt->momentum_unit(), HepMC::Units::GEV);
@@ -248,7 +330,7 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
     {
       if (Verbosity() > 1)
       {
-        cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found vertex:" << endl;
+        std::cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found vertex:" << std::endl;
         (*v)->print();
       }
 
@@ -259,27 +341,48 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
       {
         if (Verbosity() > 1)
         {
-          cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found particle:" << endl;
+          std::cout << __PRETTY_FUNCTION__ << " : L" << __LINE__ << " Found particle:" << std::endl;
           (*p)->print();
-          cout << "end vertex " << (*p)->end_vertex() << endl;
+          std::cout << "end vertex " << (*p)->end_vertex() << std::endl;
         }
         if (isfinal(*p))
         {
           if (Verbosity() > 1)
           {
-            cout << __PRETTY_FUNCTION__ << " " << __LINE__ << endl;
-            cout << "\tparticle passed " << endl;
+            std::cout << __PRETTY_FUNCTION__ << " " << __LINE__ << std::endl;
+            std::cout << "\tparticle passed " << std::endl;
           }
           finalstateparticles.push_back(*p);
+
+          if (std::find(list_strangePID.begin(), list_strangePID.end(), std::abs((*p)->pdg_id())) != list_strangePID.end())
+          {
+            // count number of strange particles with PID in list_strangePID within the kinematic selection (sPHNEIX acceptance)
+            // |eta|<=1 and momentum within sel_ptmin and sel_ptmax
+            if ((fabs((*p)->momentum().eta()) <= sel_eta) &&                                    //
+                ((*p)->momentum().perp() >= sel_ptmin && (*p)->momentum().perp() <= sel_ptmax)  //
+            )
+            {
+              Nstrange++;
+            }
+          }
         }
         else
         {
           if (Verbosity() > 1)
           {
-            cout << __PRETTY_FUNCTION__ << " " << __LINE__ << endl;
-            cout << "\tparticle failed " << endl;
+            std::cout << __PRETTY_FUNCTION__ << " " << __LINE__ << std::endl;
+            std::cout << "\tparticle failed " << std::endl;
           }
         }
+      }  // for (HepMC::GenVertex::particle_iterator p = (*v)->particles_begin(HepMC::children); p != (*v)->particles_end(HepMC::children); ++p)
+
+      // Add additional strange particles if addfraction is not zero; round up to the ceiling integer
+      Nstrange_add = static_cast<int>(std::ceil(Nstrange * addfraction * 0.01));
+
+      if (Verbosity() > 1)
+      {
+        std::cout << "[DEBUG] Number of original strange particles with kinematic selection (abs(eta) cut: " << sel_eta << ", pT cut: " << sel_ptmin << " - " << sel_ptmax << "): " << Nstrange << std::endl;
+        std::cout << "[DEBUG] addfraction: " << addfraction << "%; Number of strange particles to be added: " << Nstrange_add << std::endl;
       }
 
       if (!finalstateparticles.empty())
@@ -288,20 +391,20 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
                                           (*v)->position().y(),
                                           (*v)->position().z(),
                                           (*v)->position().t());
-	if(is_pythia)
-	  {
-	    lv_vertex.setX(collisionVertex.x());
-	    lv_vertex.setY(collisionVertex.y());
-	    lv_vertex.setZ(collisionVertex.z());
-	    lv_vertex.setT(collisionVertex.t());
-	    if (Verbosity() > 1)
-	      {
-		std::cout << __PRETTY_FUNCTION__ << " " << __LINE__ 
-			  << std::endl;
-		std::cout << "\t vertex reset to collision vertex: " 
-			  << lv_vertex << std::endl;
-	      }
-	  }
+        if (is_pythia)
+        {
+          lv_vertex.setX(collisionVertex.x());
+          lv_vertex.setY(collisionVertex.y());
+          lv_vertex.setZ(collisionVertex.z());
+          lv_vertex.setT(collisionVertex.t());
+          if (Verbosity() > 1)
+          {
+            std::cout << __PRETTY_FUNCTION__ << " " << __LINE__
+                      << std::endl;
+            std::cout << "\t vertex reset to collision vertex: "
+                      << lv_vertex << std::endl;
+          }
+        }
 
         // event gen frame to lab frame
         lv_vertex = lortentz_rotation(lv_vertex);
@@ -313,15 +416,15 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
 
         if (Verbosity() > 1)
         {
-          cout << __PRETTY_FUNCTION__ << " " << __LINE__ << endl;
-          cout << "Vertex : " << endl;
+          std::cout << __PRETTY_FUNCTION__ << " " << __LINE__ << std::endl;
+          std::cout << "Vertex : " << std::endl;
           (*v)->print();
-          cout << "id: " << (*v)->barcode() << endl;
-          cout << "x: " << xpos << endl;
-          cout << "y: " << ypos << endl;
-          cout << "z: " << zpos << endl;
-          cout << "t: " << time << endl;
-          cout << "Particles" << endl;
+          std::cout << "id: " << (*v)->barcode() << std::endl;
+          std::cout << "x: " << xpos << std::endl;
+          std::cout << "y: " << ypos << std::endl;
+          std::cout << "z: " << zpos << std::endl;
+          std::cout << "t: " << time << std::endl;
+          std::cout << "Particles" << std::endl;
         }
 
         if (ishape == ShapeG4Tubs)
@@ -329,10 +432,11 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
           if (sqrt(xpos * xpos + ypos * ypos) > worldsizey / 2 ||
               fabs(zpos) > worldsizez / 2)
           {
-            cout << "vertex x/y/z" << xpos << "/" << ypos << "/" << zpos
-                 << " outside world volume radius/z (+-) " << worldsizex / 2
-                 << "/" << worldsizez / 2 << ", dropping it and its particles"
-                 << endl;
+            std::cout << "vertex x/y/z " << xpos << "/" << ypos << "/" << zpos
+                      << " id: " << (*v)->barcode()
+                      << " outside world volume radius/z (+-) " << worldsizex / 2
+                      << "/" << worldsizez / 2 << ", dropping it and its particles"
+                      << std::endl;
             continue;
           }
         }
@@ -341,17 +445,17 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
           if (fabs(xpos) > worldsizex / 2 || fabs(ypos) > worldsizey / 2 ||
               fabs(zpos) > worldsizez / 2)
           {
-            cout << "Vertex x/y/z " << xpos << "/" << ypos << "/" << zpos
-                 << " outside world volume x/y/z (+-) " << worldsizex / 2 << "/"
-                 << worldsizey / 2 << "/" << worldsizez / 2
-                 << ", dropping it and its particles" << endl;
+            std::cout << "Vertex x/y/z " << xpos << "/" << ypos << "/" << zpos
+                      << " outside world volume x/y/z (+-) " << worldsizex / 2 << "/"
+                      << worldsizey / 2 << "/" << worldsizez / 2
+                      << ", dropping it and its particles" << std::endl;
             continue;
           }
         }
         else
         {
-          cout << PHWHERE << " shape " << ishape << " not implemented. exiting"
-               << endl;
+          std::cout << PHWHERE << " shape " << ishape << " not implemented. exiting"
+                    << std::endl;
           exit(1);
         }
 
@@ -363,7 +467,7 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
         {
           if (Verbosity() > 1)
           {
-            cout << __PRETTY_FUNCTION__ << " " << __LINE__ << endl;
+            std::cout << __PRETTY_FUNCTION__ << " " << __LINE__ << std::endl;
             (*fiter)->print();
           }
 
@@ -384,39 +488,92 @@ int HepMCNodeReader::process_event(PHCompositeNode *topNode)
 
           ineve->AddParticle(vtxindex, particle);
 
-          if (embed_flag != 0) ineve->AddEmbeddedParticle(particle, embed_flag);
+          if (embed_flag != 0)
+          {
+            ineve->AddEmbeddedParticle(particle, embed_flag);
+          }
+        }  // for (fiter = finalstateparticles.begin(); fiter != finalstateparticles.end(); ++fiter)
+
+        // add strange particles given Nstrange_add
+        if (addfraction > 0)
+        {
+          if (Verbosity() > 1)
+          {
+            std::cout << "[INFO] Add strange particles. Number of strange particles to be added: " << Nstrange_add << std::endl;
+          }
+
+          // Add strange particles given Nstrange_add
+          for (int i = 0; i < Nstrange_add; i++)
+          {
+            int pid = list_strangePID[0];  // default to the first PID in the list, i.e K_s0
+            double prob = gsl_rng_uniform_pos(RandomGenerator);
+            for (const auto &it : list_strangePID_probrange)
+            {
+              if (prob >= it.second.first && prob < it.second.second)
+              {
+                pid = it.first;
+                break;
+              }
+            }
+
+            // sample pt and eta from the EMG and DBG functions; phi between -pi and pi
+            double pt = fpt->GetRandom();
+            double eta = feta->GetRandom();
+            double phi = (gsl_rng_uniform_pos(RandomGenerator) * 2 * M_PI) - M_PI;
+            double mass = TDatabasePDG::Instance()->GetParticle(pid)->Mass();
+
+            TLorentzVector lv;
+            lv.SetPtEtaPhiM(pt, eta, phi, mass);
+
+            // create a new particle
+            PHG4Particle *particle = new PHG4Particlev1();
+            particle->set_pid(pid);
+            particle->set_px(lv.Px());
+            particle->set_py(lv.Py());
+            particle->set_pz(lv.Pz());
+            particle->set_barcode(std::numeric_limits<int>::max() - i);  // set the barcode to be distinct from the existing particles; backward counting from the maximum integer value
+
+            ineve->AddParticle(vtxindex, particle);
+          }
         }
-      }  //      if (!finalstateparticles.empty())
 
-    }  //    for (HepMC::GenEvent::vertex_iterator v = evt->vertices_begin();
-
+      }  // if (!finalstateparticles.empty())
+    }  // for (HepMC::GenEvent::vertex_iterator v = evt->vertices_begin();
   }  // For pile-up simulation: loop end for PHHepMC event map
-
-  if (Verbosity() > 0) ineve->identify();
+  if (Verbosity() > 0)
+  {
+    ineve->identify();
+  }
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
 double HepMCNodeReader::smeargauss(const double width)
 {
-  if (width == 0) return 0;
+  if (width == 0)
+  {
+    return 0;
+  }
   return gsl_ran_gaussian(RandomGenerator, width);
 }
 
 double HepMCNodeReader::smearflat(const double width)
 {
-  if (width == 0) return 0;
+  if (width == 0)
+  {
+    return 0;
+  }
   return 2.0 * width * (gsl_rng_uniform_pos(RandomGenerator) - 0.5);
 }
 
 void HepMCNodeReader::VertexPosition(const double v_x, const double v_y,
                                      const double v_z)
 {
-  cout << "HepMCNodeReader::VertexPosition - WARNING - this function is depreciated. "
-       << "HepMCNodeReader::VertexPosition() move all HEPMC subevents to a new vertex location. "
-       << "This also leads to a different vertex is used for HepMC subevent in Geant4 than that recorded in the HepMCEvent Node."
-       << "Recommendation: the vertex shifts are better controlled for individually HEPMC subevents in Fun4AllHepMCInputManagers and event generators."
-       << endl;
+  std::cout << "HepMCNodeReader::VertexPosition - WARNING - this function is depreciated. "
+            << "HepMCNodeReader::VertexPosition() move all HEPMC subevents to a new vertex location. "
+            << "This also leads to a different vertex is used for HepMC subevent in Geant4 than that recorded in the HepMCEvent Node."
+            << "Recommendation: the vertex shifts are better controlled for individually HEPMC subevents in Fun4AllHepMCInputManagers and event generators."
+            << std::endl;
 
   vertex_pos_x = v_x;
   vertex_pos_y = v_y;
@@ -427,11 +584,11 @@ void HepMCNodeReader::VertexPosition(const double v_x, const double v_y,
 void HepMCNodeReader::SmearVertex(const double s_x, const double s_y,
                                   const double s_z)
 {
-  cout << "HepMCNodeReader::SmearVertex - WARNING - this function is depreciated. "
-       << "HepMCNodeReader::SmearVertex() smear each HEPMC subevents to a new vertex location. "
-       << "This also leads to a different vertex is used for HepMC subevent in Geant4 than that recorded in the HepMCEvent Node."
-       << "Recommendation: the vertex smears are better controlled for individually HEPMC subevents in Fun4AllHepMCInputManagers and event generators."
-       << endl;
+  std::cout << "HepMCNodeReader::SmearVertex - WARNING - this function is depreciated. "
+            << "HepMCNodeReader::SmearVertex() smear each HEPMC subevents to a new vertex location. "
+            << "This also leads to a different vertex is used for HepMC subevent in Geant4 than that recorded in the HepMCEvent Node."
+            << "Recommendation: the vertex smears are better controlled for individually HEPMC subevents in Fun4AllHepMCInputManagers and event generators."
+            << std::endl;
 
   width_vx = s_x;
   width_vy = s_y;
@@ -439,11 +596,35 @@ void HepMCNodeReader::SmearVertex(const double s_x, const double s_y,
   return;
 }
 
-void HepMCNodeReader::Embed(const int)
+// root prevents declaring this const
+// NOLINTNEXTLINE(readability-non-const-parameter)
+double HepMCNodeReader::EMGFunction(double *x, double *par)
 {
-  cout << "HepMCNodeReader::Embed - WARNING - this function is depreciated. "
-       << "Embedding IDs are controlled for individually HEPMC subevents in Fun4AllHepMCInputManagers and event generators."
-       << endl;
+  // parameterization: https://en.wikipedia.org/wiki/Exponentially_modified_Gaussian_distribution
 
-  return;
+  double N = par[0];       // Normalization
+  double mu = par[1];      // Mean of the Gaussian
+  double sigma = par[2];   // Width of the Gaussian
+  double lambda = par[3];  // Decay constant of the Exponential
+
+  double t = x[0];
+  double z = (mu + lambda * sigma * sigma - t) / (sqrt(2) * sigma);
+
+  double prefactor = lambda / 2.0;
+  double exp_part = exp((lambda / 2.0) * (2.0 * mu + lambda * sigma * sigma - 2.0 * t));
+  double erfc_part = TMath::Erfc(z);
+
+  return N * prefactor * exp_part * erfc_part;
+}
+
+// root prevents declaring this const
+// NOLINTNEXTLINE(readability-non-const-parameter)
+double HepMCNodeReader::DBGFunction(double *x, double *par)
+{
+  double N = par[0];      // Normalization
+  double mu1 = par[1];    // Mean of the first Gaussian
+  double mu2 = par[2];    // Mean of the second Gaussian
+  double sigma = par[3];  // Width of the Gaussian
+
+  return N * (TMath::Gaus(x[0], mu1, sigma) + TMath::Gaus(x[0], mu2, sigma));
 }

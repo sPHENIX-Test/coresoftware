@@ -3,21 +3,20 @@
 #ifndef G4DETECTORS_PHG4TPCCYLINDERGEOM_H
 #define G4DETECTORS_PHG4TPCCYLINDERGEOM_H
 
-//#include <phool/PHObject.h>
 #include "PHG4CylinderGeom.h"
 
+#include <array>
 #include <cmath>
 #include <iostream>  // for cout, ostream
 #include <string>
 #include <utility>  // for pair
-#include <array>
 
 class PHG4TpcCylinderGeom : public PHG4CylinderGeom
 {
  public:
-  PHG4TpcCylinderGeom(){};
+  PHG4TpcCylinderGeom() = default;
 
-  ~PHG4TpcCylinderGeom(){};
+  ~PHG4TpcCylinderGeom() override = default;
 
   // from PHObject
   void identify(std::ostream& os = std::cout) const override;
@@ -36,20 +35,28 @@ class PHG4TpcCylinderGeom : public PHG4CylinderGeom
   double get_etastep() const;
   double get_etamin() const;
 
+  double get_max_driftlength() const { return 102.325; }
+  double get_CM_halfwidth() const  { return 0.28; }
+  double get_adc_clock() const  { return  53.326184; } // default sim value
+  double get_extended_readout_time() const  { return 0.; }
+  double get_drift_velocity_sim() const  { return 0.007550; }
+  
   virtual std::pair<double, double> get_zbounds(const int ibin) const;
   virtual std::pair<double, double> get_phibounds(const int ibin) const;
   virtual std::pair<double, double> get_etabounds(const int ibin) const;
   virtual double get_etacenter(const int ibin) const;
   virtual double get_zcenter(const int ibin) const;
-  virtual double get_phicenter(const int ibin) const;
+  virtual double get_phicenter(const int ibin, const int side = 0) const;
   virtual double get_phicenter_new(const int ibin) const;
-  virtual double get_phi(const float ibin) const;
+  virtual double get_phi(const float ibin, const int side = 0) const;
 
   virtual int get_etabin(const double eta) const;
   virtual int get_zbin(const double z) const;
   virtual int get_phibin(const double phi, int side = 0) const;
   virtual int get_phibin_new(const double phi) const;
-  
+
+  virtual float get_pad_float(const double phi, int side = 0) const;
+  virtual float get_tbin_float(const double z) const;
   virtual int find_phibin(const double phi, int side = 0) const;
 
   void set_layer(const int i) override { layer = i; }
@@ -65,44 +72,56 @@ class PHG4TpcCylinderGeom : public PHG4CylinderGeom
   void set_etabins(const int i);
   void set_etamin(const double z);
   void set_etastep(const double z);
-
+  // capture the z geometry related setup parameters
+  void set_max_driftlength(const double /*val*/) { return; }
+  void set_CM_halfwidth(const double /*val*/) { return; }
+  void set_adc_clock(const double /*val*/) { return; }
+  void set_extended_readout_time(const double /*val*/) { return; }
+  void set_drift_velocity_sim(const double /*val*/) { return; }
+  
   static const int NSides = 2;
 
-  void set_r_bias(std::array<std::vector<double>, NSides > dr){sector_R_bias = dr;}
-  void set_phi_bias(std::array<std::vector<double>, NSides > dphi){sector_Phi_bias = dphi;}
+  void set_r_bias(const std::array<std::vector<double>, NSides> &dr) { sector_R_bias = dr; }
+  void set_phi_bias(const std::array<std::vector<double>, NSides> &dphi) { sector_Phi_bias = dphi; }
 
-  //void set_sector_phi(const double s_phi){sector_phi = s_phi;}
-  void set_sector_min_phi(std::array<std::vector<double>, NSides >  s_min_phi){sector_min_Phi = s_min_phi;}
-  void set_sector_max_phi(std::array<std::vector<double>, NSides >  s_max_phi){sector_max_Phi = s_max_phi;}
+  // void set_sector_phi(const double s_phi){sector_phi = s_phi;}
+  void set_sector_min_phi(const std::array<std::vector<double>, NSides> &s_min_phi) { sector_min_Phi = s_min_phi; }
+  void set_sector_max_phi(const std::array<std::vector<double>, NSides> &s_max_phi) { sector_max_Phi = s_max_phi; }
 
-  std::array<std::vector<double>, NSides > get_sector_min_phi(){return sector_min_Phi;}
-  std::array<std::vector<double>, NSides > get_sector_max_phi(){return sector_max_Phi;}
-
-
+  const std::array<std::vector<double>, NSides> &get_sector_min_phi() { return sector_min_Phi; }
+  const std::array<std::vector<double>, NSides> &get_sector_max_phi() { return sector_max_Phi; }
 
  protected:
   void check_binning_method(const int i) const;
   void check_binning_method_eta(const std::string& src = "") const;
   void check_binning_method_phi(const std::string& src = "") const;
   std::string methodname(const int i) const;
-  int layer = -999;
-  int binning = 0;
-  double radius = NAN;
-  int nzbins = -1;
-  double zmin = NAN;
-  double zstep = NAN;
-  int nphibins = -1;
-  double phimin = -M_PI;
-  double phistep = NAN;
-  double thickness = NAN;
+  int layer{-999};
+  int binning{0};
+  double radius{std::numeric_limits<double>::quiet_NaN()};
+  int nzbins{-1};
+  double zmin{std::numeric_limits<double>::quiet_NaN()};
+  double zstep{std::numeric_limits<double>::quiet_NaN()};
+  int nphibins{-1};
+  double phimin{-M_PI};
+  double phistep{std::numeric_limits<double>::quiet_NaN()};
+  double thickness{std::numeric_limits<double>::quiet_NaN()};
 
-  std::array<std::vector<double>, NSides > sector_R_bias;
-  std::array<std::vector<double>, NSides > sector_Phi_bias;
-  std::array<std::vector<double>, NSides > sector_min_Phi;
-  std::array<std::vector<double>, NSides > sector_max_Phi;
+  // double max_driftlength{std::numeric_limits<double>::quiet_NaN()};
+  // double CM_halfwidth{std::numeric_limits<double>::quiet_NaN()};
+  // double adc_clock{std::numeric_limits<double>::quiet_NaN()};
+  // double extended_readout_time{std::numeric_limits<double>::quiet_NaN()};
+  // double drift_velocity_sim{std::numeric_limits<double>::quiet_NaN()};
+  
+  std::array<std::vector<double>, NSides> sector_R_bias;
+  std::array<std::vector<double>, NSides> sector_Phi_bias;
+  std::array<std::vector<double>, NSides> sector_min_Phi;
+  std::array<std::vector<double>, NSides> sector_max_Phi;
 
+  // streamer
+  friend std::ostream& operator<<(std::ostream&, const PHG4TpcCylinderGeom&);
 
-  ClassDefOverride(PHG4TpcCylinderGeom, 2)
+  ClassDefOverride(PHG4TpcCylinderGeom, 1)
 };
 
 #endif

@@ -6,42 +6,35 @@
 #include <g4main/PHG4HitContainer.h>
 
 #include <fun4all/Fun4AllHistoManager.h>
-#include <fun4all/SubsysReco.h>           // for SubsysReco
+#include <fun4all/SubsysReco.h>  // for SubsysReco
 
 #include <phool/PHCompositeNode.h>
-#include <phool/PHIODataNode.h>           // for PHIODataNode
-#include <phool/PHNodeIterator.h>         // for PHNodeIterator
-#include <phool/PHObject.h>               // for PHObject
+#include <phool/PHIODataNode.h>    // for PHIODataNode
+#include <phool/PHNodeIterator.h>  // for PHNodeIterator
+#include <phool/PHObject.h>        // for PHObject
 #include <phool/getClass.h>
 
 #include <TH1.h>
 #include <TH2.h>
 #include <TSystem.h>
 
-#include <iostream>                       // for operator<<, endl, basic_ost...
-#include <map>                            // for _Rb_tree_const_iterator
-#include <utility>                        // for pair
-
-using namespace std;
+#include <iostream>  // for operator<<, endl, basic_ost...
+#include <map>       // for _Rb_tree_const_iterator
+#include <utility>   // for pair
 
 G4HitTTree::G4HitTTree(const std::string &name)
   : SubsysReco(name)
-  , savehits(1)
-  , evtno(0)
-  , hm(nullptr)
-  , etot_hist(nullptr)
-  , eion_etot_hist(nullptr)
 {
   BlackHoleName("BH_1");  // initialize this to what we have in our common sims
 }
 
 int G4HitTTree::Init(PHCompositeNode *topNode)
 {
-  if (!_detector.size())
+  if (_detector.empty())
   {
-    cout << "Detector not set via Detector(<name>) method" << endl;
-    cout << "(it is the name appended to the G4HIT_<name> nodename)" << endl;
-    cout << "you do not want to run like this, exiting now" << endl;
+    std::cout << "Detector not set via Detector(<name>) method" << std::endl;
+    std::cout << "(it is the name appended to the G4HIT_<name> nodename)" << std::endl;
+    std::cout << "you do not want to run like this, exiting now" << std::endl;
     gSystem->Exit(1);
   }
   hm = new Fun4AllHistoManager("HITHIST");
@@ -69,8 +62,8 @@ int G4HitTTree::process_event(PHCompositeNode *topNode)
   if (g4hits)
   {
     PHG4HitContainer::ConstRange hit_range = g4hits->getHits();
-    //shower_z->Reset();
-    //  cout << "Number of Hits: " << g4hits->size() << endl;
+    // shower_z->Reset();
+    //   std::cout << "Number of Hits: " << g4hits->size() << std::endl;
     for (PHG4HitContainer::ConstIterator hit_iter = hit_range.first; hit_iter != hit_range.second; hit_iter++)
     {
       PHG4Hit *inhit = hit_iter->second;
@@ -88,8 +81,8 @@ int G4HitTTree::process_event(PHCompositeNode *topNode)
   if (g4hits)
   {
     PHG4HitContainer::ConstRange hit_range = g4hits->getHits();
-    //shower_z->Reset();
-    //  cout << "Number of Hits: " << g4hits->size() << endl;
+    // shower_z->Reset();
+    //   std::cout << "Number of Hits: " << g4hits->size() << std::endl;
     for (PHG4HitContainer::ConstIterator hit_iter = hit_range.first; hit_iter != hit_range.second; hit_iter++)
     {
       PHG4Hit *inhit = hit_iter->second;
@@ -120,7 +113,7 @@ int G4HitTTree::process_event(PHCompositeNode *topNode)
   return 0;
 }
 
-int G4HitTTree::End(PHCompositeNode */*topNode*/)
+int G4HitTTree::End(PHCompositeNode * /*topNode*/)
 {
   hm->dumpHistos("HitHistos.root");
   delete hm;

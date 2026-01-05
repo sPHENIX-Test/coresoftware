@@ -24,40 +24,45 @@ class SyncObjectv1 : public SyncObject
   void Reset() override;
 
   /** identify Function from PHObject
-      @param os Output Stream 
+      @param os Output Stream
    */
-  void identify(std::ostream& os = std::cout) const override;
+  void identify(std::ostream& out = std::cout) const override;
 
   /// isValid returns non zero if object contains valid data
   int isValid() const override;
 
   /// set Event Counter
+  // cppcheck-suppress virtualCallInConstructor
   void EventCounter(const int ival) override { eventcounter = ival; }
 
   /// set Event Number
+  // cppcheck-suppress virtualCallInConstructor
   void EventNumber(const int ival) override { eventnumber = ival; }
 
   /// set Run Number
+  // cppcheck-suppress virtualCallInConstructor
   void RunNumber(const int ival) override { runnumber = ival; }
 
   /// set Segment Number
+  // cppcheck-suppress virtualCallInConstructor
   void SegmentNumber(const int ival) override { segmentnumber = ival; }
+
+  /// get Event Number
+  int EventNumber() const override { return eventnumber; }
 
  protected:
   /// get Event Counter
   int EventCounter() const override { return eventcounter; }
-  /// get Event Number
-  int EventNumber() const override { return eventnumber; }
   /// get Run Number
   int RunNumber() const override { return runnumber; }
   /// get Segment Number
-  int SegmentNumber() const  override { return segmentnumber; }
+  int SegmentNumber() const override { return segmentnumber; }
 
  private:
-  int eventcounter = 0;         // running counter
-  int eventnumber = 0;          // Event number
-  int runnumber = 0;            // Run number
-  int segmentnumber = -999999;  // segment number
+  int eventcounter{0};         // running counter
+  int eventnumber{0};          // Event number
+  int runnumber{0};            // Run number
+  int segmentnumber{std::numeric_limits<int>::min()};  // segment number
 
   ClassDefOverride(SyncObjectv1, 1)
 };

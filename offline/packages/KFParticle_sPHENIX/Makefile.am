@@ -11,7 +11,7 @@ AM_LDFLAGS = \
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include \
   -DHomogeneousField
 
@@ -20,6 +20,7 @@ pkginclude_HEADERS = \
   KFParticle_Container.h \
   KFParticle_DST.h \
   KFParticle_truthAndDetTools.h \
+  KFParticle_triggerInfo.h \
   KFParticle_nTuple.h \
   KFParticle_Tools.h \
   KFParticle_MVA.h \
@@ -30,8 +31,8 @@ ROOTDICTS = \
   KFParticle_Container_Dict.cc
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  KFParticle_Container_Dict_rdict.pcm
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 libkfparticle_sphenix_io_la_SOURCES = \
   $(ROOTDICTS) \
@@ -40,6 +41,7 @@ libkfparticle_sphenix_io_la_SOURCES = \
 libkfparticle_sphenix_la_SOURCES = \
   KFParticle_DST.cc \
   KFParticle_truthAndDetTools.cc \
+  KFParticle_triggerInfo.cc \
   KFParticle_nTuple.cc \
   KFParticle_Tools.cc \
   KFParticle_MVA.cc \
@@ -53,10 +55,13 @@ libkfparticle_sphenix_io_la_LIBADD = \
 libkfparticle_sphenix_la_LIBADD = \
   libkfparticle_sphenix_io.la \
   -lcalo_io \
+  -lCLHEP \
   -lfun4all \
   -lg4eval \
   -lTMVA \
-  -lphhepmc
+  -lphhepmc \
+  -lcalotrigger \
+  -lffarawobjects
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h

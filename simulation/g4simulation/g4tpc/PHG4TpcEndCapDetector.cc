@@ -27,15 +27,11 @@
 
 #include <CLHEP/Vector/RotationZ.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#include <boost/format.hpp>
-#pragma GCC diagnostic pop
-
 #include <algorithm>  // for max, copy
 #include <cassert>
 #include <cmath>
 #include <cstdlib>  // for exit
+#include <format>
 #include <iostream>
 
 class G4VSolid;
@@ -132,28 +128,28 @@ G4AssemblyVolume *PHG4TpcEndCapDetector::ConstructEndCapAssembly()
 
   std::vector<double> thickness;
   std::vector<std::string> material;
-  material.push_back("G4_Cu");
+  material.emplace_back("G4_Cu");
   thickness.push_back(0.0005 * 2. * cm);
-  material.push_back("G4_KAPTON");
+  material.emplace_back("G4_KAPTON");
   thickness.push_back(0.005 * cm);
-  material.push_back("sPHENIX_TPC_Gas");  // proper gas name, but should be pulled from params to match TpcSubsystem?
+  material.emplace_back("sPHENIX_TPC_Gas");  // proper gas name, but should be pulled from params to match TpcSubsystem?
   thickness.push_back(0.2 * cm);
   G4Material *temp = GetDetectorMaterial("GEMeffective", false);
   if (temp == nullptr)
   {
-    CreateCompositeMaterial("GEMeffective", material, thickness);  //see new function below
+    CreateCompositeMaterial("GEMeffective", material, thickness);  // see new function below
   }
   double totalThickness = 0;
-  for (std::vector<double>::size_type i = 0; i < thickness.size(); i++)
+  for (double thicknes : thickness)
   {
-    totalThickness += thickness[i];
+    totalThickness += thicknes;
   }
 
   const int n_GEM_layers = m_Params->get_int_param("n_GEM_layers");
 
-  //instead of building this layer-by-layer, we build a single block corresponding to all the gems that were previously handled in this fashion:
+  // instead of building this layer-by-layer, we build a single block corresponding to all the gems that were previously handled in this fashion:
   totalThickness *= n_GEM_layers;
-  AddLayer(assemblyvol, starting_z, G4String("GEMAllParts"), "GEMeffective", totalThickness, 64);  //note this slightly undercounts the gas because the gas fill should be 100%, and slightly mispositions the inner edge of the material because the way it is made <100% in AddLayer is by making it thinner than nominally requested but centering it in the region it would have occupied.
+  AddLayer(assemblyvol, starting_z, G4String("GEMAllParts"), "GEMeffective", totalThickness, 64);  // note this slightly undercounts the gas because the gas fill should be 100%, and slightly mispositions the inner edge of the material because the way it is made <100% in AddLayer is by making it thinner than nominally requested but centering it in the region it would have occupied.
 
   // 16 layer readout plane by TTM
   // https://indico.bnl.gov/event/8307/contributions/36744/attachments/27646/42337/R3-Review.pptx
@@ -169,14 +165,14 @@ G4AssemblyVolume *PHG4TpcEndCapDetector::ConstructEndCapAssembly()
   return assemblyvol;
 }
 
-void PHG4TpcEndCapDetector ::CreateCompositeMaterial(
-    std::string compositeName,
+void PHG4TpcEndCapDetector::CreateCompositeMaterial(
+    const std::string &compositeName,
     std::vector<std::string> materialName,
-    std::vector<double> thickness)
+    const std::vector<double> &thickness)
 {
-  //takes in a list of material names known to Geant already, and thicknesses, and creates a new material called compositeName.
+  // takes in a list of material names known to Geant already, and thicknesses, and creates a new material called compositeName.
 
-  //check that desired material name doesn't already exist
+  // check that desired material name doesn't already exist
   G4Material *tempmat = GetDetectorMaterial(compositeName, false);
 
   if (tempmat != nullptr)
@@ -185,11 +181,12 @@ void PHG4TpcEndCapDetector ::CreateCompositeMaterial(
     assert(!tempmat);
   }
 
-  //check that both arrays have the same depth
+  // check that both arrays have the same depth
   assert(materialName.size() == thickness.size());
 
-  //sum up the areal density and total thickness so we can divvy it out
-  double totalArealDensity = 0, totalThickness = 0;
+  // sum up the areal density and total thickness so we can divvy it out
+  double totalArealDensity = 0;
+  double totalThickness = 0;
   for (std::vector<double>::size_type i = 0; i < thickness.size(); i++)
   {
     tempmat = GetDetectorMaterial(materialName[i]);
@@ -203,35 +200,35 @@ void PHG4TpcEndCapDetector ::CreateCompositeMaterial(
     totalThickness += thickness[i];
   }
 
-  //register a new material with the average density of the whole:
+  // register a new material with the average density of the whole:
   double compositeDensity = totalArealDensity / totalThickness;
   G4Material *composite = new G4Material(compositeName, compositeDensity, thickness.size());
 
-  //now calculate the fraction due to each material, and register those
+  // now calculate the fraction due to each material, and register those
   for (std::vector<double>::size_type i = 0; i < thickness.size(); i++)
   {
-    tempmat = GetDetectorMaterial(materialName[i]);  //don't need to check this, since we did in the previous loop.
+    tempmat = GetDetectorMaterial(materialName[i]);  // don't need to check this, since we did in the previous loop.
     composite->AddMaterial(tempmat, thickness[i] * tempmat->GetDensity() / totalArealDensity);
   }
 
-  //how to register our finished material?
+  // how to register our finished material?
   return;
 }
 
 void PHG4TpcEndCapDetector ::AddLayer(  //
     G4AssemblyVolume *assemblyvol,
     G4double &z_start,
-    const std::string &_name,  //! name base for this layer
-    std::string _material,     //! material name in G4
-    G4double _depth,           //! depth in G4 units
-    double _percentage_filled  //! percentage filled//
+    const std::string &_name,      //! name base for this layer
+    const std::string &_material,  //! material name in G4
+    G4double _depth,               //! depth in G4 units
+    double _percentage_filled      //! percentage filled//
 )
 {
   z_start += _depth / 2.;
   G4ThreeVector g4vec(0, 0, z_start);
   z_start += _depth / 2.;
 
-  std::string name_base = boost::str(boost::format("%1%_Layer_%2%") % GetName() % _name);
+  std::string name_base = std::format("{}_Layer_{}", GetName(), _name);
 
   G4VSolid *solid_layer = new G4Tubs(
       name_base,
@@ -240,7 +237,7 @@ void PHG4TpcEndCapDetector ::AddLayer(  //
       _depth * _percentage_filled / 100. / 2.,
       0, CLHEP::twopi);
 
-  auto material = GetDetectorMaterial(_material);
+  auto *material = GetDetectorMaterial(_material);
   if (material == nullptr)
   {
     std::cout << __PRETTY_FUNCTION__ << " Fatal Error: missing material " << _material << std::endl;
@@ -267,7 +264,7 @@ void PHG4TpcEndCapDetector::ConstructWagonWheel(G4AssemblyVolume *assmeblyvol,
   assert(n_radial_modules >= 1);
 
   const std::string material_name(m_Params->get_string_param("wagon_wheel_material"));
-  auto material = GetDetectorMaterial(material_name);
+  auto *material = GetDetectorMaterial(material_name);
   if (material == nullptr)
   {
     std::cout << __PRETTY_FUNCTION__ << " Fatal Error: missing material " << m_Params->get_string_param("wagon_wheel_material") << std::endl;
@@ -300,18 +297,17 @@ void PHG4TpcEndCapDetector::ConstructWagonWheel(G4AssemblyVolume *assmeblyvol,
 
     if (ring_id > 0)
     {
-      Rin = m_Params->get_double_param(
-                boost::str(boost::format("wagon_wheel_front_frame_R_R%1%_outer") % (ring_id))) *
+      Rin = m_Params->get_double_param(std::format("wagon_wheel_front_frame_R_R{}_outer", ring_id)) *
             cm;
     }
     if (ring_id < n_radial_modules)
     {
-      Rout = m_Params->get_double_param(
-                 boost::str(boost::format("wagon_wheel_front_frame_R_R%1%_inner") % (ring_id + 1))) *
+      Rout = m_Params->get_double_param(std::format("wagon_wheel_front_frame_R_R{}_inner", ring_id + 1)) *
              cm;
     }
 
-    std::string name_base = boost::str(boost::format("%1%_%2%_Ring%3%") % GetName() % "wagon_wheel_front_frame" % ring_id);
+    std::string name_base = std::format("{}_{}_Ring{}", GetName(), "wagon_wheel_front_frame", ring_id);
+
 
     G4VSolid *solid_wagon_wheel_front_frame = new G4Tubs(
         name_base,
@@ -337,25 +333,22 @@ void PHG4TpcEndCapDetector::ConstructWagonWheel(G4AssemblyVolume *assmeblyvol,
   for (int ring_id = 1; ring_id <= n_radial_modules; ++ring_id)
   {
     G4double Rout =
-        m_Params->get_double_param(
-            boost::str(boost::format("wagon_wheel_front_frame_R_R%1%_outer") % (ring_id))) *
-        cm;
+      m_Params->get_double_param(std::format("wagon_wheel_front_frame_R_R{}_outer", ring_id)) * cm;
     G4double Rin =
-        m_Params->get_double_param(
-            boost::str(boost::format("wagon_wheel_front_frame_R_R%1%_inner") % (ring_id))) *
-        cm;
+      m_Params->get_double_param(std::format("wagon_wheel_front_frame_R_R{}_inner", ring_id)) * cm;
 
-    const G4double reduced_height = sqrt(Rout * Rout - wagon_wheel_front_frame_spoke_width / 2 * wagon_wheel_front_frame_spoke_width / 2);
+    const G4double reduced_height = std::sqrt(Rout * Rout - wagon_wheel_front_frame_spoke_width / 2 * wagon_wheel_front_frame_spoke_width / 2);
 
     std::vector<G4TwoVector> vertexes;
-    vertexes.push_back(G4TwoVector(-wagon_wheel_front_frame_spoke_width / 2, Rin));
-    vertexes.push_back(G4TwoVector(+wagon_wheel_front_frame_spoke_width / 2, Rin));
-    vertexes.push_back(G4TwoVector(+wagon_wheel_front_frame_spoke_width / 2, reduced_height));
-    vertexes.push_back(G4TwoVector(-wagon_wheel_front_frame_spoke_width / 2, reduced_height));
+    vertexes.emplace_back(-wagon_wheel_front_frame_spoke_width / 2, Rin);
+    vertexes.emplace_back(+wagon_wheel_front_frame_spoke_width / 2, Rin);
+    vertexes.emplace_back(+wagon_wheel_front_frame_spoke_width / 2, reduced_height);
+    vertexes.emplace_back(-wagon_wheel_front_frame_spoke_width / 2, reduced_height);
 
     G4TwoVector zero(0, 0);
 
-    std::string name_base_spoke = boost::str(boost::format("%1%_%2%_Ring%3%_spoke") % GetName() % "wagon_wheel_front_frame" % ring_id);
+    std::string name_base_spoke = std::format("{}_{}_Ring{}_spoke", GetName(), "wagon_wheel_front_frame", ring_id);
+
 
     G4VSolid *solid_wagon_wheel_front_frame_spoke = new G4ExtrudedSolid(name_base_spoke,
                                                                         vertexes,
@@ -394,7 +387,8 @@ void PHG4TpcEndCapDetector::ConstructWagonWheel(G4AssemblyVolume *assmeblyvol,
 
     G4ThreeVector g4vec_wagon_wheel_rim_outer(0, 0, z_start + wagon_wheel_rim_outer_thickness / 2.);
 
-    std::string name_base = boost::str(boost::format("%1%_wagon_wheel_rim_outer") % GetName());
+    std::string name_base = std::format("{}_wagon_wheel_rim_outer", GetName());
+
 
     G4VSolid *solid_wagon_wheel = new G4Tubs(
         name_base,
@@ -424,13 +418,13 @@ void PHG4TpcEndCapDetector::ConstructWagonWheel(G4AssemblyVolume *assmeblyvol,
     const G4double wagon_wheel_spoke_R_inner = m_Params->get_double_param("wagon_wheel_spoke_R_inner") * cm;
     const G4double wagon_wheel_spoke_R_outer = m_Params->get_double_param("wagon_wheel_spoke_R_outer") * cm;
 
-    std::string name_base = boost::str(boost::format("%1%_wagon_wheel_spoke") % GetName());
+    std::string name_base = std::format("{}_wagon_wheel_spoke", GetName());
 
     std::vector<G4TwoVector> vertexes;
-    vertexes.push_back(G4TwoVector(0, wagon_wheel_spoke_R_inner));
-    vertexes.push_back(G4TwoVector(0, wagon_wheel_spoke_R_outer));
-    vertexes.push_back(G4TwoVector(wagon_wheel_spoke_height_outer, wagon_wheel_spoke_R_outer));
-    vertexes.push_back(G4TwoVector(wagon_wheel_spoke_height_inner, wagon_wheel_spoke_R_inner));
+    vertexes.emplace_back(0, wagon_wheel_spoke_R_inner);
+    vertexes.emplace_back(0, wagon_wheel_spoke_R_outer);
+    vertexes.emplace_back(wagon_wheel_spoke_height_outer, wagon_wheel_spoke_R_outer);
+    vertexes.emplace_back(wagon_wheel_spoke_height_inner, wagon_wheel_spoke_R_inner);
     G4TwoVector zero(0, 0);
 
     G4VSolid *solid_wagon_wheel_spoke = new G4ExtrudedSolid(name_base,
@@ -486,7 +480,7 @@ void PHG4TpcEndCapDetector::ConstructElectronics(G4AssemblyVolume *assmeblyvol,
     }
 
     const std::string electronics_cooling_block_material_name(m_Params->get_string_param("electronics_cooling_block_material"));
-    auto material = GetDetectorMaterial(electronics_cooling_block_material_name);
+    auto *material = GetDetectorMaterial(electronics_cooling_block_material_name);
     if (material == nullptr)
     {
       std::cout << __PRETTY_FUNCTION__ << " Fatal Error: missing material " << m_Params->get_string_param("electronics_cooling_block_material_name") << std::endl;
@@ -506,18 +500,14 @@ void PHG4TpcEndCapDetector::ConstructElectronics(G4AssemblyVolume *assmeblyvol,
 
       if (ring_id > 0)
       {
-        Rin = m_Params->get_double_param(
-                  boost::str(boost::format("electronics_cooling_block_R_R%1%_outer") % (ring_id))) *
-              cm;
+        Rin = m_Params->get_double_param(std::format("electronics_cooling_block_R_R{}_outer", ring_id)) * cm;
       }
       if (ring_id < n_radial_modules)
       {
-        Rout = m_Params->get_double_param(
-                   boost::str(boost::format("electronics_cooling_block_R_R%1%_inner") % (ring_id + 1))) *
-               cm;
+        Rout = m_Params->get_double_param(std::format("electronics_cooling_block_R_R{}_inner", ring_id + 1)) * cm;
       }
 
-      std::string name_base = boost::str(boost::format("%1%_%2%_Ring%3%") % GetName() % "electronics_cooling_block" % ring_id);
+      std::string name_base = std::format("{}_{}_Ring{}", GetName(), "electronics_cooling_block", ring_id);
 
       const G4double spoke_phi = atan2(wagon_wheel_spoke_width, Rin);
 
@@ -552,8 +542,8 @@ void PHG4TpcEndCapDetector::ConstructElectronics(G4AssemblyVolume *assmeblyvol,
         m_DisplayAction->AddVolume(log_vol, "cooling_block");
 
       }  //     for (int sector_id = 0; sector_id < n_sectors; ++sector_id)
-    }    // for (int ring_id = 0; ring_id <= n_radial_modules; ++ring_id)
-  }      // electronics_cooling_block_material  if (electronics_cooling_block_thickness>0)
+    }  // for (int ring_id = 0; ring_id <= n_radial_modules; ++ring_id)
+  }  // electronics_cooling_block_material  if (electronics_cooling_block_thickness>0)
 
   ///////////////////////////////////////////////
   // electronics
@@ -568,27 +558,22 @@ void PHG4TpcEndCapDetector::ConstructElectronics(G4AssemblyVolume *assmeblyvol,
   {
     for (int ring_id = 1; ring_id <= n_radial_modules; ++ring_id)
     {
-      const G4double Rout = m_Params->get_double_param(
-                                boost::str(boost::format("electronics_cooling_block_R_R%1%_outer") % (ring_id))) *
-                                cm -
-                            electronics_assemly_thickness;
-      const G4double Rin = m_Params->get_double_param(
-                               boost::str(boost::format("electronics_cooling_block_R_R%1%_inner") % (ring_id))) *
-                               cm +
-                           electronics_assemly_thickness;
-      const int nFEE = m_Params->get_int_param(boost::str(boost::format("electronics_nFEE_R%1%") % (ring_id)));
+      const G4double Rout = m_Params->get_double_param(std::format("electronics_cooling_block_R_R{}_outer", ring_id)) * cm - electronics_assemly_thickness;
+      const G4double Rin = m_Params->get_double_param(std::format("electronics_cooling_block_R_R{}_inner", ring_id)) * cm + electronics_assemly_thickness;
+      const int nFEE = m_Params->get_int_param(std::format("electronics_nFEE_R{}", ring_id));
+
 
       if (nFEE <= 0)
       {
         std::cout << __PRETTY_FUNCTION__ << " warning : ignore FEE construction for module " << ring_id << " as "
-                  << boost::str(boost::format("electronics_nFEE_R2%1%") % (ring_id)) << " = " << nFEE << std::endl;
+                  << std::format("electronics_nFEE_R2{}", ring_id) << " = " << nFEE << std::endl;
 
         continue;
       }
 
       G4AssemblyVolume *assmeblyvol_electronics = new G4AssemblyVolume();
       G4double starting_electronics(0);
-      std::string name_base = boost::str(boost::format("%1%_%2%_Ring%3%") % GetName() % "electronics" % ring_id);
+      std::string name_base = std::format("{}_{}_Ring{}", GetName(), "electronics", ring_id);
 
       if (Verbosity())
       {

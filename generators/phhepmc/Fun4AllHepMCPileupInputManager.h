@@ -3,6 +3,8 @@
 
 #include "Fun4AllHepMCInputManager.h"
 
+#include <phool/sphenix_constants.h>
+
 #include <gsl/gsl_rng.h>
 
 #include <map>
@@ -46,15 +48,18 @@ class Fun4AllHepMCPileupInputManager : public Fun4AllHepMCInputManager
   gsl_rng *RandomGenerator = nullptr;
 
   int m_SignalEventNumber = 0;
+
   /// past times are negative, future times are positive
   double _min_integration_time = -17500.0;
   double _max_integration_time = 17500.0;
+
   /// collision rate in Hz
   double _collision_rate = 100.0e3;
-  /// time between bunch crossing in ns
-  double _time_between_crossings = 106.0;
 
-  //derived parameters
+  /// time between bunch crossing in ns
+  double _time_between_crossings = sphenix_constants::time_between_crossings;
+
+  // derived parameters
   double _ave_coll_per_crossing = 1.;
   int _min_crossing = 0;
   int _max_crossing = 0;

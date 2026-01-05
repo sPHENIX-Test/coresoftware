@@ -1,9 +1,7 @@
 #include "PHParametersContainer.h"
 #include "PHParameters.h"
 
-#include <pdbcalbase/PdbApplication.h>
 #include <pdbcalbase/PdbBankID.h>
-#include <pdbcalbase/PdbBankManager.h>
 #include <pdbcalbase/PdbCalBank.h>
 #include <pdbcalbase/PdbParameterMap.h>
 #include <pdbcalbase/PdbParameterMapContainer.h>
@@ -86,7 +84,7 @@ void PHParametersContainer::CreateAndFillFrom(const PdbParameterMapContainer *sa
 
 void PHParametersContainer::AddPHParameters(const int detid, PHParameters *params)
 {
-  if (parametermap.find(detid) != parametermap.end())
+  if (parametermap.contains(detid))
   {
     std::cout << PHWHERE << " detector id " << detid << " already exists for "
               << (parametermap.find(detid))->second->Name() << std::endl;
@@ -164,43 +162,6 @@ int PHParametersContainer::WriteToFile(const std::string &extension, const std::
   return 0;
 }
 
-int PHParametersContainer::WriteToDB()
-{
-  PdbBankManager *bankManager = PdbBankManager::instance();
-  PdbApplication *application = bankManager->getApplication();
-  if (!application->startUpdate())
-  {
-    std::cout << PHWHERE << " Aborting, Database not writable" << std::endl;
-    application->abort();
-    exit(1);
-  }
-
-  //  Make a bank ID...
-  PdbBankID bankID(0);  // lets start at zero
-  PHTimeStamp TStart(0);
-  PHTimeStamp TStop(0xffffffff);
-
-  std::string tablename = superdetectorname + "_geoparams";
-  std::transform(tablename.begin(), tablename.end(), tablename.begin(),
-                 ::tolower);
-  PdbCalBank *NewBank = bankManager->createBank("PdbParameterMapContainerBank", bankID,
-                                                "Geometry Parameters", TStart, TStop, tablename);
-  if (NewBank)
-  {
-    NewBank->setLength(1);
-    PdbParameterMapContainer *myparm = (PdbParameterMapContainer *) &NewBank->getEntry(0);
-    CopyToPdbParameterMapContainer(myparm);
-    application->commit(NewBank);
-    delete NewBank;
-  }
-  else
-  {
-    std::cout << PHWHERE " Committing to DB failed" << std::endl;
-    return -1;
-  }
-  return 0;
-}
-
 void PHParametersContainer::CopyToPdbParameterMapContainer(PdbParameterMapContainer *myparmap)
 {
   std::map<int, PHParameters *>::const_iterator iter;
@@ -269,7 +230,7 @@ void PHParametersContainer::UpdateNodeTree(PHCompositeNode *topNode, const std::
 
 int PHParametersContainer::ExistDetid(const int detid) const
 {
-  if (parametermap.find(detid) != parametermap.end())
+  if (parametermap.contains(detid))
   {
     return 1;
   }

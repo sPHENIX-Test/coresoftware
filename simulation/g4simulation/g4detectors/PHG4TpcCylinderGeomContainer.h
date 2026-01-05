@@ -20,7 +20,7 @@ class PHG4TpcCylinderGeomContainer : public PHObject
   typedef std::pair<Iterator, Iterator> Range;
   typedef std::pair<ConstIterator, ConstIterator> ConstRange;
 
-  PHG4TpcCylinderGeomContainer() {}
+  PHG4TpcCylinderGeomContainer() = default;
   ~PHG4TpcCylinderGeomContainer() override;
 
   // from PHObject
@@ -31,10 +31,10 @@ class PHG4TpcCylinderGeomContainer : public PHObject
   PHG4TpcCylinderGeom *GetLayerCellGeom(const int i);
   PHG4TpcCylinderGeom *GetFirstLayerCellGeom();
   int get_NLayers() const { return layergeoms.size(); }
-  std::pair<std::map<int, PHG4TpcCylinderGeom *>::const_iterator, std::map<int, PHG4TpcCylinderGeom *>::const_iterator> get_begin_end() const { return std::make_pair(layergeoms.begin(), layergeoms.end()); }
+  ConstRange get_begin_end() const { return {layergeoms.begin(), layergeoms.end()}; }
 
  protected:
-  std::map<int, PHG4TpcCylinderGeom *> layergeoms;
+  Map layergeoms;
   ClassDefOverride(PHG4TpcCylinderGeomContainer, 1)
 };
 

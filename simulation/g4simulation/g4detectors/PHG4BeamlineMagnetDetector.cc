@@ -36,14 +36,10 @@ class G4VSolid;
 class PHCompositeNode;
 class PHG4Subsystem;
 
-using namespace std;
-
 //_______________________________________________________________
 PHG4BeamlineMagnetDetector::PHG4BeamlineMagnetDetector(PHG4Subsystem *subsys, PHCompositeNode *Node, PHParameters *parameters, const std::string &dnam, const int lyr)
   : PHG4Detector(subsys, Node, dnam)
   , params(parameters)
-  , magnet_physi(nullptr)
-  , cylinder_physi(nullptr)
   , layer(lyr)
 {
 }
@@ -96,36 +92,38 @@ void PHG4BeamlineMagnetDetector::ConstructMe(G4LogicalVolume *logicMother)
   /* Creating a magnetic field */
   G4MagneticField *magField = nullptr;
 
-  string magnettype = params->get_string_param("magtype");
+  std::string magnettype = params->get_string_param("magtype");
   if (magnettype == "dipole")
   {
     G4double fieldValue = params->get_double_param("field_y") * tesla;
     magField = new G4UniformMagField(G4ThreeVector(0., fieldValue, 0.));
 
     if (Verbosity() > 0)
-      cout << "Creating DIPOLE with field " << fieldValue << " and name " << GetName() << endl;
+    {
+      std::cout << "Creating DIPOLE with field " << fieldValue << " and name " << GetName() << std::endl;
+    }
   }
   else if (magnettype == "quadrupole")
   {
     G4double fieldGradient = params->get_double_param("fieldgradient") * tesla / meter;
 
     /* G4MagneticField::GetFieldValue( pos*, B* ) uses GLOBAL coordinates, not local.
-       * Therefore, place magnetic field center at the correct location and angle for the
-       * magnet AND do the same transformations for the logical volume (see below). */
+     * Therefore, place magnetic field center at the correct location and angle for the
+     * magnet AND do the same transformations for the logical volume (see below). */
     magField = new G4QuadrupoleMagField(fieldGradient, origin, rotm);
     //      magField = new PHG4QuadrupoleMagField ( fieldGradient, origin, rotm );
 
     if (Verbosity() > 0)
     {
-      cout << "Creating QUADRUPOLE with gradient " << fieldGradient << " and name " << GetName() << endl;
-      cout << "at x, y, z = " << origin.x() << " , " << origin.y() << " , " << origin.z() << endl;
-      cout << "with rotation around x, y, z axis  by: " << rotm->phiX() << ", " << rotm->phiY() << ", " << rotm->phiZ() << endl;
+      std::cout << "Creating QUADRUPOLE with gradient " << fieldGradient << " and name " << GetName() << std::endl;
+      std::cout << "at x, y, z = " << origin.x() << " , " << origin.y() << " , " << origin.z() << std::endl;
+      std::cout << "with rotation around x, y, z axis  by: " << rotm->phiX() << ", " << rotm->phiY() << ", " << rotm->phiZ() << std::endl;
     }
   }
 
   if (!magField)
   {
-    cout << PHWHERE << " Aborting, no magnetic field specified for " << GetName() << endl;
+    std::cout << PHWHERE << " Aborting, no magnetic field specified for " << GetName() << std::endl;
     exit(1);
   }
 

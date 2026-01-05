@@ -7,8 +7,8 @@
 
 #include <phool/PHObject.h>
 
-#include <cmath>  // for NAN def
 #include <iostream>
+#include <limits>
 #include <map>
 #include <set>
 
@@ -27,7 +27,7 @@ class PHG4Shower : public PHObject
   typedef HitIdMap::iterator HitIdIter;
   typedef HitIdMap::const_iterator HitIdConstIter;
 
-  ~PHG4Shower() override {}
+  ~PHG4Shower() = default;
 
   // PHObject virtual overloads
 
@@ -47,36 +47,36 @@ class PHG4Shower : public PHObject
   virtual int get_parent_shower_id() const { return 0; }
   virtual void set_parent_shower_id(int /*parent_shower_id*/) {}
 
-  virtual float get_x() const { return NAN; }
+  virtual float get_x() const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_x(float) {}
 
-  virtual float get_y() const { return NAN; }
+  virtual float get_y() const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_y(float) {}
 
-  virtual float get_z() const { return NAN; }
+  virtual float get_z() const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_z(float) {}
 
-  virtual float get_position(unsigned int /*coor*/) const { return NAN; }
+  virtual float get_position(unsigned int /*coor*/) const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_position(unsigned int /*coor*/, float /*xi*/) {}
 
-  virtual float get_covar(unsigned int /*i*/, unsigned int /*j*/) const { return NAN; }
+  virtual float get_covar(unsigned int /*i*/, unsigned int /*j*/) const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_covar(unsigned int /*i*/, unsigned int /*j*/, float /*entry*/) {}
 
   virtual unsigned int get_nhits(int /*volume*/) const { return 0; }
   virtual void set_nhits(int /*volume*/, unsigned int /*nhits*/) {}
 
-  virtual double get_edep() const { return NAN; }
-  virtual float get_edep(int /*volume*/) const { return NAN; }
+  virtual double get_edep() const { return std::numeric_limits<double>::quiet_NaN(); }
+  virtual float get_edep(int /*volume*/) const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_edep(int /*volume*/, float /*edep*/) {}
 
-  virtual double get_eion() const { return NAN; }
-  virtual float get_eion(int /*volume*/) const { return NAN; }
+  virtual double get_eion() const { return std::numeric_limits<double>::quiet_NaN(); }
+  virtual float get_eion(int /*volume*/) const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_eion(int /*volume*/, float /*eion*/) {}
 
-  virtual float get_light_yield(int /*volume*/) const { return NAN; }
+  virtual float get_light_yield(int /*volume*/) const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_light_yield(int /*volume*/, float /*light_yield*/) {}
 
-  virtual float get_eh_ratio(int /*volume*/) const { return NAN; }
+  virtual float get_eh_ratio(int /*volume*/) const { return std::numeric_limits<float>::quiet_NaN(); }
   virtual void set_eh_ratio(int /*volume*/, float /*eh_ratio*/) {}
 
   virtual bool empty_g4particle_id() const { return true; }
@@ -122,7 +122,6 @@ class PHG4Shower : public PHObject
   ClassDefOverride(PHG4Shower, 1);
 };
 
-
 /**
  * Equality operators for PHG4TruthInfoContainer. Note that the comparison is
  * performed only on the publicly accessible members.
@@ -130,15 +129,15 @@ class PHG4Shower : public PHObject
 ///@{
 inline bool operator==(const PHG4Shower& lhs, const PHG4Shower& rhs)
 {
-  return lhs.get_id()                 == rhs.get_id()                 &&
+  return lhs.get_id() == rhs.get_id() &&
          lhs.get_parent_particle_id() == rhs.get_parent_particle_id() &&
-         lhs.get_parent_shower_id()   == rhs.get_parent_shower_id()   &&
-         lhs.get_x()                  == rhs.get_x()                  &&
-         lhs.get_y()                  == rhs.get_y()                  &&
-         lhs.get_z()                  == rhs.get_z()                  &&
-         lhs.g4particle_ids()         == rhs.g4particle_ids()         &&
-         lhs.g4vertex_ids()           == rhs.g4vertex_ids()           &&
-         lhs.g4hit_ids()              == rhs.g4hit_ids();
+         lhs.get_parent_shower_id() == rhs.get_parent_shower_id() &&
+         lhs.get_x() == rhs.get_x() &&
+         lhs.get_y() == rhs.get_y() &&
+         lhs.get_z() == rhs.get_z() &&
+         lhs.g4particle_ids() == rhs.g4particle_ids() &&
+         lhs.g4vertex_ids() == rhs.g4vertex_ids() &&
+         lhs.g4hit_ids() == rhs.g4hit_ids();
 }
 
 inline bool operator!=(const PHG4Shower& lhs, const PHG4Shower& rhs) { return !(lhs == rhs); }

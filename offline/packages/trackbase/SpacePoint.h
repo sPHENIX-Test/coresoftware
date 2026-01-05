@@ -2,6 +2,7 @@
 #define TRACKBASE_SPACEPOINT_H
 
 #include <memory>
+#include <optional>
 #include "trackbase/TrkrDefs.h"
 
 #include <Acts/Geometry/GeometryIdentifier.hpp>
@@ -10,7 +11,8 @@
 /**
  * A struct for Acts to take cluster information for seeding
  */
-struct SpacePoint {
+struct SpacePoint
+{
   TrkrDefs::cluskey m_clusKey;
   double m_x;
   double m_y;
@@ -19,7 +21,8 @@ struct SpacePoint {
   Acts::GeometryIdentifier m_geoId;
   double m_varianceR;
   double m_varianceZ;
-  
+  std::optional<double> m_t;
+
   TrkrDefs::cluskey Id() const { return m_clusKey; }
 
   /// These are needed by Acts
@@ -27,13 +30,14 @@ struct SpacePoint {
   double y() const { return m_y; }
   double z() const { return m_z; }
   double r() const { return m_r; }
+   std::optional<double> t() const { return m_t; }
   double varianceR() const { return m_varianceR; }
   double varianceZ() const { return m_varianceZ; }
-
 };
 
-/// This is needed by the Acts seedfinder 
-inline bool operator==(SpacePoint a, SpacePoint b) {
+/// This is needed by the Acts seedfinder
+inline bool operator==(SpacePoint a, SpacePoint b)
+{
   return (a.m_clusKey == b.m_clusKey);
 }
 

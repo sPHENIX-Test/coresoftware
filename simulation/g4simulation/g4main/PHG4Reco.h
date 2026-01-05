@@ -46,7 +46,7 @@ class PHG4Reco : public SubsysReco
   };  // Decayer Option for User to Choose: 0 - GEANT 4 Internal Decayer (with momentum conservation issues), 1, PYTHIA 6 Decayer, 2 - EvtGen Decayer
 
   //! constructor
-  PHG4Reco(const std::string &name = "PHG4RECO");
+  explicit PHG4Reco(const std::string &name = "PHG4RECO");
 
   //! destructor
   ~PHG4Reco() override;
@@ -103,15 +103,15 @@ class PHG4Reco : public SubsysReco
     m_ForceDecayType = force_decay_type;
   }
 
-  void set_decayer(DecayerOptions type) {m_Decayer = type;}
+  void set_decayer(DecayerOptions type) { m_Decayer = type; }
 
   //! export geometry to root file
-  void export_geometry( bool b, const std::string& filename = "sPHENIXGeom.root" )
+  void export_geometry(bool b, const std::string &filename = "sPHENIXGeom.root")
   {
     m_ExportGeometry = b;
     m_ExportGeomFilename = filename;
   }
-  
+
   //! Save geometry from Geant4 to DST
   void save_DST_geometry(bool b) { m_SaveDstGeometryFlag = b; }
   void SetWorldSizeX(const double sx) { m_WorldSize[0] = sx; }
@@ -140,10 +140,10 @@ class PHG4Reco : public SubsysReco
   void setDisableUserActions(bool b = true) { m_disableUserActions = b; }
   void ApplyDisplayAction();
 
-  void CustomizeEvtGenDecay(std::string& DecayFile)
+  void CustomizeEvtGenDecay(const std::string &DecayFile)
   {
-	  EvtGenDecayFile = DecayFile;
-	  if(!EvtGenDecayFile.empty()) CustomizeDecay = true;
+    EvtGenDecayFile = DecayFile;
+    if (!EvtGenDecayFile.empty()) CustomizeDecay = true;
   }
 
  private:
@@ -152,75 +152,74 @@ class PHG4Reco : public SubsysReco
   void DefineMaterials();
   void DefineRegions();
 
-  float m_MagneticField = 0.;
+  float m_MagneticField{std::numeric_limits<float>::signaling_NaN()};
   float m_MagneticFieldRescale = 1.0;
-  double m_WorldSize[3];
+  double m_WorldSize[3]{1000., 1000., 1000.};
 
   //! magnetic field
-  G4TBMagneticFieldSetup *m_Field = nullptr;
+  G4TBMagneticFieldSetup *m_Field{nullptr};
 
   //! pointer to geant run manager
-  G4RunManager *m_RunManager = nullptr;
+  G4RunManager *m_RunManager{nullptr};
 
   //! pointer to geant ui session
-  PHG4UIsession *m_UISession = nullptr;
+  PHG4UIsession *m_UISession{nullptr};
 
   //! pointer to detector
-  PHG4PhenixDetector *m_Detector = nullptr;
+  PHG4PhenixDetector *m_Detector{nullptr};
 
   //! pointer to main event action
-  PHG4PhenixEventAction *m_EventAction = nullptr;
+  PHG4PhenixEventAction *m_EventAction{nullptr};
 
   //! pointer to main stacking action
-  PHG4PhenixStackingAction *m_StackingAction = nullptr;
+  PHG4PhenixStackingAction *m_StackingAction{nullptr};
 
   //! pointer to main stepping action
-  PHG4PhenixSteppingAction *m_SteppingAction = nullptr;
+  PHG4PhenixSteppingAction *m_SteppingAction{nullptr};
 
   //! pointer to main tracking action
-  PHG4PhenixTrackingAction *m_TrackingAction = nullptr;
+  PHG4PhenixTrackingAction *m_TrackingAction{nullptr};
 
   //! display attribute setting
   /*! derives from PHG4DisplayAction */
-  PHG4DisplayAction *m_DisplayAction = nullptr;
+  PHG4DisplayAction *m_DisplayAction{nullptr};
 
   //! event generator (read from PHG4INEVENT node)
-  PHG4PrimaryGeneratorAction *m_GeneratorAction = nullptr;
+  PHG4PrimaryGeneratorAction *m_GeneratorAction{nullptr};
 
   //! list of subsystems
   std::list<PHG4Subsystem *> m_SubsystemList;
 
   // visualization
-  G4VisManager *m_VisManager = nullptr;
+  G4VisManager *m_VisManager{nullptr};
 
   // Message interface to Fun4All
-  G4UImessenger *m_Fun4AllMessenger = nullptr;
+  G4UImessenger *m_Fun4AllMessenger{nullptr};
 
   // for the G4 cmd line interface
-  G4UImanager *m_UImanager = nullptr;
-  double m_EtaCoverage = 1.0;
+  G4UImanager *m_UImanager{nullptr};
+  double m_EtaCoverage{1.0};
   PHFieldConfig::FieldConfigTypes m_FieldConfigType = PHFieldConfig::kFieldUniform;
-  std::string m_FieldMapFile = "NONE";
-  std::string m_WorldShape = "G4Tubs";
-  std::string m_WorldMaterial = "G4_AIR";
-  std::string m_PhysicsList = "FTFP_BERT";
+  std::string m_FieldMapFile{"NONE"};
+  std::string m_WorldShape{"G4Tubs"};
+  std::string m_WorldMaterial{"G4_AIR"};
+  std::string m_PhysicsList{"FTFP_BERT"};
 
-  bool m_ExportGeometry = false;
-  std::string m_ExportGeomFilename = "sPHENIXGeom.root";
- 
+  bool m_ExportGeometry{false};
+  std::string m_ExportGeomFilename{"sPHENIXGeom.root"};
+
   // settings for the external Pythia6 decayer
-  //bool m_ActiveDecayerFlag = true;     //< turn on/off decayer
-  bool m_ActiveForceDecayFlag = false;  //< turn on/off force decay channels
+  // bool m_ActiveDecayerFlag {true};     //< turn on/off decayer
+  bool m_ActiveForceDecayFlag{false};  //< turn on/off force decay channels
 
+  DecayerOptions m_Decayer{kEvtGenDecayer};  // Here we use EvtGen as default
+  std::string EvtGenDecayFile;
+  bool CustomizeDecay{false};
 
-  DecayerOptions m_Decayer = kEvtGenDecayer;  // Here we use EvtGen as default
-  std::string EvtGenDecayFile = "";									
-  bool CustomizeDecay = false;
+  EDecayType m_ForceDecayType{kAll};  //< forced decay channel setting
 
-  EDecayType m_ForceDecayType = kAll;  //< forced decay channel setting
-
-  bool m_SaveDstGeometryFlag = true;
-  bool m_disableUserActions = false;
+  bool m_SaveDstGeometryFlag{true};
+  bool m_disableUserActions{false};
 };
 
 #endif

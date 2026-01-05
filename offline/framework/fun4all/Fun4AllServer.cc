@@ -1,7 +1,9 @@
 #include "Fun4AllServer.h"
 
+#include "Fun4AllDstOutputManager.h"
 #include "Fun4AllHistoBinDefs.h"
 #include "Fun4AllHistoManager.h"  // for Fun4AllHistoManager
+#include "Fun4AllInputManager.h"
 #include "Fun4AllMemoryTracker.h"
 #include "Fun4AllMonitoring.h"
 #include "Fun4AllOutputManager.h"
@@ -30,14 +32,13 @@
 #include <TSystem.h>
 
 #include <algorithm>
-#include <cmath>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <memory>  // for allocator_traits<>::value_type
 #include <sstream>
 
-//#define FFAMEMTRACKER
+// #define FFAMEMTRACKER
 
 Fun4AllServer *Fun4AllServer::__instance = nullptr;
 
@@ -139,7 +140,6 @@ void Fun4AllServer::InitAll()
   SyncManagers.push_back(defaultSyncManager);
   TopNode = new PHCompositeNode("TOP");
   topnodemap["TOP"] = TopNode;
-  default_Tdirectory = gDirectory->GetPath();
   InitNodeTree(TopNode);
   return;
 }
@@ -190,7 +190,7 @@ int Fun4AllServer::registerSubsystem(SubsysReco *subsystem, const std::string &t
     tmpdir = tmpdir->mkdir(topnodename.c_str());
     if (!tmpdir)
     {
-      std::cout << "Error creating TDirectory topdir " << topnodename.c_str() << std::endl;
+      std::cout << PHWHERE << " Error creating TDirectory topdir " << topnodename << std::endl;
       exit(1);
     }
     // store the TDir pointer so it can be cleaned up in the dtor
@@ -206,7 +206,7 @@ int Fun4AllServer::registerSubsystem(SubsysReco *subsystem, const std::string &t
     tmpdir = tmpdir->mkdir(subsystem->Name().c_str());
     if (!tmpdir)
     {
-      std::cout << "Error creating TDirectory subdir " << subsystem->Name() << std::endl;
+      std::cout << PHWHERE << "Error creating TDirectory subdir " << subsystem->Name() << std::endl;
       exit(1);
     }
     // store the TDir pointer so it can be cleaned up in the dtor
@@ -219,10 +219,14 @@ int Fun4AllServer::registerSubsystem(SubsysReco *subsystem, const std::string &t
   int iret = 0;
   try
   {
-    std::string memory_tracker_name = subsystem->Name() + "_" + topnodename;
 #ifdef FFAMEMTRACKER
+    std::string memory_tracker_name = subsystem->Name() + "_" + topnodename;
     ffamemtracker->Start(memory_tracker_name, "SubsysReco");
 #endif
+    if (Verbosity() >= 3)
+    {
+      std::cout << "Calling Init() for Subsystem " << subsystem->Name() << std::endl;
+    }
     iret = subsystem->Init(subsystopNode);
 #ifdef FFAMEMTRACKER
     ffamemtracker->Stop(memory_tracker_name, "SubsysReco");
@@ -264,7 +268,7 @@ int Fun4AllServer::registerSubsystem(SubsysReco *subsystem, const std::string &t
   std::string timer_name;
   timer_name = subsystem->Name() + "_" + topnodename;
   PHTimer timer(timer_name);
-  if (timer_map.find(timer_name) == timer_map.end())
+  if (!timer_map.contains(timer_name))
   {
     timer_map.insert(make_pair(timer_name, timer));
   }
@@ -282,7 +286,8 @@ int Fun4AllServer::unregisterSubsystem(SubsysReco *subsystem)
 
 int Fun4AllServer::unregisterSubsystemsNow()
 {
-  std::vector<std::pair<SubsysReco *, PHCompositeNode *>>::iterator sysiter, removeiter;
+  std::vector<std::pair<SubsysReco *, PHCompositeNode *>>::iterator sysiter;
+  std::vector<std::pair<SubsysReco *, PHCompositeNode *>>::iterator removeiter;
   for (removeiter = DeleteSubsystems.begin();
        removeiter != DeleteSubsystems.end();
        ++removeiter)
@@ -416,7 +421,7 @@ tryagain:
       std::cout << "Could not find module " << *striter
                 << ", removing it from list of event selector modules" << std::endl;
       manager->EventSelector()->erase(striter);
-      goto tryagain;
+      goto tryagain;  // NOLINT(hicpp-avoid-goto)
     }
   }
   return 0;
@@ -441,8 +446,7 @@ Fun4AllServer::getOutputManager(const std::string &name)
   return nullptr;
 }
 
-Fun4AllHistoManager *
-Fun4AllServer::getHistoManager(const std::string &name)
+Fun4AllHistoManager *Fun4AllServer::getHistoManager(const std::string &name)
 {
   std::vector<Fun4AllHistoManager *>::iterator iter;
   for (iter = HistoManager.begin(); iter != HistoManager.end(); ++iter)
@@ -533,9 +537,8 @@ int Fun4AllServer::process_event()
     {
       std::cout << "Fun4AllServer::process_event processing " << Subsystem.first->Name() << std::endl;
     }
-    std::ostringstream newdirname;
-    newdirname << Subsystem.second->getName() << "/" << Subsystem.first->Name();
-    if (!gROOT->cd(newdirname.str().c_str()))
+    std::string newdirname = Subsystem.second->getName() + "/" + Subsystem.first->Name();
+    if (!gROOT->cd(newdirname.c_str()))
     {
       std::cout << PHWHERE << "Unexpected TDirectory Problem cd'ing to "
                 << Subsystem.second->getName()
@@ -546,9 +549,12 @@ int Fun4AllServer::process_event()
     {
       if (Verbosity() >= VERBOSITY_EVEN_MORE)
       {
-        std::cout << "process_event: cded to " << newdirname.str().c_str() << std::endl;
+        std::cout << "process_event: cded to " << newdirname << std::endl;
       }
     }
+
+    PHTimer subsystem_timer("SubsystemTimer");
+    subsystem_timer.restart();
 
     try
     {
@@ -634,6 +640,13 @@ int Fun4AllServer::process_event()
         std::cout << "Fun4AllServer::Abort Run by " << Subsystem.first->Name() << std::endl;
         return Fun4AllReturnCodes::ABORTRUN;
       }
+      else if (RetCodes[icnt] == Fun4AllReturnCodes::ABORTPROCESSING)
+      {
+        eventbad = 1;
+        retcodesmap[Fun4AllReturnCodes::ABORTPROCESSING]++;
+        std::cout << "Fun4AllServer::Abort Processing by " << Subsystem.first->Name() << std::endl;
+        return Fun4AllReturnCodes::ABORTPROCESSING;
+      }
       else
       {
         std::cout << "Fun4AllServer::Unknown return code: "
@@ -646,6 +659,13 @@ int Fun4AllServer::process_event()
         return Fun4AllReturnCodes::ABORTRUN;
       }
     }
+    subsystem_timer.stop();
+    double TimeSubsystem = subsystem_timer.elapsed();
+    if (Verbosity() >= VERBOSITY_MORE)
+    {
+      std::cout << "Fun4AllServer::process_event processing " << Subsystem.first->Name()
+                << " processing total time: " << TimeSubsystem << " ms" << std::endl;
+    }
     icnt++;
   }
   if (!eventbad)
@@ -654,7 +674,6 @@ int Fun4AllServer::process_event()
   }
 
   gROOT->cd(currdir.c_str());
-
   //  mainIter.print();
   if (!OutputManager.empty() && !eventbad)  // there are registered IO managers and
   // the event is not flagged bad
@@ -682,32 +701,86 @@ int Fun4AllServer::process_event()
         std::cout << PHWHERE << " FATAL: Someone changed the number of Output Nodes on the fly, from " << OutNodeCount << " to " << newcount << std::endl;
         exit(1);
       }
-      std::vector<Fun4AllOutputManager *>::iterator iterOutMan;
-      for (iterOutMan = OutputManager.begin(); iterOutMan != OutputManager.end(); ++iterOutMan)
+      for (auto *iterOutMan : OutputManager)
       {
-        if (!(*iterOutMan)->DoNotWriteEvent(&RetCodes))
+        if (!iterOutMan->DoNotWriteEvent(&RetCodes))
         {
           if (Verbosity() >= VERBOSITY_MORE)
           {
-            std::cout << "Writing Event for " << (*iterOutMan)->Name() << std::endl;
+            std::cout << "Writing Event for " << iterOutMan->Name() << std::endl;
           }
 #ifdef FFAMEMTRACKER
           ffamemtracker->Snapshot("Fun4AllServerOutputManager");
-          ffamemtracker->Start((*iterOutMan)->Name(), "OutputManager");
+          ffamemtracker->Start(iterOutMan->Name(), "OutputManager");
 #endif
-          (*iterOutMan)->WriteGeneric(dstNode);
+	  iterOutMan->InitializeLastEvent(eventnumber); // only executed once, returns immediately for all subsequent calls
+          if (eventnumber > iterOutMan->LastEventNumber())
+          {
+            if (Verbosity() > 0)
+            {
+              std::cout << PHWHERE << iterOutMan->Name() << " wrote " << iterOutMan->EventsWritten()
+                        << " events, closing " << iterOutMan->OutFileName() << std::endl;
+            }
+            UpdateRunNode();
+            PHNodeIterator nodeiter(TopNode);
+            PHCompositeNode *runNode = dynamic_cast<PHCompositeNode *>(nodeiter.findFirst("PHCompositeNode", "RUN"));
+            MakeNodesTransient(runNode);  // make all nodes transient by default
+            iterOutMan->WriteNode(runNode);
+            iterOutMan->RunAfterClosing();
+            iterOutMan->UpdateLastEvent();
+          }
+          // save runnode, open new file, write
+          iterOutMan->WriteGeneric(dstNode);
 #ifdef FFAMEMTRACKER
-          ffamemtracker->Stop((*iterOutMan)->Name(), "OutputManager");
+          ffamemtracker->Stop(iterOutMan->Name(), "OutputManager");
           ffamemtracker->Snapshot("Fun4AllServerOutputManager");
 #endif
+          if (iterOutMan->EventsWritten() >= iterOutMan->GetNEvents())
+          {
+            if (Verbosity() > 0)
+            {
+              std::cout << PHWHERE << iterOutMan->Name() << " wrote " << iterOutMan->EventsWritten()
+                        << " events, closing " << iterOutMan->OutFileName() << std::endl;
+            }
+            UpdateRunNode();
+            PHNodeIterator nodeiter(TopNode);
+            PHCompositeNode *runNode = dynamic_cast<PHCompositeNode *>(nodeiter.findFirst("PHCompositeNode", "RUN"));
+            MakeNodesTransient(runNode);  // make all nodes transient by default
+            iterOutMan->WriteNode(runNode);
+            iterOutMan->RunAfterClosing();
+          }
         }
         else
         {
           if (Verbosity() >= VERBOSITY_MORE)
           {
-            std::cout << "Not Writing Event for " << (*iterOutMan)->Name() << std::endl;
+            std::cout << "Not Writing Event for " << iterOutMan->Name() << std::endl;
           }
         }
+      }
+    }
+  }
+  // saving the histograms using the same scheme as the DSTs
+  if (!HistoManager.empty() && !eventbad)
+  {
+    // kludge to save at the correct event. This is called after the event processing. Normally it would be fine to check for == eventnumber
+    // but if that event is missing we would overshoot. If there is more than one event missing this will overshoot, but there is only so much
+    // one can do
+    int eventnumber_plus1 = eventnumber+1;
+    
+    for (auto &histit : HistoManager)
+    {
+      histit->InitializeLastEvent(eventnumber_plus1);
+      if (eventnumber_plus1 > histit->LastEventNumber())
+      {
+	histit->dumpHistos();
+//	histit->RunAfterClosing();
+        histit->UpdateLastEvent();
+	histit->Reset();
+	if (Verbosity() > 0)
+	{
+	  std::cout << PHWHERE << "saving " << histit->Name() << " wrote events, closing " << histit->LastClosedFileName() << std::endl;
+	}
       }
     }
   }
@@ -734,8 +807,6 @@ int Fun4AllServer::process_event()
 
 int Fun4AllServer::ResetNodeTree()
 {
-  std::vector<std::string> ResetNodeList;
-  ResetNodeList.emplace_back("DST");
   PHNodeReset reset;
   reset.Verbosity(Verbosity() > 2 ? Verbosity() - 2 : 0);  // one lower verbosity level than Fun4AllServer
   std::map<std::string, PHCompositeNode *>::const_iterator iter;
@@ -766,10 +837,9 @@ int Fun4AllServer::Reset()
     }
     i += (*iter).first->Reset((*iter).second);
   }
-  std::vector<Fun4AllHistoManager *>::iterator hiter;
-  for (hiter = HistoManager.begin(); hiter != HistoManager.end(); ++hiter)
+  for (auto *hiter : HistoManager)
   {
-    (*hiter)->Reset();
+    hiter->Reset();
   }
   return i;
 }
@@ -792,10 +862,8 @@ int Fun4AllServer::BeginRun(const int runno)
 #endif
   if (!bortime_override)
   {
-    if (beginruntimestamp)
-    {
-      delete beginruntimestamp;
-    }
+    delete beginruntimestamp;
+
     beginruntimestamp = new PHTimeStamp();
   }
   else
@@ -838,21 +906,6 @@ int Fun4AllServer::BeginRun(const int runno)
     BeginRunSubsystem(std::make_pair(NewSubsystems.front().first, topNode(NewSubsystems.front().second)));
   }
   gROOT->cd(currdir.c_str());
-  // disconnect from DB to save resources on DB machine
-  // PdbCal leaves the DB connection open (PdbCal will reconnect without
-  // problem if neccessary)
-  if (!keep_db_connected)
-  {
-    DisconnectDB();
-  }
-  else
-  {
-    std::cout << "WARNING WARNING, DBs will not be disconnected" << std::endl;
-    std::cout << "This is for DB server testing purposes only" << std::endl;
-    std::cout << "If you do not test our DB servers, remove" << std::endl;
-    std::cout << "Fun4AllServer->KeepDBConnection()" << std::endl;
-    std::cout << "from your macro" << std::endl;
-  }
   // print out all node trees
   Print("NODETREE");
 #ifdef FFAMEMTRACKER
@@ -864,9 +917,8 @@ int Fun4AllServer::BeginRun(const int runno)
 int Fun4AllServer::BeginRunSubsystem(const std::pair<SubsysReco *, PHCompositeNode *> &subsys)
 {
   int iret = 0;
-  std::ostringstream newdirname;
-  newdirname << subsys.second->getName() << "/" << subsys.first->Name();
-  if (!gROOT->cd(newdirname.str().c_str()))
+  std::string newdirname = subsys.second->getName() + "/" + subsys.first->Name();
+  if (!gROOT->cd(newdirname.c_str()))
   {
     std::cout << PHWHERE << "Unexpected TDirectory Problem cd'ing to "
               << subsys.second->getName()
@@ -877,7 +929,7 @@ int Fun4AllServer::BeginRunSubsystem(const std::pair<SubsysReco *, PHCompositeNo
   {
     if (Verbosity() >= VERBOSITY_EVEN_MORE)
     {
-      std::cout << "BeginRun: cded to " << newdirname.str().c_str() << std::endl;
+      std::cout << "BeginRun: cded to " << newdirname << std::endl;
     }
   }
 
@@ -929,6 +981,7 @@ int Fun4AllServer::CountOutNodes(PHCompositeNode *startNode)
   return icount;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 int Fun4AllServer::CountOutNodesRecursive(PHCompositeNode *startNode, const int icount)
 {
   PHNodeIterator nodeiter(startNode);
@@ -939,6 +992,7 @@ int Fun4AllServer::CountOutNodesRecursive(PHCompositeNode *startNode, const int 
   {
     if ((thisNode->getType() == "PHCompositeNode"))
     {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
       icnt = CountOutNodesRecursive(static_cast<PHCompositeNode *>(thisNode), icnt);  // if this is a CompositeNode do this trick again
     }
     else
@@ -953,6 +1007,7 @@ int Fun4AllServer::CountOutNodesRecursive(PHCompositeNode *startNode, const int 
   return icnt;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion)
 int Fun4AllServer::MakeNodesTransient(PHCompositeNode *startNode)
 {
   PHNodeIterator nodeiter(startNode);
@@ -962,6 +1017,7 @@ int Fun4AllServer::MakeNodesTransient(PHCompositeNode *startNode)
   {
     if ((thisNode->getType() == "PHCompositeNode"))
     {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
       MakeNodesTransient(static_cast<PHCompositeNode *>(thisNode));  // if this is a CompositeNode do this trick again
     }
     else
@@ -972,7 +1028,7 @@ int Fun4AllServer::MakeNodesTransient(PHCompositeNode *startNode)
   return 0;
 }
 
-int Fun4AllServer::MakeNodesPersistent(PHCompositeNode *startNode)
+int Fun4AllServer::MakeNodesPersistent(PHCompositeNode *startNode)  // NOLINT(misc-no-recursion)
 {
   PHNodeIterator nodeiter(startNode);
   PHPointerListIterator<PHNode> iterat(nodeiter.ls());
@@ -981,6 +1037,7 @@ int Fun4AllServer::MakeNodesPersistent(PHCompositeNode *startNode)
   {
     if ((thisNode->getType() == "PHCompositeNode"))
     {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
       MakeNodesPersistent(static_cast<PHCompositeNode *>(thisNode));  // if this is a CompositeNode do this trick again
     }
     else
@@ -1003,9 +1060,8 @@ int Fun4AllServer::EndRun(const int runno)
       std::cout << "Fun4AllServer::EndRun: EndRun("
                 << runno << ") for " << (*iter).first->Name() << std::endl;
     }
-    std::ostringstream newdirname;
-    newdirname << (*iter).second->getName() << "/" << (*iter).first->Name();
-    if (!gROOT->cd(newdirname.str().c_str()))
+    std::string newdirname = (*iter).second->getName() + "/" + (*iter).first->Name();
+    if (!gROOT->cd(newdirname.c_str()))
     {
       std::cout << PHWHERE << "Unexpected TDirectory Problem cd'ing to "
                 << (*iter).second->getName()
@@ -1016,7 +1072,7 @@ int Fun4AllServer::EndRun(const int runno)
     {
       if (Verbosity() >= VERBOSITY_EVEN_MORE)
       {
-        std::cout << "EndRun: cded to " << newdirname.str().c_str() << std::endl;
+        std::cout << "EndRun: cded to " << newdirname << std::endl;
       }
     }
     try
@@ -1056,9 +1112,8 @@ int Fun4AllServer::End()
     {
       std::cout << "Fun4AllServer::End: End for " << (*iter).first->Name() << std::endl;
     }
-    std::ostringstream newdirname;
-    newdirname << (*iter).second->getName() << "/" << (*iter).first->Name();
-    if (!gROOT->cd(newdirname.str().c_str()))
+    std::string newdirname = (*iter).second->getName() + "/" + (*iter).first->Name();
+    if (!gROOT->cd(newdirname.c_str()))
     {
       std::cout << PHWHERE << "Unexpected TDirectory Problem cd'ing to "
                 << (*iter).second->getName()
@@ -1069,7 +1124,7 @@ int Fun4AllServer::End()
     {
       if (Verbosity() >= VERBOSITY_EVEN_MORE)
       {
-        std::cout << "End: cded to " << newdirname.str().c_str() << std::endl;
+        std::cout << "End: cded to " << newdirname << std::endl;
       }
     }
     try
@@ -1112,7 +1167,23 @@ int Fun4AllServer::End()
   // close output files (check for existing output managers is
   // done inside outfileclose())
   outfileclose();
-
+  for (auto &histit : HistoManager)
+  {
+    if (histit->ApplyFileRule())
+    {
+      if (! histit->isEmpty())
+      {
+	histit->dumpHistos();
+      }
+      else
+      {
+	if (Verbosity() > 0)
+	{
+	  std::cout << "only empty histos in " << histit->Name() << std::endl;
+	}
+      }
+    }
+  }
   if (ScreamEveryEvent)
   {
     std::cout << "*******************************************************************************" << std::endl;
@@ -1139,7 +1210,7 @@ void Fun4AllServer::Print(const std::string &what) const
   if (what == "ALL" || what == "HISTOS")
   {
     // loop over the map and print out the content (name and location in memory)
-    for (auto &histoman : HistoManager)
+    for (const auto &histoman : HistoManager)
     {
       histoman->Print(what);
     }
@@ -1163,7 +1234,7 @@ void Fun4AllServer::Print(const std::string &what) const
   if (what == "ALL" || what == "INPUTMANAGER")
   {
     // the input managers are managed by the input singleton
-    for (auto &syncman : SyncManagers)
+    for (const auto &syncman : SyncManagers)
     {
       std::cout << "SyncManager: " << syncman->Name() << std::endl;
       syncman->Print(what);
@@ -1186,7 +1257,7 @@ void Fun4AllServer::Print(const std::string &what) const
       std::string::size_type pos = pass_on.find('%');
       pass_on = pass_on.substr(pos + 1, pass_on.size());
     }
-    for (auto &outman : OutputManager)
+    for (const auto &outman : OutputManager)
     {
       outman->Print(pass_on);
     }
@@ -1251,7 +1322,9 @@ int Fun4AllServer::outfileclose()
 
 int Fun4AllServer::InitNodeTree(PHCompositeNode *topNode)
 {
-  PHCompositeNode *dstNode, *runNode, *parNode;
+  PHCompositeNode *dstNode;
+  PHCompositeNode *runNode;
+  PHCompositeNode *parNode;
   dstNode = new PHCompositeNode("DST");
   topNode->addNode(dstNode);
   runNode = new PHCompositeNode("RUN");
@@ -1294,7 +1367,7 @@ int Fun4AllServer::AddTopNode(const std::string &name)
   {
     return -1;
   }
-  PHCompositeNode *newNode = new PHCompositeNode(name.c_str());
+  PHCompositeNode *newNode = new PHCompositeNode(name);
   topnodemap[name] = newNode;
   return 0;
 }
@@ -1313,6 +1386,11 @@ PHCompositeNode *Fun4AllServer::getNode(const std::string &name, const std::stri
 
 int Fun4AllServer::registerInputManager(Fun4AllInputManager *InManager)
 {
+  if (Verbosity() > 1)
+  {
+    std::cout << "Registering Input Manager " << InManager->Name()
+	      << std::endl;
+  }
   int iret = defaultSyncManager->registerInputManager(InManager);
   return iret;
 }
@@ -1451,13 +1529,13 @@ int Fun4AllServer::run(const int nevnts, const bool require_nevents)
         BeginRun(runnumber);
       }
     }
-    if (Verbosity() >= 1)
+    if (Verbosity() >= 1 && ((icnt + 1) % VerbosityDownscale() == 0))
     {
       std::cout << "Fun4AllServer::run - processing event "
                 << (icnt + 1) << " from run " << runnumber << std::endl;
     }
 
-    if (icnt == 0 and Verbosity() > VERBOSITY_QUIET)
+    if (icnt == 0 && Verbosity() > VERBOSITY_QUIET)
     {
       // increase verbosity for the first event in verbose modes
       int iverb = Verbosity();
@@ -1466,7 +1544,7 @@ int Fun4AllServer::run(const int nevnts, const bool require_nevents)
 
     iret = process_event();
 
-    if (icnt == 0 and Verbosity() > VERBOSITY_QUIET)
+    if (icnt == 0 && Verbosity() > VERBOSITY_QUIET)
     {
       // increase verbosity for the first event in verbose modes
       int iverb = Verbosity();
@@ -1480,9 +1558,13 @@ int Fun4AllServer::run(const int nevnts, const bool require_nevents)
       if (std::find(RetCodes.begin(),
                     RetCodes.end(),
                     static_cast<int>(Fun4AllReturnCodes::ABORTEVENT)) == RetCodes.end())
+      {
         icnt_good++;
+      }
       if (iret || (nevnts > 0 && icnt_good >= nevnts))
+      {
         break;
+      }
     }
     else if (iret || (nevnts > 0 && icnt >= nevnts))
     {
@@ -1587,11 +1669,6 @@ void Fun4AllServer::GetInputFullFileList(std::vector<std::string> &fnames) const
   return;
 }
 
-int Fun4AllServer::DisconnectDB()
-{
-  return 0;
-}
-
 unsigned
 Fun4AllServer::GetTopNodes(std::vector<std::string> &names) const
 {
@@ -1668,16 +1745,13 @@ int Fun4AllServer::setRun(const int runno)
 {
   recoConsts *rc = recoConsts::instance();
   rc->set_IntFlag("RUNNUMBER", runno);
-  PHTimeStamp *tstamp = nullptr;
-  if (!tstamp)
+  if (!rc->FlagExist("TIMESTAMP"))
   {
-    tstamp = new PHTimeStamp(0);
-    std::cout << "Fun4AllServer::setRun(): could not get timestamp for run  " << runno
-              << ", using tics(0) timestamp: ";
-    tstamp->print();
-    std::cout << std::endl;
+    rc->set_uint64Flag("TIMESTAMP", runno);
   }
-  delete tstamp;
+  std::cout << "Fun4AllServer::setRun(): run " << runno
+            << " uses CDB TIMESTAMP " << rc->get_uint64Flag("TIMESTAMP")
+            << std::endl;
   FrameWorkVars->SetBinContent(RUNNUMBERBIN, (Stat_t) runno);
   return 0;
 }
@@ -1728,7 +1802,7 @@ void Fun4AllServer::PrintTimer(const std::string &name)
   return;
 }
 
-void Fun4AllServer::PrintMemoryTracker(const std::string &name) const
+void Fun4AllServer::PrintMemoryTracker(const std::string &name)
 {
 #ifdef FFAMEMTRACKER
   ffamemtracker->PrintMemoryTracker(name);
@@ -1736,4 +1810,14 @@ void Fun4AllServer::PrintMemoryTracker(const std::string &name) const
   std::cout << "PrintMemoryTracker called with " << name << " is disabled" << std::endl;
 #endif
   return;
+}
+
+int Fun4AllServer::UpdateRunNode()
+{
+  int iret{Fun4AllReturnCodes::EVENT_OK};
+  for (auto &Subsystem : Subsystems)
+  {
+    iret += Subsystem.first->UpdateRunNode(Subsystem.second);
+  }
+  return iret;
 }

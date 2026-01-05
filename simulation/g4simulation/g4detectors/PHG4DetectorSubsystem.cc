@@ -1,5 +1,6 @@
 #include "PHG4DetectorSubsystem.h"
 
+#include <phparameter/PHParameterUtils.h>
 #include <phparameter/PHParameters.h>
 #include <phparameter/PHParametersContainer.h>
 
@@ -88,10 +89,6 @@ int PHG4DetectorSubsystem::InitRun(PHCompositeNode *topNode)
     }
     else
     {
-      if (ReadDB())
-      {
-        ReadParamsFromDB(calibdetname, isSuperDetector);
-      }
       if (get_filetype() != PHG4DetectorSubsystem::none)
       {
         ReadParamsFromFile(calibdetname, get_filetype(), isSuperDetector);
@@ -149,7 +146,7 @@ void PHG4DetectorSubsystem::SuperDetector(const std::string &name)
 
 void PHG4DetectorSubsystem::set_double_param(const std::string &name, const double dval)
 {
-  if (default_double.find(name) == default_double.end())
+  if (!default_double.contains(name))
   {
     std::cout << "double parameter " << name << " not implemented" << std::endl;
     std::cout << "implemented double parameters are:" << std::endl;
@@ -170,7 +167,7 @@ PHG4DetectorSubsystem::get_double_param(const std::string &name) const
 
 void PHG4DetectorSubsystem::set_int_param(const std::string &name, const int ival)
 {
-  if (default_int.find(name) == default_int.end())
+  if (!default_int.contains(name))
   {
     std::cout << "integer parameter " << name << " not implemented" << std::endl;
     std::cout << "implemented integer parameters are:" << std::endl;
@@ -190,7 +187,7 @@ int PHG4DetectorSubsystem::get_int_param(const std::string &name) const
 
 void PHG4DetectorSubsystem::set_string_param(const std::string &name, const std::string &sval)
 {
-  if (default_string.find(name) == default_string.end())
+  if (!default_string.contains(name))
   {
     std::cout << "string parameter " << name << " not implemented" << std::endl;
     std::cout << "implemented string parameters are:" << std::endl;
@@ -228,7 +225,7 @@ void PHG4DetectorSubsystem::UpdateParametersWithMacro()
 
 void PHG4DetectorSubsystem::set_default_double_param(const std::string &name, const double dval)
 {
-  if (default_double.find(name) == default_double.end())
+  if (!default_double.contains(name))
   {
     default_double[name] = dval;
   }
@@ -243,7 +240,7 @@ void PHG4DetectorSubsystem::set_default_double_param(const std::string &name, co
 
 void PHG4DetectorSubsystem::set_default_int_param(const std::string &name, const int ival)
 {
-  if (default_int.find(name) == default_int.end())
+  if (!default_int.contains(name))
   {
     default_int[name] = ival;
   }
@@ -258,7 +255,7 @@ void PHG4DetectorSubsystem::set_default_int_param(const std::string &name, const
 
 void PHG4DetectorSubsystem::set_default_string_param(const std::string &name, const std::string &sval)
 {
-  if (default_string.find(name) == default_string.end())
+  if (!default_string.contains(name))
   {
     default_string[name] = sval;
   }
@@ -281,54 +278,18 @@ void PHG4DetectorSubsystem::InitializeParameters()
 
   SetDefaultParameters();  // call method from specific subsystem
   // now load those parameters to our params class
-  for (std::map<const std::string, double>::const_iterator iter = default_double.begin(); iter != default_double.end(); ++iter)
+  for (const auto &[key, value] : default_double)
   {
-    params->set_double_param(iter->first, iter->second);
+    params->set_double_param(key, value);
   }
-  for (std::map<const std::string, int>::const_iterator iter = default_int.begin(); iter != default_int.end(); ++iter)
+  for (const auto &[key, value] : default_int)
   {
-    params->set_int_param(iter->first, iter->second);
+    params->set_int_param(key, value);
   }
-  for (std::map<const std::string, std::string>::const_iterator iter = default_string.begin(); iter != default_string.end(); ++iter)
+  for (const auto &[key, value] : default_string)
   {
-    params->set_string_param(iter->first, iter->second);
+    params->set_string_param(key, value);
   }
-}
-
-int PHG4DetectorSubsystem::SaveParamsToDB()
-{
-  int iret = 0;
-  if (paramscontainer)
-  {
-    iret = paramscontainer->WriteToDB();
-  }
-  else
-  {
-    iret = params->WriteToDB();
-  }
-  if (iret)
-  {
-    std::cout << "problem committing to DB" << std::endl;
-  }
-  return iret;
-}
-
-int PHG4DetectorSubsystem::ReadParamsFromDB(const std::string &name, const int issuper)
-{
-  int iret = 0;
-  if (issuper)
-  {
-    iret = params->ReadFromDB(name, layer);
-  }
-  else
-  {
-    iret = params->ReadFromDB();
-  }
-  if (iret)
-  {
-    std::cout << "problem reading from DB" << std::endl;
-  }
-  return iret;
 }
 
 int PHG4DetectorSubsystem::SaveParamsToFile(const PHG4DetectorSubsystem::FILE_TYPE ftyp)
@@ -412,6 +373,9 @@ void PHG4DetectorSubsystem::SetAbsorberTruth(const int i)
 
 int PHG4DetectorSubsystem::ReadParamsFromCDB(const std::string &domain)
 {
-  params->ReadFromCDB(domain);
+  if (params)
+  {
+    PHParameterUtils::FillPHParametersFromCDB(*params, domain);
+  }
   return 0;
 }

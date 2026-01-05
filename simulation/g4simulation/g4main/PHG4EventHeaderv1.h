@@ -6,22 +6,22 @@
 #include "PHG4EventHeader.h"
 
 #include <iostream>
+#include <limits>
 
 ///
-class PHG4EventHeaderv1: public PHG4EventHeader
+class PHG4EventHeaderv1 : public PHG4EventHeader
 {
  public:
-
-  PHG4EventHeaderv1();
+  PHG4EventHeaderv1() = default;
 
   /// dtor
-  ~PHG4EventHeaderv1() override {}
+  ~PHG4EventHeaderv1() override = default;
 
   /// Clear Event
   void Reset() override;
 
   /** identify Function from PHObject
-      @param os Output Stream 
+      @param os Output Stream
    */
   void identify(std::ostream& os = std::cout) const override;
 
@@ -29,24 +29,23 @@ class PHG4EventHeaderv1: public PHG4EventHeader
   int isValid() const override;
 
   /// get Event Number
-  int get_EvtSequence() const override {return evtseq;}
+  int get_EvtSequence() const override { return evtseq; }
   /// set Event Number
-  void set_EvtSequence(const int ival) override {evtseq = ival;}
+  void set_EvtSequence(const int ival) override { evtseq = ival; }
 
-  float get_ImpactParameter() const override {return bimp;}
-  void set_ImpactParameter(const float b) override {bimp = b;}
+  float get_ImpactParameter() const override { return bimp; }
+  void set_ImpactParameter(const float b) override { bimp = b; }
 
-  float get_EventPlaneAngle() const override {return rplane;}
-  void set_EventPlaneAngle(const float r) override {rplane = r;}
+  float get_EventPlaneAngle() const override { return rplane; }
+  void set_EventPlaneAngle(const float r) override { rplane = r; }
 
  protected:
-  int evtseq;
-  float bimp;
-  float rplane;
+  int evtseq{-9999};
+  float bimp{std::numeric_limits<float>::quiet_NaN()};
+  float rplane{std::numeric_limits<float>::quiet_NaN()};
 
- private: // prevent doc++ from showing ClassDefOverride
-  ClassDefOverride(PHG4EventHeaderv1,1)
-
+ private:  // prevent doc++ from showing ClassDefOverride
+  ClassDefOverride(PHG4EventHeaderv1, 1)
 };
 
 #endif

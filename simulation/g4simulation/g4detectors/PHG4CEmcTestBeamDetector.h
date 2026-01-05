@@ -22,9 +22,7 @@ class PHG4CEmcTestBeamDetector : public PHG4Detector
   PHG4CEmcTestBeamDetector(PHG4Subsystem *subsys, PHCompositeNode *Node, const std::string &dnam, const int lyr = 0);
 
   //! destructor
-  ~PHG4CEmcTestBeamDetector(void) override
-  {
-  }
+  ~PHG4CEmcTestBeamDetector() override = default;
 
   //! construct
   void ConstructMe(G4LogicalVolume *world) override;
@@ -48,7 +46,7 @@ class PHG4CEmcTestBeamDetector : public PHG4Detector
   void SetAbsorberActive(const int i = 1) { absorberactive = i; }
   int IsActive() const { return active; }
   void SuperDetector(const std::string &name) { superdetector = name; }
-  const std::string SuperDetector() const { return superdetector; }
+  const std::string &SuperDetector() const { return superdetector; }
   int get_Layer() const { return layer; }
 
   void BlackHole(const int i = 1) { blackhole = i; }
@@ -60,8 +58,8 @@ class PHG4CEmcTestBeamDetector : public PHG4Detector
   int ConstructSandwichVolume(G4LogicalVolume *sandwich);
 
   std::vector<G4VPhysicalVolume *> sandwich_vol;
-  G4double w_dimension[3];
-  G4double sc_dimension[3];
+  G4double w_dimension[3]{};
+  G4double sc_dimension[3]{};
   G4double gap;
   G4double place_in_x;
   G4double place_in_y;
@@ -69,22 +67,22 @@ class PHG4CEmcTestBeamDetector : public PHG4Detector
   double plate_x;
   double plate_z;
   double sandwich_thickness;
-  G4double x_rot;
-  G4double y_rot;
-  G4double z_rot;
-  double alpha;
-  double inner_radius;
-  double outer_radius;
-  double tower_angular_coverage;
-  double cemc_angular_coverage;
+  G4double x_rot{0.};
+  G4double y_rot{0.};
+  G4double z_rot{0.};
+  double alpha{std::numeric_limits<double>::quiet_NaN()};
+  double inner_radius{std::numeric_limits<double>::quiet_NaN()};
+  double outer_radius{std::numeric_limits<double>::quiet_NaN()};
+  double tower_angular_coverage{std::numeric_limits<double>::quiet_NaN()};
+  double cemc_angular_coverage{std::numeric_limits<double>::quiet_NaN()};
   double active_scinti_fraction;
   int sandwiches_per_tower;
   int num_towers;
 
-  int active;
-  int absorberactive;
+  int active{0};
+  int absorberactive{0};
   int layer;
-  int blackhole;
+  int blackhole{0};
   std::string detector_type;
   std::string superdetector;
 };

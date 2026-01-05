@@ -10,10 +10,10 @@ AM_CXXFLAGS = `geant4-config --cflags`
 AM_CPPFLAGS = \
   -DCGAL_DISABLE_ROUNDING_MATH_CHECK \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include \
   -isystem$(XERCESROOT)/include \
-  -I$(OPT_SPHENIX)/include
+  -isystem$(OPT_SPHENIX)/include
 
 # set in configure.in to check if gcc version >= 4.8
 #if GCC_GE_48
@@ -27,7 +27,7 @@ AM_LDFLAGS = \
 
 libg4detectors_io_la_LIBADD = \
   -lphool \
-  -lphparameter
+  -lphparameter_io
 
 
 #libgmp comes in via CGAL which is now header only
@@ -38,10 +38,12 @@ libg4detectors_la_LIBADD = \
   -lgmp \
   -lphg4gdml \
   -lphool  \
+  -lcalo_io \
   -lSubsysReco
 
 pkginclude_HEADERS = \
   BeamLineMagnetSubsystem.h \
+  LightCollectionModel.h \
   PHG4BbcSubsystem.h \
   PHG4BlockCellGeom.h \
   PHG4BlockCellGeomContainer.h \
@@ -91,13 +93,18 @@ pkginclude_HEADERS = \
   PHG4SectorConstructor.h \
   PHG4SectorSubsystem.h \
   PHG4SpacalSubsystem.h \
+  PHG4SpacalSteppingAction.h \
+  PHG4sPHENIXMagnetSubsystem.h \
   PHG4StepStatusDecode.h \
   PHG4TpcCylinderGeom.h \
   PHG4TpcCylinderGeomContainer.h \
+  PHG4TpcGeom.h \
+  PHG4TpcGeomv1.h \
+  PHG4TpcGeomContainer.h \
   PHG4ZDCDefs.h \
   PHG4ZDCSubsystem.h
 
-ROOT_IO_DICTS = \
+ROOTDICTS = \
   PHG4BlockCellGeom_Dict.cc \
   PHG4BlockCellGeomContainer_Dict.cc \
   PHG4BlockGeom_Dict.cc \
@@ -127,43 +134,17 @@ ROOT_IO_DICTS = \
   PHG4ScintillatorSlatv1_Dict.cc \
   PHG4ScintillatorSlatContainer_Dict.cc \
   PHG4TpcCylinderGeom_Dict.cc \
-  PHG4TpcCylinderGeomContainer_Dict.cc 
+  PHG4TpcCylinderGeomContainer_Dict.cc \
+  PHG4TpcGeom_Dict.cc \
+  PHG4TpcGeomv1_Dict.cc \
+  PHG4TpcGeomContainer_Dict.cc 
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  PHG4BlockCellGeom_Dict_rdict.pcm \
-  PHG4BlockCellGeomContainer_Dict_rdict.pcm \
-  PHG4BlockGeom_Dict_rdict.pcm \
-  PHG4BlockGeomContainer_Dict_rdict.pcm \
-  PHG4BlockGeomv1_Dict_rdict.pcm \
-  PHG4Cell_Dict_rdict.pcm \
-  PHG4Cellv1_Dict_rdict.pcm \
-  PHG4CellContainer_Dict_rdict.pcm \
-  PHG4CylinderGeom_Dict_rdict.pcm \
-  PHG4CylinderGeomv1_Dict_rdict.pcm \
-  PHG4CylinderGeomv2_Dict_rdict.pcm \
-  PHG4CylinderGeomv3_Dict_rdict.pcm \
-  PHG4CylinderGeomv4_Dict_rdict.pcm \
-  PHG4CylinderGeom_Spacalv1_Dict_rdict.pcm \
-  PHG4CylinderGeom_Spacalv2_Dict_rdict.pcm \
-  PHG4CylinderGeom_Spacalv3_Dict_rdict.pcm \
-  PHG4CylinderGeomContainer_Dict_rdict.pcm \
-  PHG4CylinderCell_Dict_rdict.pcm \
-  PHG4CylinderCellv1_Dict_rdict.pcm \
-  PHG4CylinderCellv2_Dict_rdict.pcm \
-  PHG4CylinderCellv3_Dict_rdict.pcm \
-  PHG4CylinderCellContainer_Dict_rdict.pcm \
-  PHG4CylinderCellGeom_Dict_rdict.pcm \
-  PHG4CylinderCellGeom_Spacalv1_Dict_rdict.pcm \
-  PHG4CylinderCellGeomContainer_Dict_rdict.pcm \
-  PHG4ScintillatorSlat_Dict_rdict.pcm \
-  PHG4ScintillatorSlatv1_Dict_rdict.pcm \
-  PHG4ScintillatorSlatContainer_Dict_rdict.pcm \
-  PHG4TpcCylinderGeom_Dict_rdict.pcm \
-  PHG4TpcCylinderGeomContainer_Dict_rdict.pcm 
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 libg4detectors_io_la_SOURCES = \
-  $(ROOT_IO_DICTS) \
+  $(ROOTDICTS) \
   PHG4BlockCellGeom.cc \
   PHG4BlockCellGeomContainer.cc \
   PHG4BlockGeom.cc \
@@ -193,14 +174,17 @@ libg4detectors_io_la_SOURCES = \
   PHG4ScintillatorSlatv1.cc \
   PHG4ScintillatorSlatContainer.cc \
   PHG4TpcCylinderGeom.cc \
-  PHG4TpcCylinderGeomContainer.cc 
-
+  PHG4TpcCylinderGeomContainer.cc \
+  PHG4TpcGeom.cc \
+  PHG4TpcGeomv1.cc \
+  PHG4TpcGeomContainer.cc 
 
 libg4detectors_la_SOURCES = \
   BeamLineMagnetDetector.cc \
   BeamLineMagnetDisplayAction.cc \
   BeamLineMagnetSubsystem.cc \
   BeamLineMagnetSteppingAction.cc \
+  LightCollectionModel.cc \
   PHG4GDMLDetector.cc \
   PHG4GDMLSubsystem.cc \
   PHG4BbcDetector.cc \
@@ -262,6 +246,10 @@ libg4detectors_la_SOURCES = \
   PHG4SpacalDisplayAction.cc \
   PHG4SpacalSteppingAction.cc \
   PHG4SpacalSubsystem.cc \
+  PHG4sPHENIXMagnetDetector.cc \
+  PHG4sPHENIXMagnetDisplayAction.cc \
+  PHG4sPHENIXMagnetSteppingAction.cc \
+  PHG4sPHENIXMagnetSubsystem.cc \
   PHG4StepStatusDecode.cc \
   PHG4TrackStatusDecode.cc \
   PHG4ZDCDetector.cc \

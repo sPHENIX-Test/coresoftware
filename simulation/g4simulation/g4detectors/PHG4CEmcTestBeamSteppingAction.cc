@@ -32,19 +32,15 @@
 class G4VPhysicalVolume;
 class PHCompositeNode;
 
-using namespace std;
 //____________________________________________________________________________..
 PHG4CEmcTestBeamSteppingAction::PHG4CEmcTestBeamSteppingAction(PHG4CEmcTestBeamDetector* detector)
   : PHG4SteppingAction(detector->GetName())
   , detector_(detector)
-  , hits_(nullptr)
-  , absorberhits_(nullptr)
-  , hit(nullptr)
 {
 }
 
 //____________________________________________________________________________..
-bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, bool)
+bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, bool /*was_used*/)
 {
   G4TouchableHandle touch = aStep->GetPreStepPoint()->GetTouchableHandle();
   // get volume of the current step
@@ -80,15 +76,15 @@ bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, boo
     // an expensive string compare for every track when we know
     // geantino or chargedgeantino has pid=0
     if (aTrack->GetParticleDefinition()->GetPDGEncoding() == 0 &&
-        aTrack->GetParticleDefinition()->GetParticleName().find("geantino") != string::npos)
+        aTrack->GetParticleDefinition()->GetParticleName().find("geantino") != std::string::npos)
     {
       geantino = true;
     }
     G4StepPoint* prePoint = aStep->GetPreStepPoint();
     G4StepPoint* postPoint = aStep->GetPostStepPoint();
-    //       cout << "track id " << aTrack->GetTrackID() << endl;
-    //       cout << "time prepoint: " << prePoint->GetGlobalTime() << endl;
-    //       cout << "time postpoint: " << postPoint->GetGlobalTime() << endl;
+    //       cout << "track id " << aTrack->GetTrackID() << std::endl;
+    //       cout << "time prepoint: " << prePoint->GetGlobalTime() << std::endl;
+    //       cout << "time postpoint: " << postPoint->GetGlobalTime() << std::endl;
     switch (prePoint->GetStepStatus())
     {
     case fGeomBoundary:
@@ -96,13 +92,13 @@ bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, boo
       hit = new PHG4Hitv1();
       hit->set_layer((unsigned int) tower_id);
       hit->set_scint_id(touch->GetCopyNumber(1));  // the copy number of the sandwich
-      //here we set the entrance values in cm
+      // here we set the entrance values in cm
       hit->set_x(0, prePoint->GetPosition().x() / cm);
       hit->set_y(0, prePoint->GetPosition().y() / cm);
       hit->set_z(0, prePoint->GetPosition().z() / cm);
       // time in ns
       hit->set_t(0, prePoint->GetGlobalTime() / nanosecond);
-      //set the track ID
+      // set the track ID
       {
         hit->set_trkid(aTrack->GetTrackID());
         if (G4VUserTrackInformation* p = aTrack->GetUserInformation())
@@ -115,7 +111,7 @@ bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, boo
         }
       }
 
-      //set the initial energy deposit
+      // set the initial energy deposit
       hit->set_edep(0);
       hit->set_eion(0);  // only implemented for v5 otherwise empty
       PHG4HitContainer* hitcontainer;
@@ -149,7 +145,7 @@ bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, boo
     hit->set_z(1, postPoint->GetPosition().z() / cm);
 
     hit->set_t(1, postPoint->GetGlobalTime() / nanosecond);
-    //sum up the energy to get total deposited
+    // sum up the energy to get total deposited
     hit->set_edep(hit->get_edep() + edep);
     hit->set_eion(hit->get_eion() + eion);
     if (geantino)
@@ -172,17 +168,15 @@ bool PHG4CEmcTestBeamSteppingAction::UserSteppingAction(const G4Step* aStep, boo
     // return true to indicate the hit was used
     return true;
   }
-  else
-  {
-    return false;
-  }
+
+  return false;
 }
 
 //____________________________________________________________________________..
 void PHG4CEmcTestBeamSteppingAction::SetInterfacePointers(PHCompositeNode* topNode)
 {
-  string hitnodename;
-  string absorbernodename;
+  std::string hitnodename;
+  std::string absorbernodename;
   if (detector_->SuperDetector() != "NONE")
   {
     hitnodename = "G4HIT_" + detector_->SuperDetector();
@@ -194,7 +188,7 @@ void PHG4CEmcTestBeamSteppingAction::SetInterfacePointers(PHCompositeNode* topNo
     absorbernodename = "G4HIT_ABSORBER_" + detector_->GetName();
   }
 
-  //now look for the map and grab a pointer to it.
+  // now look for the map and grab a pointer to it.
   hits_ = findNode::getClass<PHG4HitContainer>(topNode, hitnodename);
   absorberhits_ = findNode::getClass<PHG4HitContainer>(topNode, absorbernodename);
 
@@ -207,7 +201,7 @@ void PHG4CEmcTestBeamSteppingAction::SetInterfacePointers(PHCompositeNode* topNo
   {
     if (Verbosity() > 0)
     {
-      cout << "PHG4HcalSteppingAction::SetTopNode - unable to find " << absorbernodename << endl;
+      std::cout << "PHG4HcalSteppingAction::SetTopNode - unable to find " << absorbernodename << std::endl;
     }
   }
 }

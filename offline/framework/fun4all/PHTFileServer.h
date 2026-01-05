@@ -1,7 +1,7 @@
 // Tell emacs that this is a C++ source
 //  -*- C++ -*-.
 //////////////////////////////////////////////////////////////////
-/*! 
+/*!
   \file PHTFileServer.h
   \brief TFile clean handling
   \author  Hugo Pereira
@@ -19,10 +19,10 @@
 #include <sstream>
 #include <string>
 
-/*! 
+/*!
   \brief TFile clean handling. It allow independant classes to access
   the same TFile and write ntuple to it. TFiles get written only when as many
-  write request are achieved as open request. 
+  write request are achieved as open request.
   It get closed when the server is deleted
 */
 class PHTFileServer
@@ -38,26 +38,26 @@ class PHTFileServer
   //! destructor. All non close TFiles are closed, with a warning.
   virtual ~PHTFileServer();
 
-  /*! \brief 
+  /*! \brief
     open a SafeTFile. If filename is not found in the map, create a new TFile
     and append to the map; increment counter otherwise
   */
-  void open(const std::string& filename, const std::string& type = "RECREATE");
+  static void open(const std::string& filename, const std::string& type = "RECREATE");
 
   //! flush TFile matching filename
-  bool flush(const std::string& filename);
+  static bool flush(const std::string& filename);
 
   //! change to directory of TFile matching filename
-  bool cd(const std::string& filename);
+  static bool cd(const std::string& filename);
 
   /*! \brief
-    if TFile is found in map and counter is 0, close the TFile, 
+    if TFile is found in map and counter is 0, close the TFile,
     decrement counter otherwise
   */
-  bool write(const std::string& filename);
+  static bool write(const std::string& filename);
 
   //! close all TFiles
-  void close(void);
+  static void close(void);
 
  private:
   //! constructor

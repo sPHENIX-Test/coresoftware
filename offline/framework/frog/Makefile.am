@@ -2,15 +2,16 @@ AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
-  -I$(OPT_SPHENIX)/include \
-  -I`root-config --incdir`
+  -isystem$(OFFLINE_MAIN)/include \
+  -isystem$(OPT_SPHENIX)/include \
+  -isystem`root-config --incdir`
 
 lib_LTLIBRARIES = libFROG.la
 
 libFROG_la_LIBADD = \
-  -L$(OPT_SPHENIX)/lib \
-  -lodbc++
+  -L$(libdir) \
+  -L$(OFFLINE_MAIN)/lib \
+  -lsphenixodbc
 
 pkginclude_HEADERS = \
   FROG.h
@@ -19,6 +20,7 @@ libFROG_la_SOURCES = \
   FROG.cc
 
 bin_SCRIPTS = \
+  CreateDstList.pl \
   CreateFileList.pl
 
 noinst_PROGRAMS = testexternals

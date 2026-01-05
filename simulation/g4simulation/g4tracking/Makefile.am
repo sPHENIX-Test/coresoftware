@@ -5,7 +5,7 @@ AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem`root-config --incdir`
 
 AM_LDFLAGS = \
@@ -21,14 +21,15 @@ libg4tracking_io_la_LIBADD = \
   -ltrack_io
 
 pkginclude_HEADERS = \
+  TrkrTruthTrack.h \
+  EmbRecoMatch.h \
   EmbRecoMatchContainer.h \
   EmbRecoMatchContainerv1.h \
-  EmbRecoMatch.h \
   EmbRecoMatchv1.h \
   TrkrTruthTrackContainer.h \
   TrkrTruthTrackContainerv1.h \
-  TrkrTruthTrack.h \
-  TrkrTruthTrackv1.h
+  TrkrTruthTrackv1.h \
+  TruthClusterizerBase.h
 
 ROOTDICTS = \
   EmbRecoMatchContainer_Dict.cc \
@@ -41,15 +42,8 @@ ROOTDICTS = \
   TrkrTruthTrackv1_Dict.cc 
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  EmbRecoMatchContainer_Dict_rdict.pcm \
-  EmbRecoMatchContainerv1_Dict_rdict.pcm \
-  EmbRecoMatch_Dict_rdict.pcm \
-  EmbRecoMatchv1_Dict_rdict.pcm \
-  TrkrTruthTrackContainer_Dict_rdict.pcm \
-  TrkrTruthTrackContainerv1_Dict_rdict.pcm \
-  TrkrTruthTrack_Dict_rdict.pcm \
-  TrkrTruthTrackv1_Dict_rdict.pcm
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 libg4tracking_io_la_SOURCES = \
   $(ROOTDICTS) \
@@ -59,6 +53,7 @@ libg4tracking_io_la_SOURCES = \
   TrkrTruthTrack.cc \
   TrkrTruthTrackContainer.cc \
   TrkrTruthTrackContainerv1.cc \
+  TruthClusterizerBase.cc \
   TrkrTruthTrackv1.cc 
 
 # Rule for generating table CINT dictionaries.

@@ -1,7 +1,7 @@
 #include "DumpJetMap.h"
 
-#include <g4jets/Jet.h>
-#include <g4jets/JetMap.h>
+#include <jetbase/Jet.h>
+#include <jetbase/JetMap.h>
 
 #include <phool/PHIODataNode.h>
 
@@ -22,7 +22,7 @@ DumpJetMap::DumpJetMap(const std::string &NodeName)
 int DumpJetMap::process_Node(PHNode *myNode)
 {
   JetMap *jetmap = nullptr;
-  MyNode_t *thisNode = static_cast<MyNode_t *>(myNode);
+  MyNode_t *thisNode = static_cast<MyNode_t *>(myNode);  // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
   if (thisNode)
   {
     jetmap = thisNode->getData();

@@ -12,8 +12,6 @@
 
 #include <sstream>
 
-using namespace std;
-
 G4VtxNtuple::G4VtxNtuple(const std::string &name, const std::string &filename)
   : SubsysReco(name)
   , m_FileName(filename)
@@ -25,8 +23,9 @@ G4VtxNtuple::~G4VtxNtuple()
   delete hm;
 }
 
-int G4VtxNtuple::Init(PHCompositeNode *)
+int G4VtxNtuple::Init(PHCompositeNode * /*unused*/)
 {
+  delete hm; // make cppcheck happy
   hm = new Fun4AllHistoManager(Name());
   ntup = new TNtuple("vtxntup", "G4Vtxs", "vx:vy:vz");
   hm->registerHisto(ntup);
@@ -44,7 +43,7 @@ int G4VtxNtuple::process_event(PHCompositeNode *topNode)
   return 0;
 }
 
-int G4VtxNtuple::End(PHCompositeNode */*topNode*/)
+int G4VtxNtuple::End(PHCompositeNode * /*topNode*/)
 {
   hm->dumpHistos(m_FileName, "RECREATE");
   return 0;

@@ -34,10 +34,10 @@ class PHG4FullProjTiltedSpacalDetector : public PHG4SpacalDetector
   typedef PHG4CylinderGeom_Spacalv3 SpacalGeom_t;
 
   PHG4FullProjTiltedSpacalDetector(PHG4Subsystem* subsys, PHCompositeNode* Node, const std::string& dnam,
-                                   PHParameters* parameters, const int layer = 0);
+                                   PHParameters* parameters, const int lyr = 0);
 
   // empty dtor, step limits are deleted in base class
-  ~PHG4FullProjTiltedSpacalDetector(void) override {}
+  ~PHG4FullProjTiltedSpacalDetector() = default;
 
   void
   ConstructMe(G4LogicalVolume* world) override;
@@ -69,6 +69,7 @@ class PHG4FullProjTiltedSpacalDetector : public PHG4SpacalDetector
   }
 
  private:
+  PHParameters* m_Params = nullptr;
   //  SpacalGeom_t* _geom;
   //! get the v3 cast of the geometry object
   SpacalGeom_t*

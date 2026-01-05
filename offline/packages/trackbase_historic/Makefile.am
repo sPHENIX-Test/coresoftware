@@ -5,13 +5,14 @@ AUTOMAKE_OPTIONS = foreign
 
 # list of shared libraries to produce
 lib_LTLIBRARIES = \
-  libtrackbase_historic_io.la
+  libtrackbase_historic_io.la \
+  libtrackbase_historic.la
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include  \
+  -isystem$(OFFLINE_MAIN)/include  \
   -isystem$(ROOTSYS)/include \
-  -I$(OPT_SPHENIX)/include
+  -isystem$(OPT_SPHENIX)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
@@ -23,10 +24,14 @@ pkginclude_HEADERS = \
   ActsTransformations.h \
   TrackSeed.h \
   TrackSeed_v1.h \
+  TrackSeed_v2.h \
   SvtxTrackSeed_v1.h \
+  SvtxTrackSeed_v2.h \
   TrackSeed_FastSim_v1.h \
+  TrackSeed_FastSim_v2.h \
   TrackSeedContainer.h \
   TrackSeedContainer_v1.h \
+  TrackSeedHelper.h \
   PHG4ParticleSvtxMap.h \
   PHG4ParticleSvtxMap_v1.h \
   SvtxPHG4ParticleMap.h \
@@ -51,16 +56,31 @@ pkginclude_HEADERS = \
   SvtxAlignmentState_v1.h \
   SvtxTrackState.h \
   SvtxTrackState_v1.h \
-  SvtxVertex.h \
-  SvtxVertex_v1.h \
-  SvtxVertexMap.h \
-  SvtxVertexMap_v1.h 
+  SvtxTrackState_v2.h \
+  SvtxTrackState_v3.h \
+  TrackAnalysisUtils.h \
+  SvtxTrackInfo.h \
+  SvtxTrackInfo_v1.h \
+  SvtxTrackInfo_v2.h \
+  SvtxTrackInfo_v3.h \
+  TrackInfoContainer.h \
+  TrackInfoContainer_v1.h \
+  TrackInfoContainer_v2.h \
+  TrackInfoContainer_v3.h \
+  TrackStateInfo.h \
+  TrackStateInfo_v1.h \
+  WeightedTrack.h \
+  WeightedTrackZeroField.h \
+  WeightedTrackMap.h
 
 ROOTDICTS = \
   TrackSeed_Dict.cc \
   TrackSeed_v1_Dict.cc \
+  TrackSeed_v2_Dict.cc \
   SvtxTrackSeed_v1_Dict.cc \
+  SvtxTrackSeed_v2_Dict.cc \
   TrackSeed_FastSim_v1_Dict.cc \
+  TrackSeed_FastSim_v2_Dict.cc \
   TrackSeedContainer_Dict.cc \
   TrackSeedContainer_v1_Dict.cc \
   PHG4ParticleSvtxMap_Dict.cc \
@@ -72,6 +92,8 @@ ROOTDICTS = \
   SvtxTrack_Dict.cc \
   SvtxTrackState_Dict.cc \
   SvtxTrackState_v1_Dict.cc \
+  SvtxTrackState_v2_Dict.cc \
+  SvtxTrackState_v3_Dict.cc \
   SvtxTrack_v1_Dict.cc \
   SvtxTrack_v2_Dict.cc \
   SvtxTrack_v3_Dict.cc \
@@ -87,56 +109,39 @@ ROOTDICTS = \
   SvtxTrackMap_v2_Dict.cc \
   SvtxTrackCaloClusterMap_Dict.cc \
   SvtxTrackCaloClusterMap_v1_Dict.cc \
-  SvtxVertex_Dict.cc \
-  SvtxVertex_v1_Dict.cc \
-  SvtxVertexMap_Dict.cc \
-  SvtxVertexMap_v1_Dict.cc 
+  SvtxTrackInfo_Dict.cc \
+  SvtxTrackInfo_v1_Dict.cc \
+  SvtxTrackInfo_v2_Dict.cc \
+  SvtxTrackInfo_v3_Dict.cc \
+  TrackInfoContainer_Dict.cc \
+  TrackInfoContainer_v1_Dict.cc \
+  TrackInfoContainer_v2_Dict.cc \
+  TrackInfoContainer_v3_Dict.cc \
+  TrackStateInfo_Dict.cc \
+  TrackStateInfo_v1_Dict.cc \
+  WeightedTrack_Dict.cc \
+  WeightedTrackZeroField_Dict.cc \
+  WeightedTrackMap_Dict.cc
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  TrackSeed_Dict_rdict.pcm \
-  TrackSeed_v1_Dict_rdict.pcm \
-  SvtxTrackSeed_v1_Dict_rdict.pcm \
-  TrackSeed_FastSim_v1_Dict_rdict.pcm \
-  TrackSeedContainer_Dict_rdict.pcm \
-  TrackSeedContainer_v1_Dict_rdict.pcm \
-  PHG4ParticleSvtxMap_Dict_rdict.pcm \
-  PHG4ParticleSvtxMap_v1_Dict_rdict.pcm \
-  SvtxPHG4ParticleMap_Dict_rdict.pcm \
-  SvtxPHG4ParticleMap_v1_Dict_rdict.pcm \
-  SvtxAlignmentState_Dict_rdict.pcm \
-  SvtxAlignmentState_v1_Dict_rdict.pcm \
-  SvtxTrack_Dict_rdict.pcm \
-  SvtxTrackState_Dict_rdict.pcm \
-  SvtxTrackState_v1_Dict_rdict.pcm \
-  SvtxTrack_v1_Dict_rdict.pcm \
-  SvtxTrack_v2_Dict_rdict.pcm \
-  SvtxTrack_v3_Dict_rdict.pcm \
-  SvtxTrack_v4_Dict_rdict.pcm \
-  SvtxTrack_FastSim_Dict_rdict.pcm \
-  SvtxTrack_FastSim_v1_Dict_rdict.pcm \
-  SvtxTrack_FastSim_v2_Dict_rdict.pcm \
-  SvtxTrack_FastSim_v3_Dict_rdict.pcm \
-  SvtxAlignmentStateMap_Dict_rdict.pcm \
-  SvtxAlignmentStateMap_v1_Dict_rdict.pcm \
-  SvtxTrackMap_Dict_rdict.pcm \
-  SvtxTrackMap_v1_Dict_rdict.pcm \
-  SvtxTrackMap_v2_Dict_rdict.pcm \
-  SvtxTrackCaloClusterMap_Dict_rdict.pcm \
-  SvtxTrackCaloClusterMap_v1_Dict_rdict.pcm \
-  SvtxVertex_Dict_rdict.pcm \
-  SvtxVertex_v1_Dict_rdict.pcm \
-  SvtxVertexMap_Dict_rdict.pcm \
-  SvtxVertexMap_v1_Dict_rdict.pcm 
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
+
+libtrackbase_historic_la_SOURCES = \
+  ActsTransformations.cc \
+  TrackAnalysisUtils.cc \
+  TrackSeedHelper.cc
 
 # sources for io library
 libtrackbase_historic_io_la_SOURCES = \
   $(ROOTDICTS) \
-  ActsTransformations.cc \
   TrackSeed.cc \
   TrackSeed_v1.cc \
+  TrackSeed_v2.cc \
   SvtxTrackSeed_v1.cc \
+  SvtxTrackSeed_v2.cc \
   TrackSeed_FastSim_v1.cc \
+  TrackSeed_FastSim_v2.cc \
   TrackSeedContainer.cc \
   TrackSeedContainer_v1.cc \
   PHG4ParticleSvtxMap.cc \
@@ -146,6 +151,8 @@ libtrackbase_historic_io_la_SOURCES = \
   SvtxAlignmentState.cc \
   SvtxAlignmentState_v1.cc \
   SvtxTrackState_v1.cc \
+  SvtxTrackState_v2.cc \
+  SvtxTrackState_v3.cc \
   SvtxTrack.cc \
   SvtxTrack_v1.cc \
   SvtxTrack_v2.cc \
@@ -162,20 +169,31 @@ libtrackbase_historic_io_la_SOURCES = \
   SvtxTrackMap_v2.cc \
   SvtxTrackCaloClusterMap.cc \
   SvtxTrackCaloClusterMap_v1.cc \
-  SvtxVertex.cc \
-  SvtxVertex_v1.cc \
-  SvtxVertexMap.cc \
-  SvtxVertexMap_v1.cc
+  SvtxTrackInfo_v1.cc \
+  SvtxTrackInfo_v2.cc \
+  SvtxTrackInfo_v3.cc \
+  TrackInfoContainer_v1.cc \
+  TrackInfoContainer_v2.cc \
+  TrackInfoContainer_v3.cc \
+  TrackStateInfo_v1.cc \
+  WeightedTrack.cc \
+  WeightedTrackZeroField.cc \
+  WeightedTrackMap.cc
 
-libtrackbase_historic_io_la_LDFLAGS = \
+AM_LDFLAGS = \
   -L$(libdir) \
   -L$(OFFLINE_MAIN)/lib \
   -L$(OFFLINE_MAIN)/lib64
 
+# dependency on libtrack.so breaks the io only library concept
 libtrackbase_historic_io_la_LIBADD = \
   -lphool \
-  -lActsCore \
   -ltrack_io
+
+libtrackbase_historic_la_LIBADD = \
+  libtrackbase_historic_io.la \
+  -ltrack \
+  -ltpc
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h
@@ -192,10 +210,14 @@ libtrackbase_historic_io_la_LIBADD = \
 BUILT_SOURCES = testexternals.cc
 
 noinst_PROGRAMS = \
-  testexternals_trackbase_historic_io
+  testexternals_trackbase_historic_io \
+  testexternals_trackbase_historic
 
 testexternals_trackbase_historic_io_SOURCES = testexternals.cc
 testexternals_trackbase_historic_io_LDADD = libtrackbase_historic_io.la
+
+testexternals_trackbase_historic_SOURCES = testexternals.cc
+testexternals_trackbase_historic_LDADD = libtrackbase_historic.la
 
 testexternals.cc:
 	echo "//*** this is a generated file. Do not commit, do not edit" > $@

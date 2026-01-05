@@ -2,12 +2,12 @@ AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include \
+  -isystem$(OFFLINE_MAIN)/include \
   -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OFFLINE_MAIN)/lib 
 
 pkginclude_HEADERS = \
   fillSpaceChargeMaps.h \
@@ -24,8 +24,6 @@ libfillSpaceChargeMaps_la_LIBADD = \
   -lfun4all \
   -lphool \
   -lphg4hit \
-  -lg4detectors \
-  -lg4testbench \
   -lSubsysReco
 
 BUILT_SOURCES = testexternals.cc

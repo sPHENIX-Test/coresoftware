@@ -5,22 +5,20 @@
 #include <cstdlib>  // for exit
 #include <iostream>
 
-using namespace std;
+unsigned short
+generic_lower_16bit_key(PHG4CellDefs::keytype key, PHG4CellDefs::CellBinning binning);
 
 unsigned short
-generic_lower_16bit_key(const PHG4CellDefs::keytype key, const PHG4CellDefs::CellBinning binning);
-
-unsigned short
-generic_upper_16bit_key(const PHG4CellDefs::keytype key, const PHG4CellDefs::CellBinning binning);
+generic_upper_16bit_key(PHG4CellDefs::keytype key, PHG4CellDefs::CellBinning binning);
 
 unsigned int
-generic_32bit_key(const PHG4CellDefs::keytype key, const PHG4CellDefs::CellBinning binning);
+generic_32bit_key(PHG4CellDefs::keytype key, PHG4CellDefs::CellBinning binning);
 
 PHG4CellDefs::keytype
-generic_16bit_genkey(const unsigned short detid, const PHG4CellDefs::CellBinning binning, const unsigned short upper16bits, const unsigned short lower16bits);
+generic_16bit_genkey(unsigned short detid, PHG4CellDefs::CellBinning binning, unsigned short upper16bits, unsigned short lower16bits);
 
 PHG4CellDefs::keytype
-generic_32bit_genkey(const unsigned short detid, const PHG4CellDefs::CellBinning binning, const unsigned int bit32);
+generic_32bit_genkey(unsigned short detid, PHG4CellDefs::CellBinning binning, unsigned int bit32);
 
 PHG4CellDefs::keytype
 PHG4CellDefs::SizeBinning::genkey(const unsigned short detid, const unsigned short zbin, const unsigned short iphi)
@@ -74,7 +72,7 @@ PHG4CellDefs::SpacalBinning::genkey(const unsigned short etabin, const unsigned 
 unsigned short int
 PHG4CellDefs::SpacalBinning::get_etabin(const PHG4CellDefs::keytype key)
 {
-  unsigned long long tmp = key >> 48;
+  unsigned long long tmp = key >> 48U;
   unsigned short int etabin = tmp;
   return etabin;
 }
@@ -173,7 +171,7 @@ PHG4CellDefs::TPCBinning::get_phibin(const PHG4CellDefs::keytype key)
 
 bool PHG4CellDefs::has_binning(const PHG4CellDefs::keytype key, const PHG4CellDefs::CellBinning binning)
 {
-  keytype tmp = (key >> bitshift_binning) & 0xFFFF;
+  keytype tmp = (key >> bitshift_binning) & 0xFFFFU;
   if (tmp == binning)
   {
     return true;
@@ -183,7 +181,7 @@ bool PHG4CellDefs::has_binning(const PHG4CellDefs::keytype key, const PHG4CellDe
 
 short PHG4CellDefs::get_binning(const PHG4CellDefs::keytype key)
 {
-  keytype tmp = (key >> bitshift_binning) & 0xFFFF;
+  keytype tmp = (key >> bitshift_binning) & 0xFFFFU;
   short int i = tmp;
   return i;
 }
@@ -203,12 +201,12 @@ generic_lower_16bit_key(const PHG4CellDefs::keytype key, const PHG4CellDefs::Cel
   tmp = (tmp << PHG4CellDefs::bitshift_binning);
   if ((key & tmp) == tmp)
   {
-    unsigned short int low16bitkey = (key & 0xFFFF);
+    unsigned short int low16bitkey = (key & 0xFFFFU);
     return low16bitkey;
   }
-  cout << PHWHERE << " could not decode 0x" << hex << key << dec << endl;
-  cout << "key 0x" << hex << key << ", binning: 0x" << tmp
-       << " and: " << (key & tmp) << dec << endl;
+  std::cout << PHWHERE << " could not decode 0x" << std::hex << key << std::dec << std::endl;
+  std::cout << "key 0x" << std::hex << key << ", binning: 0x" << tmp
+            << " and: " << (key & tmp) << std::dec << std::endl;
   exit(1);
 }
 
@@ -221,10 +219,10 @@ generic_upper_16bit_key(const PHG4CellDefs::keytype key, const PHG4CellDefs::Cel
   if ((key & tmp) == tmp)
   {
     PHG4CellDefs::keytype keytmp = key >> PHG4CellDefs::bitshift_upperkey;
-    unsigned short int hi16bitkey = (keytmp & 0xFFFF);
+    unsigned short int hi16bitkey = (keytmp & 0xFFFFU);
     return hi16bitkey;
   }
-  cout << PHWHERE << " could not decode 0x" << hex << key << dec << endl;
+  std::cout << PHWHERE << " could not decode 0x" << std::hex << key << std::dec << std::endl;
   exit(1);
 }
 
@@ -239,7 +237,7 @@ generic_32bit_key(const PHG4CellDefs::keytype key, const PHG4CellDefs::CellBinni
     unsigned int bit32key = (key & 0xFFFFFFFF);
     return bit32key;
   }
-  cout << PHWHERE << " could not decode 0x" << hex << key << dec << endl;
+  std::cout << PHWHERE << " could not decode 0x" << std::hex << key << std::dec << std::endl;
   exit(1);
 }
 

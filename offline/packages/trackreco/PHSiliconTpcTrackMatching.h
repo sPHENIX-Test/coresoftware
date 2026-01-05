@@ -4,11 +4,12 @@
 #define PHSILICONTPCTRACKMATCHING_H
 
 #include <fun4all/SubsysReco.h>
-#include <trackbase/ActsGeometry.h>
 #include <phparameter/PHParameterInterface.h>
+#include <tpc/TpcClusterZCrossingCorrection.h>
+#include <trackbase/ActsGeometry.h>
 
-#include <string>
 #include <map>
+#include <string>
 
 class PHCompositeNode;
 class TrackSeedContainer;
@@ -16,81 +17,159 @@ class TrackSeed;
 class TrkrClusterContainer;
 class TF1;
 class TrkrClusterCrossingAssoc;
+class TFile;
+class TNtuple;
 
 class PHSiliconTpcTrackMatching : public SubsysReco, public PHParameterInterface
 {
  public:
-
   PHSiliconTpcTrackMatching(const std::string &name = "PHSiliconTpcTrackMatching");
 
   ~PHSiliconTpcTrackMatching() override;
 
- void SetDefaultParameters() override;
+  void SetDefaultParameters() override;
+  
+  void set_phi_search_window(const double win) { _phi_search_win = win; }
+  void set_eta_search_window(const double win) { _eta_search_win = win; }
+  void set_x_search_window(const double win) { _x_search_win = win; }
+  void set_y_search_window(const double win) { _y_search_win = win; }
+  void set_z_search_window(const double win) { _z_search_win = win; }
+  void set_crossing_deltaz_max(const double dz) {_crossing_deltaz_max = dz;}
+  void set_crossing_deltaz_min(const double dz) {_crossing_deltaz_min = dz;}
+  void set_deltaeta_min(const double deta) {_deltaeta_min = deta;}
 
-  void set_phi_search_window(const double win){_phi_search_win = win;}
-  void set_eta_search_window(const double win){_eta_search_win = win;}
-  void set_x_search_window(const double win){_x_search_win = win;}
-  void set_y_search_window(const double win){_y_search_win = win;}
-  void set_z_search_window(const double win){_z_search_win = win;}
+  float get_phi_search_window() const { return _phi_search_win; }
+  float get_eta_search_window() const { return _eta_search_win; }
+  float get_x_search_window() const { return _x_search_win; }
+  float get_y_search_window() const { return _y_search_win; }
+  float get_z_search_window() const { return _z_search_win; }
 
-  void set_test_windows_printout(const bool test){_test_windows = test ;}
-  void set_pp_mode(const bool flag){_pp_mode = flag ;}
-  void set_use_intt_time(const bool flag){_use_intt_time = flag ;}
+  // 2024/01/22 update
+  struct WindowMatcher {
+    // --- new method, comparing to a+b*exp(c/pT)
+    // Each Arr3D object contains a,b,c in order
+    // Up to four curved are needed:
+    // - for for positive and negative tracks
+    // - only one curve if |dX|<fn_max, or two if like  fn_min<dX<fnmax
+    using Arr3D = std::array<double,3>;
+    std::string print_fn(const Arr3D&);
+    Arr3D posLo { 100, 0, 0 }; // (above a2,b2,c2), 100 for |dX|
+    Arr3D posHi { 100, 0, 0 }; // (above a3,b3,c3), 100 for use _use_legacy_windowing
+    Arr3D negLo { 100, 0, 0 }; // (above a0,b0,c0), 100 for |dX|
+    Arr3D negHi { 100, 0, 0 }; // (above a1,b1,c1), 100 for treat all tracks pos Q
 
-  int InitRun(PHCompositeNode* topNode) override;
+    // efficiency flags set during PHSiliconTpcTrackMatching::InitRun()
+    bool fabs_max_posQ  = true;
+    bool fabs_max_negQ  = true;
+    bool negLo_b0 = true;
+    bool negHi_b0 = true;
+    bool posLo_b0 = true;
+    bool posHi_b0 = true;
+    double min_pt_posQ  = 0.25; // only grow function windows down to 150 MeV
+    double min_pt_negQ  = 0.25; // only grow function windows down to 150 MeV
 
-  int process_event(PHCompositeNode*) override;
+    WindowMatcher(
+        const Arr3D& _posLo={100,0,0},
+        const Arr3D& _posHi={100,0,0},
+        const Arr3D& _negLo={100,0,0},
+        const Arr3D& _negHi={100,0,0},
+        const double _min_pt_posQ=0.25,
+        const double _min_pt_negQ=0.25)
+      : posLo{_posLo}, posHi{_posHi}, negLo{_negLo}, negHi{_negHi},
+      min_pt_posQ{_min_pt_posQ}, min_pt_negQ{_min_pt_negQ} {};
 
-  int End(PHCompositeNode*) override;
+    inline double fn_exp(const Arr3D& arr, const bool& b_is_0, double pT) {
+      return (b_is_0 ? arr[0] : arr[0]+arr[1]*exp(arr[2]/pT));
+    }
+
+    void init_bools(const std::string& which_window="", const bool print=false);
+
+    bool in_window(bool posQ, const double tpc_pt, const double tpc_X, const double si_X);
+
+    // initialize to fn_lo < deltaX < fn_hi for +Q, and fn_lo < deltaX < fn_hi for -Q
+
+    void reset_fns() {
+      posLo={100,0,0};
+      posHi={100,0,0};
+      negLo={100,0,0};
+      negHi={100,0,0};
+    };
+
+    // same max for |deltaX| for pos and neg Q
+    void set_QoverpT_maxabs    (const Arr3D& _posHi, const double _min_pt=0.25)
+    { reset_fns(); posHi=_posHi; min_pt_posQ = _min_pt; };
+
+    // same range for deltaX for pos and neg Q
+    void set_QoverpT_range     (const Arr3D& _posLo, const Arr3D& _posHi, const double _min_pt=0.25)
+    { reset_fns(); posLo=_posLo; posHi=_posHi; min_pt_posQ=_min_pt; };
+
+    // max for |deltaX| for pos Q
+    void set_posQoverpT_maxabs (const Arr3D& _posHi, const double _min_pt=0.25)
+    { posLo={100.,0.,0.}; posHi=_posHi; min_pt_posQ = _min_pt; };
+
+    // max for |deltaX| for neg Q
+    void set_negQoverpT_maxabs (const Arr3D& _negHi, const double _min_pt=0.25)
+    { posLo={100.,0.,0.}; negHi=_negHi; min_pt_negQ = _min_pt; };
+
+    // range for deltaX for pos Q
+    void set_posQoverpT_range  (const Arr3D& _posLo, const Arr3D& _posHi, const double _min_pt=0.25)
+    { posLo=_posLo; posHi=_posHi; min_pt_posQ = _min_pt; };
+
+    // range for deltaX for neg Q
+    void set_negQoverpT_range  (const Arr3D& _negLo, const Arr3D& _negHi, const double _min_pt=0.25)
+    { negLo=_negLo; negHi=_negHi; min_pt_negQ = _min_pt; };
+
+  };
+
+  // initialize the window matchers with default values
+  WindowMatcher window_dx   { {100.,0.,0.}, {5.3, 0., 0.} };
+  WindowMatcher window_dy   { {100.,0.,0.}, {5.2, 0., 0.} };
+  WindowMatcher window_dz   { {100.,0.,0.}, {0., 2.6, 0.38}, {100,0.,0.,}, {0., 1.45, 0.49} };
+  WindowMatcher window_dphi { {-0.25, 0., 0.},  {0.05, 0., 0.} };
+  WindowMatcher window_deta { {100.,0.,0.}, {0.050, 0.0064, 1.1}, {100,0.,0.,}, {0.045, 0.0031, 1.0} };
+
+  bool _print_windows = false;
+  void print_windows(bool print=true) { _print_windows = print; }
+
+  void zeroField(const bool flag) { _zero_field = flag; }
+
+  //  void set_use_old_matching(const bool flag) { _use_old_matching = flag; }
+
+  void set_test_windows_printout(const bool test) { _test_windows = test; }
+  void set_file_name(const std::string &name) { _file_name = name; }
+  void set_pp_mode(const bool flag) { _pp_mode = flag; }
+  void set_use_intt_crossing(const bool flag) { _use_intt_crossing = flag; }
+
+  int InitRun(PHCompositeNode *topNode) override;
+
+  int process_event(PHCompositeNode *) override;
+
+  int End(PHCompositeNode *) override;
+
+  void fieldMap(std::string &fieldmap) { m_fieldMap = fieldmap; }
 
   void set_silicon_track_map_name(const std::string &map_name) { _silicon_track_map_name = map_name; }
   void set_track_map_name(const std::string &map_name) { _track_map_name = map_name; }
-  void SetIteration(int iter){_n_iteration = iter;}
+  void SetIteration(int iter) { _n_iteration = iter; }
+
  private:
+  int GetNodes(PHCompositeNode *topNode);
 
-  int GetNodes(PHCompositeNode* topNode);
-
-  void findEtaPhiMatches( std::set<unsigned int> &tpc_matched_set,
-                            std::set<unsigned int> &tpc_unmatched_set,
-			    std::multimap<unsigned int, unsigned int> &tpc_matches );
+  void findEtaPhiMatches(std::set<unsigned int> &tpc_matched_set,
+                         std::set<unsigned int> &tpc_unmatched_set,
+                         std::multimap<unsigned int, unsigned int> &tpc_matches);
   std::vector<short int> getInttCrossings(TrackSeed *si_track);
-   void checkCrossingMatches( std::multimap<unsigned int, unsigned int> &tpc_matches);
-   short int getCrossingIntt(TrackSeed *_tracklet_si);
+  void checkZMatches(std::multimap<unsigned int, unsigned int> &tpc_matches,
+		     std::multimap<unsigned int, unsigned int> &bad_map);
+  short int getCrossingIntt(TrackSeed *_tracklet_si);
+  // void findCrossingGeometrically(std::multimap<unsigned int, unsigned int> tpc_matches);
+  short int findCrossingGeometrically(unsigned int tpc_id, unsigned int si_id);
+  double getBunchCrossing(unsigned int trid, double z_mismatch);
 
-   //   void checkCrossingMatches( std::multimap<short int, std::pair<unsigned int, unsigned int>> &crossing_matches,  std::map<unsigned int, short int> &tpc_crossing_map );
-  //double getBunchCrossing(unsigned int trid, double z_mismatch);
-  //double getMedian(std::vector<double> &v);
-  //void addSiliconClusters( std::multimap<short int, std::pair<unsigned int, unsigned int>> &crossing_matches);
-  //void addSiliconClusters(  std::multimap<unsigned int, unsigned int> &tpc_matches);
-  //void tagInTimeTracks(  std::multimap<unsigned int, unsigned int> &tpc_matches,
-  //			 std::multimap<int, std::pair<unsigned int, unsigned int>> &crossing_matches,
-  //			 std::map<unsigned int, int> &tpc_crossing_map );
-  //void tagMatchCrossing( std::multimap<unsigned int, unsigned int> &tpc_matches,
-  //			 std::multimap<short int, std::pair<unsigned int, unsigned int>> &crossing_matches,
-  //			 std::map<unsigned int, short int> &tpc_crossing_map );
-  //   void copySiliconClustersToCorrectedMap( );
-  //void correctTpcClusterZIntt(  std::map<unsigned int, short int> &tpc_crossing_map );
-   //void getMatchCrossingIntt(  
-   //			       std::multimap<unsigned int, unsigned int> &tpc_matches,
-   //			       std::multimap<short int, std::pair<unsigned int, unsigned int>> &crossing_matches,
-   //			       std::map<unsigned int, short int> &tpc_crossing_map );
-   //  void addTrackBunchCrossing(std::multimap<unsigned int, unsigned int> &tpc_matches);	  
-    //  void addTrackBunchCrossing( std::map<unsigned int, short int> &tpc_crossing_map);	  
-  //  void addTrackBunchCrossing(
-   //						   std::map<unsigned int, short int> &vertex_crossings_map,
-   //						   std::multimap<unsigned int, std::pair<unsigned int, unsigned int>>  &vertex_map);	  
-  //  void cleanVertexMap( std::map<unsigned int, short int> &vertex_crossings_map,
-  //		       std::multimap<unsigned int, std::pair<unsigned int, unsigned int>>  &vertex_map,
-  //		       std::map<unsigned int, short int> &tpc_crossing_map );
-  // void getCrossingNumber( std::vector<double> &vertex_list,
-  //			    std::multimap<unsigned int, std::pair<unsigned int, unsigned int>>  &vertex_map, 
-  //			    std::map<unsigned int, short int> &vertex_crossings_map);
-  //void getSiVertexList( std::multimap<double, std::pair<unsigned int, unsigned int>> &si_sorted_map,
-  //			  std::vector<double> &vertex_list,
-  //			  std::multimap<unsigned int, std::pair<unsigned int, unsigned int>>  &vertex_map);
-  //  void addSiliconClusters(  std::multimap<unsigned int, std::pair<unsigned int, unsigned int>> &vertex_map);
-   //  void correctTpcClusterZ( std::map<unsigned int, double> &vertex_crossings_map,
-   //			     std::multimap<unsigned int, std::pair<unsigned int, unsigned int>>  &vertex_map );
+  TFile *_file = nullptr;
+  TNtuple *_tree = nullptr;
+
+  std::string _file_name = "track_match.root";
 
   // default values, can be replaced from the macro
   double _phi_search_win = 0.01;
@@ -98,7 +177,11 @@ class PHSiliconTpcTrackMatching : public SubsysReco, public PHParameterInterface
   double _x_search_win = 0.3;
   double _y_search_win = 0.3;
   double _z_search_win = 0.4;
-  
+
+  //  bool _use_old_matching = false;  // normally false
+
+  bool _zero_field = false;     // fit straight lines if true
+
   TrackSeedContainer *_svtx_seed_map{nullptr};
   TrackSeedContainer *_track_map{nullptr};
   TrackSeedContainer *_track_map_silicon{nullptr};
@@ -107,21 +190,28 @@ class PHSiliconTpcTrackMatching : public SubsysReco, public PHParameterInterface
   TrkrClusterContainer *_cluster_map{nullptr};
   ActsGeometry *_tGeometry{nullptr};
   TrkrClusterCrossingAssoc *_cluster_crossing_map{nullptr};
-
+  int m_event = 0;
   std::map<unsigned int, double> _z_mismatch_map;
 
-  double _collision_rate = 50e3;  // input rate for phi correction
-  double _reference_collision_rate = 50e3;  // reference rate for phi correction
-  double _si_vertex_dzmax = 0.25;  // mm
-  double crossing_period = 106.0;  // ns
+  TpcClusterZCrossingCorrection _clusterCrossingCorrection;
+  float _crossing_deltaz_max = 10.0;
+  float _crossing_deltaz_min = 1.5;
+  float _deltaeta_min = 0.03;
+
+  //  double _collision_rate = 50e3;  // input rate for phi correction
+  //  double _reference_collision_rate = 50e3;  // reference rate for phi correction
+  //  double _si_vertex_dzmax = 0.25;  // mm
+  double fieldstrength{std::numeric_limits<double>::quiet_NaN()};
 
   bool _test_windows = false;
   bool _pp_mode = false;
-  bool _use_intt_time = false;
+  bool _use_intt_crossing = true;  // should always be true except for testing
 
   int _n_iteration = 0;
   std::string _track_map_name = "TpcTrackSeedContainer";
   std::string _silicon_track_map_name = "SiliconTrackSeedContainer";
+  std::string m_fieldMap = "1.4";
+  std::vector<TrkrDefs::cluskey> getTrackletClusterList(TrackSeed* tracklet);
 };
 
-#endif // PHTRUTHSILICONASSOCIATION_H
+#endif  //  PHSILICONTPCTRACKMATCHING_H

@@ -5,42 +5,64 @@ AUTOMAKE_OPTIONS = foreign
 
 lib_LTLIBRARIES = \
   libmvtx_io.la \
-  libmvtx.la 
+  libmvtx.la
 
 AM_CPPFLAGS = \
   -I$(includedir) \
-  -I$(OFFLINE_MAIN)/include  \
+  -isystem$(OFFLINE_MAIN)/include  \
   -isystem$(ROOTSYS)/include
 
 AM_LDFLAGS = \
   -L$(libdir) \
   -L$(ROOTSYS)/lib \
-  -L$(OFFLINE_MAIN)/lib
+  -L$(OFFLINE_MAIN)/lib \
+  -L$(OFFLINE_MAIN)/lib64
 
 pkginclude_HEADERS = \
-  MvtxClusterizer.h \
-  MvtxHitPruner.h \
   CylinderGeom_Mvtx.h \
+  CylinderGeom_MvtxHelper.h \
+  MvtxCombinedRawDataDecoder.h \
+  MvtxClusterizer.h \
+  MvtxClusterPruner.h \
+  MvtxHitPruner.h \
+  MvtxHitMap.h \
+  MvtxNoiseMap.h \
+  MvtxPixelDefs.h \
+  MvtxPixelMask.h \
   SegmentationAlpide.h
 
-
 ROOTDICTS = \
-  CylinderGeom_Mvtx_Dict.cc
+  CylinderGeom_Mvtx_Dict.cc \
+  MvtxNoiseMap_Dict.cc
 
 pcmdir = $(libdir)
-nobase_dist_pcm_DATA = \
-  CylinderGeom_Mvtx_Dict_rdict.pcm
+# more elegant way to create pcm files (without listing them)
+nobase_dist_pcm_DATA = $(ROOTDICTS:.cc=_rdict.pcm)
 
 # sources for mvtx library
 libmvtx_la_SOURCES = \
+  CylinderGeom_MvtxHelper.cc \
+  MvtxCombinedRawDataDecoder.cc \
   MvtxClusterizer.cc \
- MvtxHitPruner.cc
+  MvtxClusterPruner.cc \
+  MvtxHitPruner.cc \
+  MvtxHitMap.cc \
+  MvtxPixelDefs.cc \
+  MvtxPixelMask.cc
 
 libmvtx_la_LIBADD = \
   libmvtx_io.la \
+  -lActsCore \
   -lCLHEP \
+  -lcdbobjects \
+  -lffamodules \
+  -lffarawobjects \
+  -lfun4all \
+  -lfun4allraw \
+  -lmvtx_decoder \
   -lphg4hit \
-  -lSubsysReco
+  -lSubsysReco \
+  -ltrack_io
 
 # sources for io library
 libmvtx_io_la_SOURCES = \
@@ -49,10 +71,8 @@ libmvtx_io_la_SOURCES = \
   SegmentationAlpide.cc
 
 libmvtx_io_la_LIBADD = \
-  -lphool \
   -lg4detectors_io \
-  -ltrack_io \
-  -ltrackbase_historic_io
+  -lphool
 
 # Rule for generating table CINT dictionaries.
 %_Dict.cc: %.h %LinkDef.h

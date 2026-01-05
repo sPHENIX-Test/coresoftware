@@ -1,11 +1,21 @@
 #include "TrkrHitv1.h"
 
-TrkrHitv1::TrkrHitv1()
+void TrkrHitv1::CopyFrom(const TrkrHit& source)
 {
-}
-
-unsigned int TrkrHitv1::getAdc() 
-  { 
-    return m_adc;
+  // do nothing if copying onto oneself
+  if (this == &source)
+  {
+    return;
   }
 
+  // parent class method
+  TrkrHit::CopyFrom(source);
+
+  // copy adc
+  setAdc(source.getAdc());
+}
+
+unsigned int TrkrHitv1::getAdc() const
+{
+  return m_adc;
+}

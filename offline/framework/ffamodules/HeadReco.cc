@@ -20,16 +20,15 @@
 #include <phool/getClass.h>
 #include <phool/recoConsts.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <HepMC/GenEvent.h>
-#pragma GCC diagnostic pop
+#include <Event/Event.h>
 
+#include <HepMC/GenEvent.h>
 #include <HepMC/HeavyIon.h>  // for HeavyIon
 
 #include <iterator>  // for operator!=, reverse_iterator
 #include <map>       // for _Rb_tree_iterator
-#include <utility>   // for pair
+#include <ranges>
+#include <utility>  // for pair
 
 HeadReco::HeadReco(const std::string &name)
   : SubsysReco(name)
@@ -70,9 +69,9 @@ int HeadReco::process_event(PHCompositeNode *topNode)
 
   if (genevtmap)
   {
-    for (PHHepMCGenEventMap::ReverseIter iter = genevtmap->rbegin(); iter != genevtmap->rend(); ++iter)
+    for (auto &iter : std::ranges::reverse_view(*genevtmap))
     {
-      PHHepMCGenEvent *genevt = iter->second;
+      PHHepMCGenEvent *genevt = iter.second;
       int embed_flag = genevt->get_embedding_id();
       if (embed_flag == 0)  // should be foreground event
       {
@@ -85,12 +84,24 @@ int HeadReco::process_event(PHCompositeNode *topNode)
           {
             evtheader->set_ImpactParameter(hi->impact_parameter());
             evtheader->set_EventPlaneAngle(hi->event_plane_angle());
+            for (unsigned int n = 1; n <= 6; ++n)
+            {
+              evtheader->set_FlowPsiN(n, genevt->get_flow_psi(n));
+            }
             evtheader->set_eccentricity(hi->eccentricity());
             evtheader->set_ncoll(hi->Ncoll());
             evtheader->set_npart(hi->Npart_targ() + hi->Npart_proj());
           }
         }
       }
+    }
+  }
+  else
+  {
+    Event *evt = findNode::getClass<Event>(topNode, "PRDF");
+    if (evt)
+    {
+      evtheader->set_EvtType(evt->getEvtType());
     }
   }
   evtheader->set_RunNumber(se->RunNumber());

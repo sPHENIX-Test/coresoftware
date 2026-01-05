@@ -1,11 +1,11 @@
 #include "PHTrackSeeding.h"
 
 #include <trackbase_historic/TrackSeed.h>
-#include <trackbase_historic/TrackSeed_v1.h>
+#include <trackbase_historic/TrackSeed_v2.h>
 #include <trackbase_historic/TrackSeedContainer.h>
 #include <trackbase_historic/TrackSeedContainer_v1.h>
 
-#include <trackbase_historic/SvtxVertexMap.h>
+#include <globalvertex/SvtxVertexMap.h>
 
 #include <trackbase/TrkrClusterContainer.h>
 #include <trackbase/TrkrClusterHitAssoc.h>
@@ -42,7 +42,7 @@ int PHTrackSeeding::InitRun(PHCompositeNode* topNode)
 int PHTrackSeeding::process_event(PHCompositeNode* topNode)
 {
   if(_n_iteration >0){
-    _iteration_map = findNode::getClass<TrkrClusterIterationMapv1>(topNode, "CLUSTER_ITERATION_MAP");
+    _iteration_map = findNode::getClass<TrkrClusterIterationMapv1>(topNode, "TrkrClusterIterationMap");
     if (!_iteration_map){
       cerr << PHWHERE << "Cluster Iteration Map missing, aborting." << endl;
       return Fun4AllReturnCodes::ABORTEVENT;

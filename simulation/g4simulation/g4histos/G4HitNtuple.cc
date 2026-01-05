@@ -4,7 +4,7 @@
 #include <g4main/PHG4HitContainer.h>
 
 #include <fun4all/Fun4AllHistoManager.h>
-#include <fun4all/SubsysReco.h>           // for SubsysReco
+#include <fun4all/SubsysReco.h>  // for SubsysReco
 
 #include <phool/getClass.h>
 
@@ -12,29 +12,22 @@
 #include <TH1.h>
 #include <TNtuple.h>
 
-#include <sstream>
-#include <utility>                        // for pair
-
-using namespace std;
+#include <utility>  // for pair
 
 G4HitNtuple::G4HitNtuple(const std::string &name, const std::string &filename)
   : SubsysReco(name)
-  , nblocks(0)
-  , hm(nullptr)
   , _filename(filename)
-  , ntup(nullptr)
-  , outfile(nullptr)
 {
 }
 
 G4HitNtuple::~G4HitNtuple()
 {
-  //  delete ntup;
   delete hm;
 }
 
-int G4HitNtuple::Init(PHCompositeNode *)
+int G4HitNtuple::Init(PHCompositeNode * /*unused*/)
 {
+  delete hm; // make cppcheck happy
   hm = new Fun4AllHistoManager(Name());
   outfile = new TFile(_filename.c_str(), "RECREATE");
   ntup = new TNtuple("hitntup", "G4Hits", "detid:lyr:slat:x0:y0:z0:x1:y1:z1:edep");
@@ -48,15 +41,12 @@ int G4HitNtuple::Init(PHCompositeNode *)
 
 int G4HitNtuple::process_event(PHCompositeNode *topNode)
 {
-  ostringstream nodename;
-  set<string>::const_iterator iter;
-  vector<TH1 *>::const_iterator eiter;
-  for (iter = _node_postfix.begin(); iter != _node_postfix.end(); ++iter)
+  std::string nodename;
+  for (const auto &iter : _node_postfix)
   {
-    int detid = (_detid.find(*iter))->second;
-    nodename.str("");
-    nodename << "G4HIT_" << *iter;
-    PHG4HitContainer *hits = findNode::getClass<PHG4HitContainer>(topNode, nodename.str());
+    int detid = (_detid.find(iter))->second;
+    nodename = "G4HIT_" + iter;
+    PHG4HitContainer *hits = findNode::getClass<PHG4HitContainer>(topNode, nodename);
     if (hits)
     {
       double esum = 0;
@@ -78,16 +68,16 @@ int G4HitNtuple::process_event(PHCompositeNode *topNode)
                    hit_iter->second->get_z(1),
                    hit_iter->second->get_edep());
       }
-      for (eiter = eloss.begin(); eiter != eloss.end(); ++eiter)
+      for (auto *eiter : eloss)
       {
-        (*eiter)->Fill(esum);
+        eiter->Fill(esum);
       }
     }
   }
   return 0;
 }
 
-int G4HitNtuple::End(PHCompositeNode */*topNode*/)
+int G4HitNtuple::End(PHCompositeNode * /*topNode*/)
 {
   outfile->cd();
   ntup->Write();

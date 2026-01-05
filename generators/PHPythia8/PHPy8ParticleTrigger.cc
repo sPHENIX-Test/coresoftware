@@ -3,48 +3,12 @@
 #include <Pythia8/Event.h>  // for Event, Particle
 #include <Pythia8/Pythia.h>
 
-#include <algorithm>  // for max
-#include <cstdlib>    // for abs
-#include <iostream>   // for operator<<, endl, basic_ostream, basic_o...
-
-using namespace std;
+#include <algorithm>
+#include <iostream>  // for operator<<, endl, basic_ostream, basic_o...
 
 //__________________________________________________________
 PHPy8ParticleTrigger::PHPy8ParticleTrigger(const std::string &name)
   : PHPy8GenTrigger(name)
-  , _theEtaHigh(-999.9)
-  , _theEtaLow(-999.9)
-  , _thePtHigh(999.9)
-  , _thePtLow(-999.9)
-  , _thePHigh(999.9)
-  , _thePLow(-999.9)
-  , _thePzHigh(999.9)
-  , _thePzLow(-999.9)
-  ,
-
-  _doEtaHighCut(false)
-  , _doEtaLowCut(false)
-  , _doBothEtaCut(false)
-  ,
-
-  _doAbsEtaHighCut(false)
-  , _doAbsEtaLowCut(false)
-  , _doBothAbsEtaCut(false)
-  ,
-
-  _doPtHighCut(false)
-  , _doPtLowCut(false)
-  , _doBothPtCut(false)
-  ,
-
-  _doPHighCut(false)
-  , _doPLowCut(false)
-  , _doBothPCut(false)
-  ,
-
-  _doPzHighCut(false)
-  , _doPzLowCut(false)
-  , _doBothPzCut(false)
 {
 }
 
@@ -60,19 +24,19 @@ bool PHPy8ParticleTrigger::Apply(Pythia8::Pythia *pythia)
 {
   if (Verbosity() > 2)
   {
-    cout << "PHPy8ParticleTrigger::Apply - pythia event size: "
-         << pythia->event.size() << endl;
+    std::cout << "PHPy8ParticleTrigger::Apply - pythia event size: "
+              << pythia->event.size() << std::endl;
   }
 
   // Loop over all particles in the event
   for (int i = 0; i < pythia->event.size(); ++i)
   {
     // loop over all the trigger particle criteria
-    for (int j = 0; j < int(_theParticles.size()); j++)
+    for (int _theParticle : _theParticles)
     {
-      if (pythia->event[i].id() == _theParticles[j] &&
-          (pythia->event[i].status() > 0    //only stable particles
-           or (not m_doStableParticleOnly)  // or not
+      if (pythia->event[i].id() == _theParticle &&
+          (pythia->event[i].status() > 0  // only stable particles
+           || (!m_doStableParticleOnly)   // or not
            ))
       {
         if (_doBothYCut && (pythia->event[i].y() < _theYLow ||
@@ -103,16 +67,16 @@ bool PHPy8ParticleTrigger::Apply(Pythia8::Pythia *pythia)
           continue;
         }
 
-        if (_doBothAbsEtaCut && (abs(pythia->event[i].eta()) < _theEtaLow ||
-                                 abs(pythia->event[i].eta()) > _theEtaHigh))
+        if (_doBothAbsEtaCut && (std::abs(pythia->event[i].eta()) < _theEtaLow ||
+                                 std::abs(pythia->event[i].eta()) > _theEtaHigh))
         {
           continue;
         }
-        if (_doAbsEtaLowCut && abs(pythia->event[i].eta()) < _theEtaLow)
+        if (_doAbsEtaLowCut && std::abs(pythia->event[i].eta()) < _theEtaLow)
         {
           continue;
         }
-        if (_doAbsEtaHighCut && abs(pythia->event[i].eta()) > _theEtaHigh)
+        if (_doAbsEtaHighCut && std::abs(pythia->event[i].eta()) > _theEtaHigh)
         {
           continue;
         }
@@ -161,48 +125,48 @@ bool PHPy8ParticleTrigger::Apply(Pythia8::Pythia *pythia)
 
         if (Verbosity() > 5)
         {
-          cout << "stable " << pythia->event[i].id()
-               << "  pt: " << pythia->event[i].pT()
-               << " pz: " << pythia->event[i].pz()
-               << " p: " << pythia->event[i].pAbs()
-               << " eta: " << pythia->event[i].eta()
-               << " y: " << pythia->event[i].y() << endl;
+          std::cout << "stable " << pythia->event[i].id()
+                    << "  pt: " << pythia->event[i].pT()
+                    << " pz: " << pythia->event[i].pz()
+                    << " p: " << pythia->event[i].pAbs()
+                    << " eta: " << pythia->event[i].eta()
+                    << " y: " << pythia->event[i].y() << std::endl;
         }
 
         // loop over all partents to this particle
         bool passedParents = false;
-        for (int k = 0; k < int(_theParents.size()); k++)
+        for (int _theParent : _theParents)
         {
           // check Mothers
           std::vector<int> moms = pythia->event[i].motherList();
-          for (int m = 0; m < int(moms.size()); m++)
+          for (int mom : moms)
           {
-            if (abs(pythia->event[moms[m]].id()) == abs(_theParents[k]))
+            if (std::abs(pythia->event[mom].id()) == std::abs(_theParent))
             {
               passedParents = true;
               if (Verbosity() > 5)
               {
-                cout << "found parent!" << endl;
+                std::cout << "found parent!" << std::endl;
               }
               break;
             }
-          }  //moms for loop
+          }  // moms for loop
           if (passedParents)
           {
             break;
           }
-        }  //parents for loop
+        }  // parents for loop
 
-        //If we made it here and it passes parents, success!
-        if (_theParents.size() == 0 || passedParents)
+        // If we made it here and it passes parents, success!
+        if (_theParents.empty() || passedParents)
         {
           return true;
         }
 
-      }  //if _theParticles
-    }    //_theParticles for loop
+      }  // if _theParticles
+    }  //_theParticles for loop
 
-  }  //pythia event for loop
+  }  // pythia event for loop
 
   return false;
 }
@@ -485,54 +449,54 @@ void PHPy8ParticleTrigger::SetPzHighLow(double pzHigh, double pzLow)
 
 void PHPy8ParticleTrigger::PrintConfig()
 {
-  cout << "---------------- PHPy8ParticleTrigger::PrintConfig --------------------" << endl;
+  std::cout << "---------------- PHPy8ParticleTrigger::PrintConfig --------------------" << std::endl;
 
   if (m_doStableParticleOnly)
   {
-    cout << "Process stable particles only." << endl;
+    std::cout << "Process stable particles only." << std::endl;
   }
   else
   {
-    cout << "Process both unstable and stable particles." << endl;
+    std::cout << "Process both unstable and stable particles." << std::endl;
   }
 
-  cout << "   Particles: ";
-  for (int i = 0; i < int(_theParticles.size()); i++)
+  std::cout << "   Particles: ";
+  for (int _theParticle : _theParticles)
   {
-    cout << _theParticles[i] << "  ";
+    std::cout << _theParticle << "  ";
   }
-  cout << endl;
+  std::cout << std::endl;
 
-  cout << "   Parents: ";
-  for (int i = 0; i < int(_theParents.size()); i++)
+  std::cout << "   Parents: ";
+  for (int _theParent : _theParents)
   {
-    cout << _theParents[i] << "  ";
+    std::cout << _theParent << "  ";
   }
-  cout << endl;
+  std::cout << std::endl;
 
   if (_doYHighCut || _doYLowCut || _doBothYCut)
   {
-    cout << "   doYCut:  " << _theYLow << " < Y < " << _theYHigh << endl;
+    std::cout << "   doYCut:  " << _theYLow << " < Y < " << _theYHigh << std::endl;
   }
   if (_doEtaHighCut || _doEtaLowCut || _doBothEtaCut)
   {
-    cout << "   doEtaCut:  " << _theEtaLow << " < eta < " << _theEtaHigh << endl;
+    std::cout << "   doEtaCut:  " << _theEtaLow << " < eta < " << _theEtaHigh << std::endl;
   }
   if (_doAbsEtaHighCut || _doAbsEtaLowCut || _doBothAbsEtaCut)
   {
-    cout << "   doAbsEtaCut:  " << _theEtaLow << " < |eta| < " << _theEtaHigh << endl;
+    std::cout << "   doAbsEtaCut:  " << _theEtaLow << " < |eta| < " << _theEtaHigh << std::endl;
   }
   if (_doPtHighCut || _doPtLowCut || _doBothPtCut)
   {
-    cout << "   doPtCut:  " << _thePtLow << " < pT < " << _thePtHigh << endl;
+    std::cout << "   doPtCut:  " << _thePtLow << " < pT < " << _thePtHigh << std::endl;
   }
   if (_doPHighCut || _doPLowCut || _doBothPCut)
   {
-    cout << "   doPCut:  " << _thePLow << " < p < " << _thePHigh << endl;
+    std::cout << "   doPCut:  " << _thePLow << " < p < " << _thePHigh << std::endl;
   }
   if (_doPzHighCut || _doPzLowCut || _doBothPzCut)
   {
-    cout << "   doPzCut:  " << _thePzLow << " < pz < " << _thePzHigh << endl;
+    std::cout << "   doPzCut:  " << _thePzLow << " < pz < " << _thePzHigh << std::endl;
   }
-  cout << "-----------------------------------------------------------------------" << endl;
+  std::cout << "-----------------------------------------------------------------------" << std::endl;
 }

@@ -2,7 +2,7 @@
 
 /*!
  * \file PHFieldConfigv1.cc
- * \brief 
+ * \brief
  * \author Jin Huang <jhuang@bnl.gov>
  * \version $Revision:   $
  * \date $Date: $
@@ -45,3 +45,13 @@ int PHFieldConfigv1::isValid() const
 {
   return filename_.length();
 }
+
+//_______________________________________________________________________
+bool PHFieldConfigv1::operator == (const PHFieldConfig& other ) const
+{
+  return 
+    get_field_config() == other.get_field_config() &&
+    get_filename() == other.get_filename() &&
+    get_magfield_rescale() == other.get_magfield_rescale();
+}
+    

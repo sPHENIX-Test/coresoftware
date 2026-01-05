@@ -8,7 +8,7 @@
 #include <fun4all/SubsysReco.h>
 
 #include <array>
-#include <cmath>
+#include <limits>
 #include <string>
 
 class PHCompositeNode;
@@ -18,7 +18,7 @@ class PHG4EPDModuleReco : public SubsysReco, public PHParameterInterface
  public:
   PHG4EPDModuleReco(const std::string &name = "EpdModuleReco");
 
-  ~PHG4EPDModuleReco() override {}
+  ~PHG4EPDModuleReco() override = default;
 
   //! module initialization
   int InitRun(PHCompositeNode *topNode) override;
@@ -33,8 +33,7 @@ class PHG4EPDModuleReco : public SubsysReco, public PHParameterInterface
 
   void Detector(const std::string &detector);
 
-  std::string
-  get_epd_sim_tower_node_prefix() const
+  const std::string &get_epd_sim_tower_node_prefix() const
   {
     return m_EPDSimTowerNodePrefix;
   }
@@ -45,8 +44,7 @@ class PHG4EPDModuleReco : public SubsysReco, public PHParameterInterface
     m_EPDSimTowerNodePrefix = epdsimTowerNodePrefix;
   }
 
-  std::string
-  get_epd_calib_tower_node_prefix() const
+  const std::string &get_epd_calib_tower_node_prefix() const
   {
     return m_EPDCalibTowerNodePrefix;
   }
@@ -60,25 +58,33 @@ class PHG4EPDModuleReco : public SubsysReco, public PHParameterInterface
   void set_timing_window(const double tmi, const double tma);
 
  private:
-  int Getrmap(int rindex);
-  int Getphimap(int phiindex);
+  void FillTilePhiArray();
+  void FillTilePhi0Array();
+  static int Getrmap(int rindex);
+  static int Getphimap(int phiindex);
+  float GetTilePhi(int thisphi);
+  float GetTilePhi0(int thisphi0);
+  static float GetTileR(int thisr);
+  static float GetTileZ(int thisz);
   void CreateNodes(PHCompositeNode *topNode);
 
-  std::string m_Detector;
-  std::string m_Hitnodename;
-  std::string m_EPDSimTowerNodePrefix = "SIM";
-  std::string m_EPDCalibTowerNodePrefix = "CALIB";
+  double m_EpdMpv{std::numeric_limits<double>::quiet_NaN()};
+  double tmin{std::numeric_limits<double>::quiet_NaN()};
+  double tmax{std::numeric_limits<double>::quiet_NaN()};
+  double m_DeltaT{std::numeric_limits<double>::quiet_NaN()};
 
-  std::string m_TowerInfoNodeName;
-  std::string m_TowerInfoNodeName_calib;
+  std::array<float, 24> m_tilephi{};
+  std::array<float, 12> m_tilephi0{};
   std::array<std::array<std::array<double, 31>, 12>, 2> m_EpdTile_e = {};
   std::array<std::array<std::array<double, 31>, 12>, 2> m_EpdTile_Calib_e = {};
 
-  double m_EpdMpv = NAN;
+  std::string m_Detector;
+  std::string m_Hitnodename;
+  std::string m_EPDSimTowerNodePrefix{"SIM"};
+  std::string m_EPDCalibTowerNodePrefix{"CALIB"};
 
-  double tmin = NAN;
-  double tmax = NAN;
-  double m_DeltaT = NAN;
+  std::string m_TowerInfoNodeName;
+  std::string m_TowerInfoNodeName_calib;
 };
 
 #endif

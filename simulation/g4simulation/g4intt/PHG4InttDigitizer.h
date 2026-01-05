@@ -5,14 +5,16 @@
 
 #include <fun4all/SubsysReco.h>
 
+#include <intt/InttBadChannelMap.h>
+
 #include <gsl/gsl_rng.h>
 
 #include <map>
 #include <string>   // for string
-#include <utility>  // for pair
 #include <vector>
 
 class PHCompositeNode;
+class InttBadChannelMap;
 
 class PHG4InttDigitizer : public SubsysReco, public PHParameterInterface
 {
@@ -31,9 +33,13 @@ class PHG4InttDigitizer : public SubsysReco, public PHParameterInterface
 
   void SetDefaultParameters() override;
 
+  /// Overloaded; no arguments loads with default tag
+  int LoadBadChannelMap() {return m_badmap.Load();}
+  int LoadBadChannelMap(std::string const& s) {return m_badmap.Load(s);}
+
   void Detector(const std::string &d) { detector = d; }
 
-  void set_adc_scale(const int &layer, const std::vector<double> &userrange);
+  void set_adc_scale(const int &layer, std::vector<double> userrange_copy);
 
  private:
   void CalculateLadderCellADCScale(PHCompositeNode *topNode);
@@ -54,16 +60,18 @@ class PHG4InttDigitizer : public SubsysReco, public PHParameterInterface
   std::map<int, float> _energy_scale;
 
   // storage
-  //SvtxHitMap *_hitmap;
+  // SvtxHitMap *_hitmap;
 
   const unsigned int nadcbins = 8;
-  std::map<int, std::vector<std::pair<double, double> > > _max_fphx_adc;
+  std::map<int, std::vector<double>> _max_fphx_adc;
 
   unsigned int m_nCells = 0;
   unsigned int m_nDeadCells = 0;
 
   //! random generator that conform with sPHENIX standard
   gsl_rng *RandomGenerator = nullptr;
+
+  InttBadChannelMap m_badmap;
 };
 
 #endif
