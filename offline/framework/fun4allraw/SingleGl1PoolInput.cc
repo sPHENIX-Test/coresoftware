@@ -1,11 +1,10 @@
 #include "SingleGl1PoolInput.h"
 
 #include "Fun4AllStreamingInputManager.h"
+#include "Fun4AllStreamingLumiCountingInputManager.h"
 #include "InputManagerType.h"
 
 #include <ffarawobjects/Gl1Packetv3.h>
-
-#include <fun4all/InputFileHandlerReturnCodes.h>
 
 #include <phool/PHCompositeNode.h>
 #include <phool/PHIODataNode.h>    // for PHIODataNode
@@ -39,6 +38,19 @@ SingleGl1PoolInput::~SingleGl1PoolInput()
   CleanupUsedPackets(std::numeric_limits<uint64_t>::max());
 }
 
+/**
+ * @brief Populate the internal GL1 event pool from input files.
+ *
+ * Reads events from the current input file(s) until the pool reaches the desired
+ * depth or no more events are available. For each DATAEVENT it extracts packet
+ * 14001, constructs a Gl1Packetv3 hit, updates BCO windowing and bunch-number
+ * maps, and stores the hit in the internal GL1 raw-hit map and beam-clock stack.
+ * Special and control events (e.g., end-of-run) are counted and cause appropriate
+ * end-of-event/end-of-run flags to be set; end conditions and per-event state
+ * (event number, end-of-event flags, window sizes, bunch numbers) are propagated
+ * to any attached StreamingInputManager and StreamingLumiInputManager. Packet
+ * objects consumed from events are deleted after their data are transferred.
+ */
 void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
 {
   if (AllDone())  // no more files and all events read
@@ -47,7 +59,7 @@ void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
   }
   while (GetEventiterator() == nullptr)  // at startup this is a null pointer
   {
-    if (OpenNextFile() == InputFileHandlerReturnCodes::FAILURE)
+    if (!OpenNextFile())
     {
       AllDone(1);
       return;
@@ -60,7 +72,7 @@ void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
     while (!evt)
     {
       fileclose();
-      if (OpenNextFile() == InputFileHandlerReturnCodes::FAILURE)
+      if (!OpenNextFile())
       {
         AllDone(1);
         return;
@@ -70,6 +82,25 @@ void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
     if (Verbosity() > 2)
     {
       std::cout << PHWHERE << "Fetching next Event" << evt->getEvtSequence() << std::endl;
+    }
+    if ((m_total_event == 0 && evt->getEvtType() == ENDRUNEVENT) ||
+        (m_total_event != 0 && evt->getEvtSequence() - 2 == m_total_event))
+    {
+      m_alldone_flag = true;
+      m_lastevent_flag = true;
+    }
+    if (evt->getEvtSequence() % 5000 == 0)
+    {
+      m_alldone_flag = true;
+      m_lastevent_flag = true;
+    }
+    if (Verbosity() > 2)
+    {
+      if (m_alldone_flag)
+      {
+        std::cout << "gl1 all done is true" << std::endl;
+      }
+      // else{std::cout<<"gl1 all done is false"<<std::endl;}
     }
     RunNumber(evt->getRunNumber());
     if (GetVerbosity() > 1)
@@ -101,6 +132,15 @@ void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
     {
       std::cout << PHWHERE << "Packet 14001 is null ptr" << std::endl;
       evt->identify();
+      m_alldone_flag = true;
+      m_lastevent_flag = true;
+      if (StreamingLumiInputManager())
+      {
+        StreamingLumiInputManager()->SetEndofEvent(m_alldone_flag, m_lastevent_flag);
+        StreamingLumiInputManager()->SetEventNumber(EventSequence);
+      }
+      m_alldone_flag = false;
+      m_lastevent_flag = false;
       continue;
     }
     if (Verbosity() > 1)
@@ -110,6 +150,10 @@ void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
 
     Gl1Packet *newhit = new Gl1Packetv3();
     uint64_t gtm_bco = packet->lValue(0, "BCO");
+    uint64_t bco_trim = gtm_bco & 0xFFFFFFFFFFU;
+    m_BCOWindows[bco_trim] = std::make_pair(bco_trim - m_negative_bco_window, bco_trim + m_positive_bco_window);
+    //    std::cout<<"BCO "<< m_BCOWindows.begin()->first<<" left "<<m_BCOWindows.begin()->second.first<<" right "<< m_BCOWindows.begin()->second.second<<std::endl;
+    m_BCOBunchNumber[bco_trim] = packet->lValue(0, "BunchNumber");
     m_FEEBclkMap.insert(gtm_bco);
     newhit->setBCO(packet->lValue(0, "BCO"));
     newhit->setHitFormat(packet->getHitFormat());
@@ -158,6 +202,20 @@ void SingleGl1PoolInput::FillPool(const unsigned int /*nbclks*/)
     {
       StreamingInputManager()->AddGl1RawHit(gtm_bco, newhit);
     }
+    if (StreamingLumiInputManager())
+    {
+      StreamingLumiInputManager()->AddGl1Window(bco_trim, m_negative_bco_window, m_positive_bco_window);
+      StreamingLumiInputManager()->AddGl1BunchNumber(bco_trim, m_BCOBunchNumber[bco_trim]);
+      StreamingLumiInputManager()->SetEndofEvent(m_alldone_flag, m_lastevent_flag);
+      StreamingLumiInputManager()->SetEventNumber(EventSequence);
+      StreamingLumiInputManager()->SetNegativeWindow(m_negative_bco_window);
+      StreamingLumiInputManager()->SetPositiveWindow(m_positive_bco_window);
+    }
+    if (evt->getEvtSequence() % 5000 == 0)
+    {
+      m_alldone_flag = false;
+      m_lastevent_flag = false;
+    }
     m_Gl1RawHitMap[gtm_bco].push_back(newhit);
     m_BclkStack.insert(gtm_bco);
 
@@ -181,7 +239,7 @@ void SingleGl1PoolInput::Print(const std::string &what) const
     for (const auto &bcliter : m_Gl1RawHitMap)
     {
       std::cout << PHWHERE << "Beam clock 0x" << std::hex << bcliter.first << std::dec << std::endl;
-      for (auto *feeiter : bcliter.second)
+      for (auto feeiter : bcliter.second)
       {
         std::cout << PHWHERE << "fee: " << feeiter->getBCO()
                   << " at " << std::hex << feeiter << std::dec << std::endl;
@@ -197,6 +255,15 @@ void SingleGl1PoolInput::Print(const std::string &what) const
   }
 }
 
+/**
+ * @brief Delete and remove stored GL1 packets and related state up to a given beam clock.
+ *
+ * Deletes all packet objects and erases entries whose BCLK key is less than or equal to the
+ * provided `bclk` from the internal storage maps and stack, and also removes corresponding
+ * BCO window and bunch-number entries using the trimmed BCLK key (lower 40 bits).
+ *
+ * @param bclk Upper bound beam clock (inclusive) indicating which stored entries to clear.
+ */
 void SingleGl1PoolInput::CleanupUsedPackets(const uint64_t bclk)
 {
   std::vector<uint64_t> toclearbclk;
@@ -204,7 +271,7 @@ void SingleGl1PoolInput::CleanupUsedPackets(const uint64_t bclk)
   {
     if (iter.first <= bclk)
     {
-      for (auto *pktiter : iter.second)
+      for (auto pktiter : iter.second)
       {
         delete pktiter;
       }
@@ -222,6 +289,9 @@ void SingleGl1PoolInput::CleanupUsedPackets(const uint64_t bclk)
     m_FEEBclkMap.erase(iter);
     m_BclkStack.erase(iter);
     m_Gl1RawHitMap.erase(iter);
+    auto trimbclk = iter & 0xFFFFFFFFFFU;
+    m_BCOWindows.erase(trimbclk);
+    m_BCOBunchNumber.erase(trimbclk);
   }
 }
 

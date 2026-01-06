@@ -12,6 +12,7 @@
 class Eventiterator;
 class Fun4AllEvtInputPoolManager;
 class Fun4AllStreamingInputManager;
+class Fun4AllStreamingLumiCountingInputManager;
 class PHCompositeNode;
 
 class SingleStreamingInput : public Fun4AllBase, public InputFileHandler
@@ -44,12 +45,53 @@ class SingleStreamingInput : public Fun4AllBase, public InputFileHandler
 
   virtual bool CheckPoolDepth(const uint64_t bclk);
   virtual void ClearCurrentEvent();
-  virtual Eventiterator *GetEventiterator() const { return m_EventIterator; }
-  virtual Fun4AllStreamingInputManager *StreamingInputManager() { return m_StreamingInputMgr; }
-  virtual void StreamingInputManager(Fun4AllStreamingInputManager *in) { m_StreamingInputMgr = in; }
-  virtual void CreateDSTNode(PHCompositeNode *) { return; }
-  virtual void ConfigureStreamingInputManager() { return; }
-  virtual void SubsystemEnum(const int id) { m_SubsystemEnum = id; }
+  /**
+ * Access the current Eventiterator.
+ * @returns Pointer to the current Eventiterator, or `nullptr` if no iterator is set.
+ */
+virtual Eventiterator *GetEventiterator() const { return m_EventIterator; }
+  /**
+ * Get the current streaming input manager.
+ *
+ * @returns Pointer to the configured Fun4AllStreamingInputManager, or `nullptr` if no manager is set.
+ */
+virtual Fun4AllStreamingInputManager *StreamingInputManager() { return m_StreamingInputMgr; }
+  /**
+ * Assign the streaming input manager for this SingleStreamingInput instance.
+ *
+ * @param in Pointer to the Fun4AllStreamingInputManager to use; pass `nullptr` to clear the current manager.
+ */
+virtual void StreamingInputManager(Fun4AllStreamingInputManager *in) { m_StreamingInputMgr = in; }
+  /**
+ * Access the LumiCounting streaming input manager.
+ *
+ * @returns Pointer to the Fun4AllStreamingLumiCountingInputManager instance, or `nullptr` if no manager is set.
+ */
+virtual Fun4AllStreamingLumiCountingInputManager *StreamingLumiInputManager() { return m_StreamingLumiInputMgr; }
+  /**
+ * Set the streaming lumi counting input manager for this instance.
+ * @param in Fun4AllStreamingLumiCountingInputManager to associate with this input.
+ */
+virtual void StreamingLumiInputManager(Fun4AllStreamingLumiCountingInputManager *in) { m_StreamingLumiInputMgr = in; }
+  /**
+ * Create DST node(s) under the provided composite node.
+ *
+ * Default implementation does nothing; subclasses should override to attach
+ * DST-related nodes to the given top-level node when needed.
+ * @param topNode Top-level PHCompositeNode to which DST nodes will be added.
+ */
+virtual void CreateDSTNode(PHCompositeNode *) { return; }
+  /**
+ * Configure the associated streaming input manager.
+ *
+ * Hook for subclasses to perform any manager-specific initialization or configuration.
+ */
+virtual void ConfigureStreamingInputManager() { return; }
+  /**
+ * Set the subsystem enumeration identifier for this input.
+ * @param id Subsystem enumeration value identifying which subsystem this input corresponds to.
+ */
+virtual void SubsystemEnum(const int id) { m_SubsystemEnum = id; }
   virtual int SubsystemEnum() const { return m_SubsystemEnum; }
   void MaxBclkDiff(uint64_t ui) { m_MaxBclkSpread = ui; }
   uint64_t MaxBclkDiff() const { return m_MaxBclkSpread; }
@@ -117,8 +159,20 @@ class SingleStreamingInput : public Fun4AllBase, public InputFileHandler
   Eventiterator *m_EventIterator{nullptr};
   //  Fun4AllEvtInputPoolManager *m_InputMgr {nullptr};
   Fun4AllStreamingInputManager *m_StreamingInputMgr{nullptr};
+  Fun4AllStreamingLumiCountingInputManager *m_StreamingLumiInputMgr{nullptr};
+
   uint64_t m_MaxBclkSpread{1000000};
-  unsigned int m_EventNumberOffset{1};  // packet event counters start at 0 but we start with event number 1
+  /**
+ * Offset added to event numbers when assigning or reporting event IDs.
+ *
+ * Set to 1 by default; the effective event ID is the original event index plus this offset.
+ */
+unsigned int m_EventNumberOffset{1};  /**
+ * Current run number for this input instance.
+ *
+ * A value of 0 indicates no run has been set. Packet event counters are zero-based,
+ * but event numbering used here starts at 1 relative to those packet counters.
+ */
   int m_RunNumber{0};
   int m_EventsThisFile{0};
   int m_AllDone{0};
