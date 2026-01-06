@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: "en-US"
+
+# Keep this short (schema limits it); push detailed guidance into path_instructions / summary instructions.
+tone_instructions: >
+  Be respectful, concise, and educational. Assume contributors are physicists.
+  Prioritize correctness and safety over style nitpicks.
+
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_instructions: |
+    Write a concise PR summary for a scientific collaboration.
+    Include:
+    - Motivation / context
+    - Key changes (bullets)
+    - Potential risk areas (IO format changes, reconstruction behavior changes, thread-safety, performance)
+    - How to test / validate (unit tests, integration tests, or example macro)
+
+  review_status: true
+  commit_status: true
+
+  # Reduce clutter/noise
+  collapse_walkthrough: true
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: false
+  sequence_diagrams: false
+
+  # Don’t spam on drafts/WIP
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DRAFT"
+      - "DO NOT MERGE"
+      - "RFC"
+
+  # Skip binary/large artifacts if they ever show up
+  path_filters:
+    - "!**/build/**"
+    - "!**/install/**"
+    - "!**/*.root"
+    - "!**/*.pdf"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.gif"
+    - "!**/*.zip"
+    - "!**/*.tar.gz"
+    - "!**/*.so"
+    - "!**/*.dylib"
+    - "!**/*.a"
+    - "!**/*.o"
+
+  # Give C++-specific guidance and “physics workflow” expectations
+  path_instructions:
+    - path: "**/*.{h,hpp,hxx,hh}"
+      instructions: |
+        Focus on API clarity/stability, ownership semantics (RAII), and avoiding raw new/delete.
+        If interfaces change, ask for compatibility notes and any needed downstream updates.
+
+    - path: "**/*.{cc,cpp,cxx,c}"
+      instructions: |
+        Prioritize correctness, memory safety, error handling, and thread-safety.
+        Flag hidden global state, non-const singletons, and unclear lifetime assumptions.
+
+    - path: "**/*.C"
+      instructions: |
+        Treat as ROOT/Fun4All macro/script style code.
+        Ask for an example run command and avoid hard-coded absolute paths.
+
+    - path: "**/CMakeLists.txt"
+      instructions: |
+        Check for modern CMake target usage, correct scoping, and avoiding global flags.
+
+  # Collaboration-friendly quality gates: warn, don’t block
+  pre_merge_checks:
+    description:
+      mode: "warning"
+    custom_checks:
+      - name: "Test plan present"
+        mode: "warning"
+        instructions: |
+          Check that the PR description includes a "Testing" or "Test Plan" section with at least one bullet.
+          Accept: unit test, integration test, or example macro/validation command.
+
+      - name: "Physics/reco impact noted (if applicable)"
+        mode: "warning"
+        instructions: |
+          If the PR changes reconstruction outputs, calibration constants, or simulation behavior,
+          ensure the description states expected analysis impact and whether reprocessing is required.
+
+  # Since Jenkins already runs clang-tidy/cppcheck, start with these disabled to avoid duplicate noise.
+  # Enable later if you want earlier/static feedback in PR comments.
+  tools:
+    clang:
+      enabled: false
+    cppcheck:
+      enabled: false
+    github-checks:
+      # If enabled, CodeRabbit will wait for checks to complete before reviewing.
+      enabled: false
+
+chat:
+  # Require explicit @coderabbitai mention to avoid noisy bot replies in discussions
+  auto_reply: false
+  art: false
+
+knowledge_base:
+  # Let CodeRabbit learn from your docs/CONTRIBUTING guidelines
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CONTRIBUTING.md"
+      - "docs/**"
+      - ".github/*.md"
+  # In a specialized domain, web search can introduce irrelevant suggestions.
+  web_search:
+    enabled: false
