@@ -142,6 +142,23 @@ int CaloValid::process_event(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Process tower, trigger, MBD, and cluster information for a single event and fill QA histograms.
+ *
+ * Processes calibrated and raw towers for CEMC, HCALIN, and HCALOUT plus MBD PMTs; decodes GL1 trigger bits;
+ * accumulates per-calorimeter totals; fills per-channel, eta/phi, timing, status, and QA histograms; builds
+ * cluster pairs to produce pi0 candidates and fills related mass/IB histograms; and fills trigger-aligned
+ * distributions and livetime/rejection profiles.
+ *
+ * The function reads multiple nodes from the provided top-level node tree (EventHeader, GlobalVertexMap,
+ * Gl1Packet, TowerInfoContainer for several collections, MbdPmtContainer, RawClusterContainer, RawTowerGeomContainer)
+ * and relies on an available TriggerAnalyzer if set. If the required cluster node ("CLUSTERINFO_CEMC") is missing
+ * the function logs an error and returns 0. Histograms updated by this method include correlations between EMCal/MBD/HCAL,
+ * per-channel pedestal/energy/timing, eta-phi maps, cluster QA, pi0/IB mass distributions, and trigger-related profiles.
+ *
+ * @param topNode Top-level node providing event data containers accessed by name.
+ * @return int Fun4All return code; `Fun4AllReturnCodes::EVENT_OK` on normal completion, or `0` if the CEMC cluster node is missing.
+ */
 int CaloValid::process_towers(PHCompositeNode* topNode)
 {
   //---------------------------Event header--------------------------------//
@@ -335,7 +352,10 @@ int CaloValid::process_towers(PHCompositeNode* topNode)
           status = status >> 1U;  // clang-tidy mark 1 as unsigned
         }
 
-        totalcemc += offlineenergy;
+        if (isGood)
+        {
+          totalcemc += offlineenergy;
+        }
         h_emcaltime->Fill(_timef);
         if (offlineenergy > emcal_hit_threshold)
         {
@@ -407,7 +427,10 @@ int CaloValid::process_towers(PHCompositeNode* topNode)
           status = status >> 1U;  // clang-tidy mark 1 as unsigned
         }
 
-        totalihcal += offlineenergy;
+        if (isGood)
+        {
+          totalihcal += offlineenergy;
+        }
         h_ihcaltime->Fill(_timef);
 
         if (offlineenergy > ihcal_hit_threshold)
@@ -472,7 +495,10 @@ int CaloValid::process_towers(PHCompositeNode* topNode)
           status = status >> 1U;  // clang-tidy mark 1 as unsigned
         }
 
-        totalohcal += offlineenergy;
+        if (isGood)
+        {
+          totalohcal += offlineenergy;
+        }
         h_ohcaltime->Fill(_timef);
 
         if (offlineenergy > ohcal_hit_threshold)

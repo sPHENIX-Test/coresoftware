@@ -1,7 +1,7 @@
 #include "SingleMvtxPoolInput.h"
 
-#include "MvtxRawDefs.h"
 #include "Fun4AllStreamingInputManager.h"
+#include "MvtxRawDefs.h"
 #include "mvtx_pool.h"
 
 #include <ffarawobjects/MvtxFeeIdInfov1.h>
@@ -28,8 +28,18 @@
 #include <memory>
 #include <set>
 
+/**
+ * @brief Constructs a SingleMvtxPoolInput and initializes streaming input state.
+ *
+ * Initializes the base SingleStreamingInput with the provided name, allocates
+ * internal packet-list storage, and sets the default raw hit container name
+ * to "MVTXRAWHIT".
+ *
+ * @param name Identifier used to name/register this streaming input instance.
+ */
 SingleMvtxPoolInput::SingleMvtxPoolInput(const std::string &name)
-  : SingleStreamingInput(name), plist(new Packet *[2])
+  : SingleStreamingInput(name)
+  , plist(new Packet *[2])
 {
   
   m_rawHitContainerName = "MVTXRAWHIT";
@@ -48,6 +58,17 @@ SingleMvtxPoolInput::~SingleMvtxPoolInput()
   }
 }
 
+/**
+ * @brief Read raw MVTX packets from input, aggregate them into pools, and populate MVTX data structures.
+ *
+ * Processes available events until the input window is satisfied or no more events are available:
+ * - opens input files as needed and marks AllDone if files are exhausted,
+ * - collects packets into per-packet pools and extracts per-FEE strobes, hits, and L1 trigger BCOs,
+ * - inserts strobe BCOs into m_BclkStack, records per-FEE latest strobe in m_FEEBclkMap, accumulates strobe counts in m_FeeStrobeMap, and stores per-FEE L1 BCOs in m_FeeGTML1BCOMap,
+ * - creates MvtxRawHitv1 objects for each hit and stores them in m_MvtxRawHitMap (and forwards them, along with fee/strobe info and L1→strobe associations, to StreamingInputManager if present).
+ *
+ * @param minBCO Minimum strobe BCO to accept; strobes with BCO less than this value are skipped.
+ */
 void SingleMvtxPoolInput::FillPool(const uint64_t minBCO)
 {
   if (AllDone())  // no more files and all events read
@@ -161,7 +182,7 @@ void SingleMvtxPoolInput::FillPool(const uint64_t minBCO)
             m_BclkStack.insert(strb_bco);
             m_FEEBclkMap[feeId] = strb_bco;
 
-            if (strb_bco < minBCO - m_NegativeBco)
+            if (strb_bco < minBCO)
             {
               continue;
             }
@@ -206,7 +227,7 @@ void SingleMvtxPoolInput::FillPool(const uint64_t minBCO)
       auto it = m_BclkStack.lower_bound(lv1Bco);
 //      auto const strb_it = (it == m_BclkStack.begin()) ? (*it == lv1Bco ? it : m_BclkStack.cend()) : --it;
 // this is equivalent but human readable for the above:
-      auto strb_it = m_BclkStack.cend();
+      auto strb_it = m_BclkStack.cend(); 
 
       if (it == m_BclkStack.begin())
       {
@@ -435,6 +456,13 @@ void SingleMvtxPoolInput::CreateDSTNode(PHCompositeNode *topNode)
   }
 }
 
+/**
+ * @brief Configure MVTX timing and BCO window parameters and propagate them to the streaming manager.
+ *
+ * Reads the strobe width from the database when enabled, computes m_BcoRange and m_NegativeBco according to the strobe width and operating mode, and forwards these values to the StreamingInputManager. In triggered mode, signals the StreamingInputManager to run MVTX in triggered mode.
+ *
+ * @note If configured to read the strobe width from the database and no value is found, the function prints a warning and exits the process.
+ */
 void SingleMvtxPoolInput::ConfigureStreamingInputManager()
 {
   auto [runnumber, segment] = Fun4AllUtils::GetRunSegment(*(GetFileList().begin()));
@@ -462,7 +490,7 @@ void SingleMvtxPoolInput::ConfigureStreamingInputManager()
     else if (m_strobeWidth > 9 && m_strobeWidth < 11)
     {
       m_BcoRange = 500;
-      m_NegativeBco = 500;
+      m_NegativeBco = 120;
     }
     else if (m_strobeWidth < 1)  // triggered mode
     {
