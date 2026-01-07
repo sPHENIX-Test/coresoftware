@@ -212,8 +212,20 @@ class SingleMicromegasPoolInput_v2 : public SingleStreamingInput
   std::unique_ptr<TFile> m_evaluation_file;
 
   /**
-   * waveform is similar to sample except that there is only one of which per waveform,
-   * and that it stores the max adc and corresponding sample_id
+   * Represents a single Micromegas waveform summarizing its peak ADC sample and associated timing and matching metadata.
+   *
+   * @var packet_id Index of the source packet containing this waveform.
+   * @var fee_id Identifier of the FEE (front-end electronics) that produced the waveform.
+   * @var channel Channel number on the FEE where the waveform was recorded.
+   * @var is_heartbeat True when the waveform is a heartbeat measurement.
+   * @var matched True when the waveform has been matched to a corresponding BCO/track during alignment.
+   * @var gtm_bco_first LL1 (GTM) beam clock value observed at the start of the waveform.
+   * @var gtm_bco LL1 (GTM) beam clock value associated with the waveform.
+   * @var gtm_bco_matched LL1 (GTM) beam clock value used after successful matching.
+   * @var fee_bco_first FEE-level beam clock value observed at the start of the waveform.
+   * @var fee_bco FEE-level beam clock value associated with the waveform.
+   * @var fee_bco_predicted FEE-level BCO predicted from GTM timing for this waveform.
+   * @var fee_bco_predicted_matched Predicted FEE-level BCO after matching/validation.
    */
   class Waveform
   {
@@ -230,7 +242,15 @@ class SingleMicromegasPoolInput_v2 : public SingleStreamingInput
     /// true if measurement is hearbeat
     bool is_heartbeat = false;
 
-    /// ll1 bco
+    /// true if matched
+    bool matched = false;
+
+    /**
+ * @brief LL1 beam clock (BCO) from the first GTM word observed for this waveform.
+ *
+ * Holds the LL1 BCO value captured from the first GTM record associated with the waveform.
+ * A value of 0 indicates it has not been set.
+ */
     uint64_t gtm_bco_first {0};
 
     /// ll1 bco
