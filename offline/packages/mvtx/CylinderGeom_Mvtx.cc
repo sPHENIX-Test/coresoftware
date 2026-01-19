@@ -8,9 +8,24 @@
 #include <cmath>
 #include <ostream>  // for operator<<, basic_ostream::operator<<, basic_...
 
-using namespace std;
 using Segmentation = SegmentationAlpide;
 
+/**
+ * @brief Constructs a CylinderGeom_Mvtx and initializes stave and sensor geometry constants.
+ *
+ * Initializes layer indexing, stave counts and angular parameters, sets pixel pitch and
+ * sensor thickness from Segmentation constants, and populates sensor/chip/module/half-stave
+ * localization offsets (values derived from mvtx_stave_v1.gdml).
+ *
+ * All spatial values are expressed in centimeters.
+ *
+ * @param in_layer Layer index for this geometry.
+ * @param in_N_staves Number of staves in the layer.
+ * @param in_layer_nominal_radius Nominal radius of the layer.
+ * @param in_phistep Angular step between staves (phi).
+ * @param in_phitilt Stave tilt angle about the phi direction.
+ * @param in_phi0 Reference phi offset for stave indexing.
+ */
 CylinderGeom_Mvtx::CylinderGeom_Mvtx(
     int in_layer,
     int in_N_staves,
@@ -72,6 +87,17 @@ CylinderGeom_Mvtx::CylinderGeom_Mvtx(
   return;
 }
 
+/**
+ * @brief Compute stave and chip indices corresponding to a 3D point in world coordinates.
+ *
+ * Calculates the stave index from the point's azimuthal angle (phi) around the cylinder
+ * and the chip index from the point's axial (z) position, then stores them in the
+ * provided output parameters.
+ *
+ * @param world A 3-element vector [x, y, z] giving the point in world coordinates.
+ * @param stave_index Output parameter set to the computed stave index (azimuthal).
+ * @param chip_index Output parameter set to the computed chip index (axial/z).
+ */
 void CylinderGeom_Mvtx::get_sensor_indices_from_world_coords(std::vector<double>& world, unsigned int& stave_index, unsigned int& chip_index)
 {
   // stave number is fom phi
@@ -89,12 +115,25 @@ void CylinderGeom_Mvtx::get_sensor_indices_from_world_coords(std::vector<double>
   double chip_delta_z = (inner_loc_chip_in_module[8][2] - inner_loc_chip_in_module[0][2]) / 8.0;
   // int chip_tmp = (int) (world[2]/chip_delta_z) + 4;  // 0-9
   int chip_tmp = round(world[2] / chip_delta_z) + 4;  // 0-9
-  // std::cout << "  z " << world[2] << " chip_delta_z " << chip_delta_z << " chip_tmp " << chip_tmp << endl;
+  // std::cout << "  z " << world[2] << " chip_delta_z " << chip_delta_z << " chip_tmp " << chip_tmp << std::endl;
 
   stave_index = stave_tmp;
   chip_index = chip_tmp;
 }
 
+/**
+ * @brief Map sensor-local coordinates to detector pixel indices.
+ *
+ * Converts a point given in sensor-local coordinates to chip-local coordinates,
+ * assigns the corresponding detector row and column, and returns whether the
+ * point maps to a valid pixel. Coordinates very close to the sensor edges are
+ * nudged slightly to avoid rounding issues.
+ *
+ * @param sensor_local Sensor-local position (X and Z components are used).
+ * @param iRow Output: detector row index corresponding to the X direction.
+ * @param iCol Output: detector column index corresponding to the Z direction.
+ * @return `true` if the coordinates map to a valid pixel and `iRow`/`iCol` are set, `false` otherwise.
+ */
 bool CylinderGeom_Mvtx::get_pixel_from_local_coords(TVector3 sensor_local, int& iRow, int& iCol)
 {
   // YCM (2020-01-02): It seems that due some round issues, local coords of hits at the edge of the sensor volume
@@ -102,15 +141,15 @@ bool CylinderGeom_Mvtx::get_pixel_from_local_coords(TVector3 sensor_local, int& 
   double EPS = 5e-6;
   if (fabs(fabs(sensor_local.X()) - SegmentationAlpide::ActiveMatrixSizeRows / 2.F) < EPS)
   {
-    // cout << " Adjusting X,  before X= " << sensor_local.X() << endl;
+    // std::cout << " Adjusting X,  before X= " << sensor_local.X() << std::endl;
     sensor_local.SetX(((sensor_local.X() < 0) ? -1 : 1) * (SegmentationAlpide::ActiveMatrixSizeRows / 2.F - EPS));
-    // cout << " Adjusting X,  after X= " << sensor_local.X() << endl;
+    // std::cout << " Adjusting X,  after X= " << sensor_local.X() << std::endl;
   }
   if (fabs(fabs(sensor_local.Z()) - SegmentationAlpide::ActiveMatrixSizeCols / 2.F) < EPS)
   {
-    // cout << " Adjusting Z,  before Z= " << sensor_local.Z() << endl;
+    // std::cout << " Adjusting Z,  before Z= " << sensor_local.Z() << std::endl;
     sensor_local.SetZ(((sensor_local.Z() < 0) ? -1 : 1) * (SegmentationAlpide::ActiveMatrixSizeCols / 2.F - EPS));
-    // cout << " Adjusting Z,  after Z= " << sensor_local.Z() << endl;
+    // std::cout << " Adjusting Z,  after Z= " << sensor_local.Z() << std::endl;
   }
   // YCM (2020-01-02): go from sensor to chip local coords
   TVector3 in_chip = sensor_local;
@@ -120,23 +159,33 @@ bool CylinderGeom_Mvtx::get_pixel_from_local_coords(TVector3 sensor_local, int& 
   return SegmentationAlpide::localToDetector(in_chip.X(), in_chip.Z(), iRow, iCol);
 }
 
+/**
+ * @brief Convert sensor-local coordinates to a linear pixel index.
+ *
+ * @param sensor_local Coordinates expressed in the sensor-local frame.
+ * @return int Linear pixel index computed as (column) + (row) * get_NX(); indexing starts at 0.
+ *
+ * If the coordinates lie outside the active sensor area, the function prints diagnostic messages
+ * and still returns the computed linear index, which may be outside the valid [0, get_NX()*get_NZ()) range.
+ */
 int CylinderGeom_Mvtx::get_pixel_from_local_coords(const TVector3& sensor_local)
 {
-  int Ngridx, Ngridz;
+  int Ngridx;
+  int Ngridz;
   bool px_in = get_pixel_from_local_coords(sensor_local, Ngridx, Ngridz);
   if (!px_in)
   {
-    cout << PHWHERE
+    std::cout << PHWHERE
          << " Pixel is out sensor. ("
          << sensor_local.X() << ", "
          << sensor_local.Y() << ", "
          << sensor_local.Z() << ")."
-         << endl;
+         << std::endl;
   }
 
   if (Ngridx < 0 || Ngridx >= get_NX() || Ngridz < 0 || Ngridz >= get_NZ())
   {
-    cout << PHWHERE << "Wrong pixel value X= " << Ngridx << " and Z= " << Ngridz << endl;
+    std::cout << PHWHERE << "Wrong pixel value X= " << Ngridx << " and Z= " << Ngridz << std::endl;
   }
 
   // numbering starts at zero
@@ -151,14 +200,28 @@ TVector3 CylinderGeom_Mvtx::get_local_coords_from_pixel(int NXZ)
   return get_local_coords_from_pixel(Ngridx, Ngridz);
 }
 
+/**
+ * @brief Convert detector pixel indices to sensor-local coordinates.
+ *
+ * Converts the given detector pixel indices (row, column) into a TVector3
+ * representing the position in the sensor-local coordinate system.
+ *
+ * @param iRow Pixel row index within the detector.
+ * @param iCol Pixel column index within the detector.
+ * @return TVector3 Position in sensor-local coordinates corresponding to the pixel.
+ *
+ * Note: If the provided indices are out of range, a diagnostic message is
+ * printed to stdout and the returned vector is the computed value after the
+ * failed conversion attempt (offset from chip to sensor coordinates is still applied).
+ */
 TVector3 CylinderGeom_Mvtx::get_local_coords_from_pixel(int iRow, int iCol)
 {
   TVector3 local;
   bool check = SegmentationAlpide::detectorToLocal((float) iRow, (float) iCol, local);
   if (!check)
   {
-    cout << PHWHERE << "Pixel coord ( " << iRow << ", " << iCol << " )"
-         << "out of range" << endl;
+    std::cout << PHWHERE << "Pixel coord ( " << iRow << ", " << iCol << " )"
+         << "out of range" << std::endl;
   }
   // Transform location in chip to location in sensors
   TVector3 trChipToSens(loc_sensor_in_chip[0],
@@ -168,6 +231,14 @@ TVector3 CylinderGeom_Mvtx::get_local_coords_from_pixel(int iRow, int iCol)
   return local;
 }
 
+/**
+ * @brief Prints a concise description of this cylinder geometry to the given stream.
+ *
+ * Outputs layer index, layer radius, number of full and half staves, pixel X and Z pitch, and pixel thickness
+ * in a single line to the provided output stream.
+ *
+ * @param os Output stream to receive the summary.
+ */
 void CylinderGeom_Mvtx::identify(std::ostream& os) const
 {
   os << "CylinderGeom_Mvtx: layer: " << layer
@@ -177,7 +248,7 @@ void CylinderGeom_Mvtx::identify(std::ostream& os) const
      << ", pixel_x: " << pixel_x
      << ", pixel_z: " << pixel_z
      << ", pixel_thickness: " << pixel_thickness
-     << endl;
+     << std::endl;
   return;
 }
 
@@ -187,22 +258,46 @@ int CylinderGeom_Mvtx::get_NZ() const
   return SegmentationAlpide::NCols;
 }
 
+/**
+ * @brief Number of pixel rows in the detector's X dimension.
+ *
+ * @return int Number of X (row) pixels per sensor/chip.
+ */
 int CylinderGeom_Mvtx::get_NX() const
 {
   return SegmentationAlpide::NRows;
 }
 
-int CylinderGeom_Mvtx::get_pixel_X_from_pixel_number(int NXZ)
+/**
+ * @brief Compute the X (row) index corresponding to a linear pixel index.
+ *
+ * @param NXZ Linear pixel index encoded as x + z * get_NX().
+ * @return int X index within the pixel grid in the range [0, get_NX() - 1].
+ */
+int CylinderGeom_Mvtx::get_pixel_X_from_pixel_number(int NXZ) const
 {
   return NXZ % get_NX();
 }
 
-int CylinderGeom_Mvtx::get_pixel_Z_from_pixel_number(int NXZ)
+/**
+ * @brief Compute the Z (column) index for a given linear pixel number.
+ *
+ * @param NXZ Linear pixel index in row-major order (x + z * get_NX()).
+ * @return int Z (column) index corresponding to NXZ.
+ */
+int CylinderGeom_Mvtx::get_pixel_Z_from_pixel_number(int NXZ) const
 {
   return NXZ / get_NX();
 }
 
-int CylinderGeom_Mvtx::get_pixel_number_from_xbin_zbin(int xbin, int zbin)  // obsolete
+/**
+ * @brief Compute the linear pixel index from x and z bin coordinates.
+ *
+ * @param xbin Zero-based x (row) index within the sensor grid.
+ * @param zbin Zero-based z (column) index within the sensor grid.
+ * @return int Linear pixel index equal to xbin + zbin * get_NX().
+ */
+int CylinderGeom_Mvtx::get_pixel_number_from_xbin_zbin(int xbin, int zbin) const  // obsolete
 {
   return xbin + zbin * get_NX();
 }

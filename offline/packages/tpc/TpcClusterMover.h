@@ -12,6 +12,19 @@
 
 class PHG4TpcGeomContainer;
 
+/**
+ * Compute an intersection coordinate between two circles.
+ * 
+ * @param target_radius Radius of the target circle centered at (xclus, yclus).
+ * @param R Radius of the circle centered at (X0, Y0).
+ * @param X0 X coordinate of the first circle center.
+ * @param Y0 Y coordinate of the first circle center.
+ * @param xclus X coordinate of the target circle center.
+ * @param yclus Y coordinate of the target circle center.
+ * @param x Output parameter set to the X coordinate of an intersection point when one exists.
+ * @param y Output parameter set to the Y coordinate of an intersection point when one exists.
+ * @returns Number of intersection points found: `0` (no intersection), `1` (tangent), or `2` (two intersections).
+ */
 class TpcClusterMover
 {
  public:
@@ -27,7 +40,7 @@ class TpcClusterMover
   void initialize_geometry(PHG4TpcGeomContainer *cellgeo);
 
  private:
-  int get_circle_circle_intersection(double target_radius, double R, double X0, double Y0, double xclus, double yclus, double &x, double &y);
+  int get_circle_circle_intersection(double target_radius, double R, double X0, double Y0, double xclus, double yclus, double &x, double &y) const;
 
   double _z_start = 0.0;
   double _y_start = 0.0;

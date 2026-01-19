@@ -70,7 +70,18 @@ int MbdReco::InitRun(PHCompositeNode *topNode)
   return ret;
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Perform per-event MBD reconstruction and populate MBD output nodes.
+ *
+ * Processes raw MBD data (from PRDF/Event or CaloPacket containers), applies calibration/recalibration
+ * as configured, runs hit/time calculation, and updates MbdOut and the global MBD vertex map when applicable.
+ * When an EventHeader is present, the event sequence is recorded and assigned to the MbdEvent before processing.
+ *
+ * @param topNode Top of the node tree used to locate input and output data nodes.
+ * @return int `Fun4AllReturnCodes::EVENT_OK` on normal completion or when an event is skipped;
+ * `Fun4AllReturnCodes::DISCARDEVENT` when the event should be discarded by the framework;
+ * `Fun4AllReturnCodes::ABORTEVENT` when processing must be aborted due to missing/invalid essential data.
+ */
 int MbdReco::process_event(PHCompositeNode *topNode)
 {
   getNodes(topNode);
@@ -103,7 +114,8 @@ int MbdReco::process_event(PHCompositeNode *topNode)
     int status = Fun4AllReturnCodes::EVENT_OK;
     if ( m_evtheader!=nullptr )
     {
-      m_mbdevent->set_EventNumber( m_evtheader->get_EvtSequence() );
+      _evtnum = m_evtheader->get_EvtSequence();
+      m_mbdevent->set_EventNumber( _evtnum );
     }
 
     if ( m_event!=nullptr )
@@ -125,7 +137,7 @@ int MbdReco::process_event(PHCompositeNode *topNode)
       static int counter = 0;
       if ( counter<3 )
       {
-        std::cout << PHWHERE << " Warning, MBD discarding event " << std::endl;
+        std::cout << PHWHERE << " Warning, MBD discarding event " << _evtnum << std::endl;
         counter++;
       }
       return Fun4AllReturnCodes::DISCARDEVENT;
@@ -135,7 +147,7 @@ int MbdReco::process_event(PHCompositeNode *topNode)
       static int counter = 0;
       if ( counter<3 )
       {
-        std::cout << PHWHERE << " Warning, MBD aborting event " << std::endl;
+        std::cout << PHWHERE << " Warning, MBD aborting event " << _evtnum << std::endl;
         counter++;
       }
       return Fun4AllReturnCodes::ABORTEVENT;

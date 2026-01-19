@@ -31,8 +31,19 @@ class PHTpcDeltaZCorrection : public SubsysReco, public PHParameterInterface
   int InitRun(PHCompositeNode *topNode) override;
   int process_event(PHCompositeNode *topNode) override;
   int End(PHCompositeNode *topNode) override;
+  /**
+   * Reset configurable parameters to their default values.
+   *
+   * This restores all module configuration parameters to their defaults (for example the cluster
+   * container name and any other runtime-adjustable settings).
+   */
+  
+  /**
+   * Override the TrkrClusterContainer node name used by the module.
+   * @param name Name of the cluster container node (e.g., "TRKR_CLUSTER").
+   */
   void SetDefaultParameters() override;
-  void setTrkrClusterContainerName(std::string &name) { m_clusterContainerName = name; }
+  void setTrkrClusterContainerName(const std::string &name) { m_clusterContainerName = name; }
 
  private:
   /// load nodes

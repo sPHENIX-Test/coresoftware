@@ -1,4 +1,3 @@
-
 #include "TpcRawDataTree.h"
 
 #include <fun4all/Fun4AllReturnCodes.h>
@@ -27,7 +26,14 @@ TpcRawDataTree::TpcRawDataTree(const std::string &name)
   M.setMapNames("AutoPad-R1-RevA.sch.ChannelMapping.csv", "AutoPad-R2-RevA-Pads.sch.ChannelMapping.csv", "AutoPad-R3-RevA.sch.ChannelMapping.csv");
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Initializes output ROOT file, trees, and histograms for raw TPC data.
+ *
+ * Creates and configures the output TFile, TTree branches for packets, samples, and taggers,
+ * and allocates histograms used for ADC values, timing, and checksum diagnostics.
+ *
+ * @return int Fun4AllReturnCodes::EVENT_OK on success.
+ */
 int TpcRawDataTree::InitRun(PHCompositeNode * /*unused*/)
 {
   sectorNum = m_fname;
@@ -61,7 +67,7 @@ int TpcRawDataTree::InitRun(PHCompositeNode * /*unused*/)
   m_SampleTree->Branch("nWaveormInFrame", &m_nWaveormInFrame, "nWaveormInFrame/I");
   m_SampleTree->Branch("maxFEECount", &m_maxFEECount, "maxFEECount/I");
   m_SampleTree->Branch("nSamples", &m_nSamples, "nSamples/I");
-  m_SampleTree->Branch("adcSamples", &m_adcSamples[0], "adcSamples[nSamples]/s");
+  m_SampleTree->Branch("adcSamples", m_adcSamples.data(), "adcSamples[nSamples]/s");
   m_SampleTree->Branch("fee", &m_fee, "fee/I");
   m_SampleTree->Branch("sampaAddress", &m_sampaAddress, "sampaAddress/I");
   m_SampleTree->Branch("sampaChannel", &m_sampaChannel, "sampaChannel/I");

@@ -7,6 +7,9 @@
 
 #include <centrality/CentralityInfo.h>
 
+#include <calobase/TowerInfoContainer.h>
+#include <calobase/TowerInfo.h>
+
 #include <mbd/MbdOut.h>
 
 #include <ffaobjects/EventHeader.h>
@@ -25,7 +28,15 @@ CopyIODataNodes::CopyIODataNodes(const std::string &name)
 {
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Initialize run-time IO data nodes in the output top node based on enabled copy flags.
+ *
+ * For each enabled m_Copy* flag, ensures the corresponding IO data node is created or copied
+ * from the provided source topNode into the Fun4AllServer's output top node.
+ *
+ * @param topNode Source top-level node from which IO data nodes are read.
+ * @return int Fun4AllReturnCodes::EVENT_OK on success.
+ */
 int CopyIODataNodes::InitRun(PHCompositeNode *topNode)
 {
   Fun4AllServer *se = Fun4AllServer::instance();
@@ -57,11 +68,24 @@ int CopyIODataNodes::InitRun(PHCompositeNode *topNode)
   {
     CreateSyncObject(topNode, se->topNode());
   }
+  if (m_CopyTowerInfoFlag)
+  {
+    CreateTowerInfo(topNode, se->topNode());
+  }
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Copies enabled event-level IO data nodes from a source node into the framework top node.
+ *
+ * For each enabled copy flag (event header, centrality info, global vertex map, minimum-bias info,
+ * MbdOut, sync object, and tower info), invokes the corresponding copy routine to transfer data
+ * from the provided source topNode into the Fun4AllServer top node.
+ *
+ * @param topNode Source PHCompositeNode containing event-level IO data to copy.
+ * @return int Fun4AllReturnCodes::EVENT_OK on completion.
+ */
 int CopyIODataNodes::process_event(PHCompositeNode *topNode)
 {
   Fun4AllServer *se = Fun4AllServer::instance();
@@ -88,6 +112,10 @@ int CopyIODataNodes::process_event(PHCompositeNode *topNode)
   if (m_CopySyncObjectFlag)
   {
     CopySyncObject(topNode, se->topNode());
+  }
+  if (m_CopyTowerInfoFlag)
+  {
+    CopyTowerInfo(topNode, se->topNode());
   }
   return Fun4AllReturnCodes::EVENT_OK;
 }
@@ -277,6 +305,16 @@ void CopyIODataNodes::CreateMinimumBiasInfo(PHCompositeNode *from_topNode, PHCom
   return;
 }
 
+/**
+ * @brief Copy MinimumBiasInfo data from a source node tree into a destination node tree.
+ *
+ * Copies the contents of the `MinimumBiasInfo` object found under `from_topNode` into the
+ * `MinimumBiasInfo` object found under `to_topNode` by invoking the source object's `CopyTo`.
+ * If the module verbosity is greater than zero, prints identify() information for both objects.
+ *
+ * @param from_topNode Top-level node containing the source `MinimumBiasInfo`.
+ * @param to_topNode Top-level node containing the destination `MinimumBiasInfo`.
+ */
 void CopyIODataNodes::CopyMinimumBiasInfo(PHCompositeNode *from_topNode, PHCompositeNode *to_topNode)
 {
   MinimumBiasInfo *from_minimumbiasinfo = findNode::getClass<MinimumBiasInfo>(from_topNode, "MinimumBiasInfo");
@@ -293,6 +331,51 @@ void CopyIODataNodes::CopyMinimumBiasInfo(PHCompositeNode *from_topNode, PHCompo
   return;
 }
 
+/**
+ * @brief Copy all tower entries from the source TowerInfoContainer to the destination.
+ *
+ * Iterates the source TowerInfoContainer identified by from_towerInfo_name and
+ * copies each TowerInfo into the corresponding channel in the destination
+ * TowerInfoContainer identified by to_towerInfo_name. When verbosity is enabled,
+ * prints identify() information for both containers.
+ *
+ * @param from_topNode Top-level node containing the source TowerInfoContainer.
+ * @param to_topNode Top-level node containing (or receiving) the destination TowerInfoContainer.
+ */
+void CopyIODataNodes::CopyTowerInfo(PHCompositeNode *from_topNode, PHCompositeNode *to_topNode)
+{
+  TowerInfoContainer *from_towerInfo = findNode::getClass<TowerInfoContainer>(from_topNode, from_towerInfo_name);
+  TowerInfoContainer   *to_towerInfo = findNode::getClass<TowerInfoContainer>(  to_topNode, to_towerInfo_name);
+  unsigned int ntowers = from_towerInfo->size();
+  for (unsigned int ch = 0; ch < ntowers; ++ch)
+  {
+    TowerInfo *from_tow = from_towerInfo->get_tower_at_channel(ch);
+    to_towerInfo->get_tower_at_channel(ch)->copy_tower(from_tow);
+  }
+  
+  if (Verbosity() > 0)
+  {
+    std::cout << "From TowerInfoContainer identify()" << std::endl;
+    from_towerInfo->identify();
+    std::cout << "To TowerInfoCOntainer identify()" << std::endl;
+    to_towerInfo->identify();
+  }
+
+  return;
+}
+
+
+/**
+ * @brief Ensure an MbdOut node exists in the destination and create it by cloning the source if absent.
+ *
+ * If an MbdOut exists under from_topNode, this function ensures a corresponding MbdOut
+ * is present under to_topNode; if the destination node is missing, it creates a DST/MBD
+ * subtree (if needed), clones the source MbdOut, and attaches it as "MbdOut".
+ * If the source MbdOut cannot be found, the function disables the m_CopyMbdOutFlag.
+ *
+ * @param from_topNode Source top-level node to read the MbdOut from.
+ * @param to_topNode Destination top-level node to create or attach the cloned MbdOut to.
+ */
 void CopyIODataNodes::CreateMbdOut(PHCompositeNode *from_topNode, PHCompositeNode *to_topNode)
 {
 
@@ -330,6 +413,57 @@ void CopyIODataNodes::CreateMbdOut(PHCompositeNode *from_topNode, PHCompositeNod
 
 }
 
+/**
+ * @brief Ensure a TowerInfoContainer exists under the destination top node by cloning it from the source if absent.
+ *
+ * If a TowerInfoContainer named by `from_towerInfo_name` exists under `from_topNode` but not under `to_topNode`,
+ * this function clones the source container and attaches it to a `DST` composite node under `to_topNode` using
+ * the name `to_towerInfo_name`. If the source container cannot be found, the copy flag `m_CopyTowerInfoFlag`
+ * is disabled and no destination container is created.
+ *
+ * @param from_topNode Top-level node to read the source TowerInfoContainer from.
+ * @param to_topNode Top-level node to attach the cloned TowerInfoContainer to (under a `DST` composite node if needed).
+ */
+void CopyIODataNodes::CreateTowerInfo(PHCompositeNode *from_topNode, PHCompositeNode *to_topNode)
+{
+  std::cout << "copying tower info" << std::endl;
+  TowerInfoContainer *from_towerInfo = findNode::getClass<TowerInfoContainer>(from_topNode, from_towerInfo_name);
+  if (!from_towerInfo)
+  {
+    std::cout << "Could not locate TowerInfoContainer on " << from_topNode->getName() << std::endl;
+    m_CopyTowerInfoFlag = false;
+    return;
+  }
+  TowerInfoContainer *to_towerInfo = findNode::getClass<TowerInfoContainer>(to_topNode, to_towerInfo_name);
+  if (!to_towerInfo)
+  {
+    PHNodeIterator iter(to_topNode);
+    PHCompositeNode *dstNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "DST"));
+    if (!dstNode)
+    {
+      dstNode = new PHCompositeNode("DST");
+      to_topNode->addNode(dstNode);
+    }
+    to_towerInfo = dynamic_cast<TowerInfoContainer*>(from_towerInfo->CloneMe());
+    PHIODataNode<PHObject> *newNode = new PHIODataNode<PHObject>(to_towerInfo, to_towerInfo_name, "PHObject");
+    dstNode->addNode(newNode);
+  }
+  return;
+}
+
+
+
+
+/**
+ * @brief Copy MbdOut data from a source composite node into a destination composite node.
+ *
+ * Finds the MbdOut object under from_topNode and the MbdOut object under to_topNode,
+ * copies the contents from the source into the destination, and (when Verbosity() > 0)
+ * prints identify() information for both objects.
+ *
+ * @param from_topNode Composite node containing the source MbdOut.
+ * @param to_topNode Composite node containing the destination MbdOut.
+ */
 void CopyIODataNodes::CopyMbdOut(PHCompositeNode *from_topNode, PHCompositeNode *to_topNode)
 {
   MbdOut *from_mbdout = findNode::getClass<MbdOut>(from_topNode, "MbdOut");

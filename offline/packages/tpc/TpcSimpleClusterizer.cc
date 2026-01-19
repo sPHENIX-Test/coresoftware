@@ -33,6 +33,7 @@
 
 #include <TFile.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>  // for sqrt, cos, sin
 #include <iostream>
@@ -46,7 +47,14 @@
 namespace
 {
   template <class T>
-  inline constexpr T square(const T &x)
+  /**
+   * @brief Computes the square of a value.
+   *
+   * @tparam T Type that supports multiplication.
+   * @param x Value to be squared.
+   * @return T The value of x multiplied by itself.
+   */
+  constexpr T square(const T &x)
   {
     return x * x;
   }
@@ -114,6 +122,21 @@ namespace
     ihit_list.push_back(thisHit);
   }
 
+  /**
+   * @brief Compute cluster parameters from a list of hits and append the resulting cluster.
+   *
+   * Computes ADC-weighted cluster position and uncertainties from the provided hit list,
+   * creates a TrkrClusterv3 with global and local coordinates (using Acts when available),
+   * estimates local errors, appends the cluster to my_data.cluster_vector, and (when enabled)
+   * records cluster→hit associations in my_data.association_vector.
+   *
+   * @param ihit_list Vector of hits forming the cluster; each entry is (adc, (phibin, zbin)).
+   * @param my_data Per-thread context providing layer geometry, geometry accessor, bin offsets,
+   *                calibration parameters (par0_neg/par0_pos), and output vectors for clusters and associations.
+   *
+   * @note If the corresponding TPC surface cannot be found for the computed global position,
+   *       the function returns without adding a cluster or associations.
+   */
   void calc_cluster_parameter(std::vector<ihit> &ihit_list, thread_data &my_data)
   {
     // loop over the hits in this cluster
@@ -142,22 +165,10 @@ namespace
 
       int iphi = iter.second.first + my_data.phioffset;
       int iz = iter.second.second + my_data.zoffset;
-      if (iphi > phibinhi)
-      {
-        phibinhi = iphi;
-      }
-      if (iphi < phibinlo)
-      {
-        phibinlo = iphi;
-      }
-      if (iz > zbinhi)
-      {
-        zbinhi = iz;
-      }
-      if (iz < zbinlo)
-      {
-        zbinlo = iz;
-      }
+      phibinhi = std::max(iphi, phibinhi);
+      phibinlo = std::min(iphi, phibinlo);
+      zbinhi = std::max(iz, zbinhi);
+      zbinlo = std::min(iz, zbinlo);
 
       // update phi sums
       double phi_center = my_data.layergeom->get_phicenter(iphi, my_data.side);
@@ -205,7 +216,7 @@ namespace
     clusz -= (clusz < 0) ? my_data.par0_neg : my_data.par0_pos;
 
     // create cluster and fill
-    auto clus = new TrkrClusterv3;
+    auto *clus = new TrkrClusterv3;
     clus->setAdc(adc_sum);
 
     /// Get the surface key to find the surface from the map
@@ -278,9 +289,21 @@ namespace
     }
   }
 
+  /**
+   * @brief Processes a single TPC hitset (sector) in a worker thread to form clusters.
+   *
+   * Reads hits from the provided thread_data hitset, performs per-sector clustering
+   * (building clusters from ADC-weighted neighbouring hits), and appends resulting
+   * TrkrClusterv3 objects and cluster-hit associations into the thread_data output vectors.
+   *
+   * @param threadarg Pointer to a thread_data struct that supplies geometry, hitset,
+   *                  clustering parameters, and holds output vectors (`cluster_vector`
+   *                  and `association_vector`) to be filled by this function.
+   * @return nullptr on thread completion.
+   */
   void *ProcessSector(void *threadarg)
   {
-    auto my_data = (struct thread_data *) threadarg;
+    auto *my_data = (struct thread_data *) threadarg;
 
     const auto &pedestal = my_data->pedestal;
     const auto &phibins = my_data->phibins;
@@ -332,11 +355,11 @@ namespace
           all_hit_map.insert(std::make_pair(adc, thisHit));
         }
         // adcval[phibin][zbin] = (unsigned short) adc;
-        adcval[phibin][zbin] = (unsigned short) adc;
+        adcval[phibin][zbin] = adc;
       }
     }
 
-    while (all_hit_map.size() > 0)
+    while (!all_hit_map.empty())
     {
       auto iter = all_hit_map.rbegin();
       if (iter == all_hit_map.rend())
@@ -400,6 +423,15 @@ bool TpcSimpleClusterizer::is_in_sector_boundary(int phibin, int sector, PHG4Tpc
   return reject_it;
 }
 
+/**
+ * @brief Ensure DST node tree contains TRKR cluster and association containers.
+ *
+ * Creates TRKR_CLUSTER and TRKR_CLUSTERHITASSOC nodes under DST/TRKR when they are absent,
+ * leaving existing nodes intact.
+ *
+ * @param topNode Root node of the runtime PHENIX node tree (usually the top-level PHCompositeNode).
+ * @return int Fun4AllReturnCodes::EVENT_OK on success, Fun4AllReturnCodes::ABORTRUN if the DST node is missing.
+ */
 int TpcSimpleClusterizer::InitRun(PHCompositeNode *topNode)
 {
   PHNodeIterator iter(topNode);
@@ -413,7 +445,7 @@ int TpcSimpleClusterizer::InitRun(PHCompositeNode *topNode)
   }
 
   // Create the Cluster node if required
-  auto trkrclusters = findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
+  auto *trkrclusters = findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
   if (!trkrclusters)
   {
     PHNodeIterator dstiter(dstNode);
@@ -431,7 +463,7 @@ int TpcSimpleClusterizer::InitRun(PHCompositeNode *topNode)
     DetNode->addNode(TrkrClusterContainerNode);
   }
 
-  auto clusterhitassoc = findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
+  auto *clusterhitassoc = findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
   if (!clusterhitassoc)
   {
     PHNodeIterator dstiter(dstNode);
@@ -451,6 +483,19 @@ int TpcSimpleClusterizer::InitRun(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Perform TPC hitset clustering and store resulting clusters and associations in the DST node tree.
+ *
+ * Processes all TPC hitsets in the event using per-hitset threads, computes cluster parameters, inserts created
+ * TrkrClusterv3 objects into the TRKR_CLUSTER container, and records cluster–hit associations in TRKR_CLUSTERHITASSOC.
+ *
+ * @param topNode Top-level node of the event node tree (used to locate DST, hitset container, cluster container,
+ *                association container, TPC geometry container, and Acts geometry).
+ * @return int Fun4AllReturnCodes::EVENT_OK on success;
+ *             Fun4AllReturnCodes::ABORTRUN if required nodes (DST, TRKR_HITSET, TRKR_CLUSTER, TRKR_CLUSTERHITASSOC,
+ *             TPCGEOMCONTAINER, or ActsGeometry) are missing;
+ *             returns 1 if pthread mutex initialization fails. Other nonzero return values may indicate pthread
+ *             creation or join errors logged to stdout. */
 int TpcSimpleClusterizer::process_event(PHCompositeNode *topNode)
 {
   //  int print_layer = 18;
@@ -614,7 +659,7 @@ int TpcSimpleClusterizer::process_event(PHCompositeNode *topNode)
       const auto ckey = TrkrDefs::genClusKey(hitsetkey, index);
 
       // get cluster
-      auto cluster = data.cluster_vector[index];
+      auto *cluster = data.cluster_vector[index];
 
       // insert in map
       m_clusterlist->addClusterSpecifyKey(ckey, cluster);

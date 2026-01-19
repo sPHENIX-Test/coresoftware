@@ -14,6 +14,63 @@ class PHCompositeNode;
 
 class ActsGeometry;
 
+/**
+ * Populate the node tree with the alignment transformation map used by this object.
+ * @param topNode Top-level node under which the alignment map and any required nodes will be created.
+ */
+ 
+/**
+ * Create and attach an alignmentTransformationContainer under the provided top-level node.
+ * @param topNode Top-level node under which the alignment transform container will be created.
+ */
+ 
+/**
+ * Generate random alignment perturbations from per-axis angular and translational deviations.
+ * The generated perturbations are stored in the object's perturbationAngles, perturbationAnglesGlobal,
+ * and perturbationTranslation members and will be applied according to enabled subsystem flags.
+ * @param angleDev Per-axis standard deviations (radians) for rotation perturbations around X, Y, Z.
+ * @param transformDev Per-axis standard deviations (length units) for translation perturbations along X, Y, Z.
+ */
+ 
+/**
+ * Set MVTX subsystem per-axis standard deviations for rotation and translation perturbations.
+ * The first three elements of mvtxDevs are rotation standard deviations (radians) about X, Y, Z;
+ * the last three are translation standard deviations along X, Y, Z. Enables MVTX perturbations.
+ * @param mvtxDevs Array of six values: [angleX, angleY, angleZ, transX, transY, transZ].
+ */
+ 
+/**
+ * Set INTT subsystem per-axis standard deviations for rotation and translation perturbations.
+ * The first three elements of inttDevs are rotation standard deviations (radians) about X, Y, Z;
+ * the last three are translation standard deviations along X, Y, Z. Enables INTT perturbations.
+ * @param inttDevs Array of six values: [angleX, angleY, angleZ, transX, transY, transZ].
+ */
+ 
+/**
+ * Set TPC subsystem per-axis standard deviations for rotation and translation perturbations.
+ * The first three elements of tpcDevs are rotation standard deviations (radians) about X, Y, Z;
+ * the last three are translation standard deviations along X, Y, Z. Enables TPC perturbations.
+ * @param tpcDevs Array of six values: [angleX, angleY, angleZ, transX, transY, transZ].
+ */
+ 
+/**
+ * Set Micromegas (MM) subsystem per-axis standard deviations for rotation and translation perturbations.
+ * The first three elements of mmDevs are rotation standard deviations (radians) about X, Y, Z;
+ * the last three are translation standard deviations along X, Y, Z. Enables MM perturbations.
+ * @param mmDevs Array of six values: [angleX, angleY, angleZ, transX, transY, transZ].
+ */
+ 
+/**
+ * Set the misalignment scale factor for a specific detector layer.
+ * @param layer Layer identifier for which the factor applies.
+ * @param factor Multiplicative factor applied to the layer's misalignment magnitudes.
+ */
+ 
+/**
+ * Retrieve the misalignment scale factor for a specific detector layer.
+ * @param layer Layer identifier whose misalignment factor will be returned.
+ * @returns The multiplicative misalignment factor for the given layer.
+ */
 class AlignmentTransformation
 {
  public:
@@ -128,7 +185,8 @@ private:
 
   bool use_new_silicon_rotation_order = false;
   bool use_module_tilt_always = false;
-
+  bool use_module_tilt = false;   // starts at false in all cases
+  
   bool use_intt_survey_geometry = false;
   
   Acts::Transform3 newMakeTransform(const Surface& surf, Eigen::Vector3d& millepedeTranslation, Eigen::Vector3d& sensorAngles, Eigen::Vector3d& localFrameTranslation, Eigen::Vector3d& sensorAnglesGlobal, unsigned int trkrid, bool survey);

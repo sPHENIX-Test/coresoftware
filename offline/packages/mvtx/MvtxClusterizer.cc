@@ -63,80 +63,104 @@ namespace
 
   /// convenience square method
   template <class T>
-  inline constexpr T square(const T &x)
+  /**
+   * @brief Compute the square of a value.
+   *
+   * @tparam T Type of the input value.
+   * @param x Value to be squared.
+   * @return T The result of x multiplied by itself.
+   */
+  constexpr T square(const T &x)
   {
     return x * x;
   }
-}  // namespace
+}  /**
+ * Determine whether two MVTX hits are adjacent according to the current Z-clustering mode.
+ *
+ * When Z clustering is enabled, hits are adjacent if their column indices differ by at most 1
+ * and their row indices differ by at most 1. When Z clustering is disabled, hits are adjacent
+ * only if they share the same column and their row indices differ by at most 1.
+ *
+ * @param lhs Pair of (hitkey, TrkrHit*) for the first hit.
+ * @param rhs Pair of (hitkey, TrkrHit*) for the second hit.
+ * @return `true` if the two hits are adjacent under the module's Z-clustering mode, `false` otherwise.
+ */
 
 bool MvtxClusterizer::are_adjacent(
     const std::pair<TrkrDefs::hitkey, TrkrHit *> &lhs,
-    const std::pair<TrkrDefs::hitkey, TrkrHit *> &rhs)
+    const std::pair<TrkrDefs::hitkey, TrkrHit *> &rhs) const
 {
   if (GetZClustering())
   {
     return
 
-      // column adjacent
-      ( (MvtxDefs::getCol(lhs.first) > MvtxDefs::getCol(rhs.first)) ?
-      MvtxDefs::getCol(lhs.first)<=MvtxDefs::getCol(rhs.first)+1:
-      MvtxDefs::getCol(rhs.first)<=MvtxDefs::getCol(lhs.first)+1) &&
+        // column adjacent
+        ((MvtxDefs::getCol(lhs.first) > MvtxDefs::getCol(rhs.first)) ? MvtxDefs::getCol(lhs.first) <= MvtxDefs::getCol(rhs.first) + 1 : MvtxDefs::getCol(rhs.first) <= MvtxDefs::getCol(lhs.first) + 1) &&
 
-      // row adjacent
-      ( (MvtxDefs::getRow(lhs.first) > MvtxDefs::getRow(rhs.first)) ?
-      MvtxDefs::getRow(lhs.first)<=MvtxDefs::getRow(rhs.first)+1:
-      MvtxDefs::getRow(rhs.first)<=MvtxDefs::getRow(lhs.first)+1);
-
-  } else {
-
-    return
-      // column identical
-      MvtxDefs::getCol(rhs.first)==MvtxDefs::getCol(lhs.first) &&
-
-      // row adjacent
-      ( (MvtxDefs::getRow(lhs.first) > MvtxDefs::getRow(rhs.first)) ?
-      MvtxDefs::getRow(lhs.first)<=MvtxDefs::getRow(rhs.first)+1:
-      MvtxDefs::getRow(rhs.first)<=MvtxDefs::getRow(lhs.first)+1);
-
+        // row adjacent
+        ((MvtxDefs::getRow(lhs.first) > MvtxDefs::getRow(rhs.first)) ? MvtxDefs::getRow(lhs.first) <= MvtxDefs::getRow(rhs.first) + 1 : MvtxDefs::getRow(rhs.first) <= MvtxDefs::getRow(lhs.first) + 1);
   }
+  return
+      // column identical
+      MvtxDefs::getCol(rhs.first) == MvtxDefs::getCol(lhs.first) &&
+
+      // row adjacent
+      ((MvtxDefs::getRow(lhs.first) > MvtxDefs::getRow(rhs.first)) ? MvtxDefs::getRow(lhs.first) <= MvtxDefs::getRow(rhs.first) + 1 : MvtxDefs::getRow(rhs.first) <= MvtxDefs::getRow(lhs.first) + 1);
 }
 
-bool MvtxClusterizer::are_adjacent(RawHit *lhs, RawHit *rhs)
+/**
+ * @brief Determine whether two RawHit objects are neighboring for clustering.
+ *
+ * When Z-dimension clustering is enabled, two hits are neighbors if their phi bins
+ * differ by at most 1 and their time (T) bins differ by at most 1. When Z-dimension
+ * clustering is disabled, two hits are neighbors only if they share the same phi bin
+ * and their T bins differ by at most 1.
+ *
+ * @param lhs Pointer to the first RawHit to compare.
+ * @param rhs Pointer to the second RawHit to compare.
+ * @return `true` if the hits are adjacent according to the current Z-clustering mode, `false` otherwise.
+ */
+bool MvtxClusterizer::are_adjacent(RawHit *lhs, RawHit *rhs) const
 {
   if (GetZClustering())
   {
     return
 
-      // phi adjacent (== column)
-      ((lhs->getPhiBin() > rhs->getPhiBin()) ?
-      lhs->getPhiBin() <= rhs->getPhiBin()+1:
-      rhs->getPhiBin() <= lhs->getPhiBin()+1) &&
+        // phi adjacent (== column)
+        ((lhs->getPhiBin() > rhs->getPhiBin()) ? lhs->getPhiBin() <= rhs->getPhiBin() + 1 : rhs->getPhiBin() <= lhs->getPhiBin() + 1) &&
 
-      // time adjacent (== row)
-      ((lhs->getTBin() > rhs->getTBin()) ?
-      lhs->getTBin() <= rhs->getTBin()+1:
-      rhs->getTBin() <= lhs->getTBin()+1);
-
-  } else {
-
-    return
+        // time adjacent (== row)
+        ((lhs->getTBin() > rhs->getTBin()) ? lhs->getTBin() <= rhs->getTBin() + 1 : rhs->getTBin() <= lhs->getTBin() + 1);
+  }
+  return
 
       // phi identical (== column)
       lhs->getPhiBin() == rhs->getPhiBin() &&
 
       // time adjacent (== row)
-      ((lhs->getTBin() >  rhs->getTBin()) ?
-      lhs->getTBin() <= rhs->getTBin()+1:
-      rhs->getTBin() <= lhs->getTBin()+1);
-
-  }
+      ((lhs->getTBin() > rhs->getTBin()) ? lhs->getTBin() <= rhs->getTBin() + 1 : rhs->getTBin() <= lhs->getTBin() + 1);
 }
 
+/**
+ * @brief Construct a MvtxClusterizer module with the given SubsysReco name.
+ *
+ * @param name Framework-visible name for this SubsysReco module instance.
+ */
 MvtxClusterizer::MvtxClusterizer(const std::string &name)
   : SubsysReco(name)
 {
 }
 
+/**
+ * @brief Initialize run-level nodes required for MVTX clustering.
+ *
+ * Ensures the DST/TRKR node hierarchy contains container nodes for clusters and cluster-hit associations,
+ * creating TRKR, TRKR_CLUSTER, and TRKR_CLUSTERHITASSOC if missing; optionally creates Trkr_SvtxClusHitsVerbose
+ * when verbose cluster-hit recording is enabled.
+ *
+ * @param topNode Top-level PHCompositeNode (typically the DST node root) where TRKR-related nodes are attached.
+ * @return int Fun4All return code: `Fun4AllReturnCodes::ABORTRUN` if the DST node is missing, `Fun4AllReturnCodes::EVENT_OK` on success.
+ */
 int MvtxClusterizer::InitRun(PHCompositeNode *topNode)
 {
   //-----------------
@@ -165,7 +189,7 @@ int MvtxClusterizer::InitRun(PHCompositeNode *topNode)
   }
 
   // Create the Cluster node if required
-  auto trkrclusters =
+  auto *trkrclusters =
       findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
   if (!trkrclusters)
   {
@@ -183,7 +207,7 @@ int MvtxClusterizer::InitRun(PHCompositeNode *topNode)
     DetNode->addNode(TrkrClusterContainerNode);
   }
 
-  auto clusterhitassoc =
+  auto *clusterhitassoc =
       findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
   if (!clusterhitassoc)
   {
@@ -208,14 +232,14 @@ int MvtxClusterizer::InitRun(PHCompositeNode *topNode)
     if (!mClusHitsVerbose)
     {
       PHNodeIterator dstiter(dstNode);
-      auto DetNode = dynamic_cast<PHCompositeNode *>(dstiter.findFirst("PHCompositeNode", "TRKR"));
+      auto *DetNode = dynamic_cast<PHCompositeNode *>(dstiter.findFirst("PHCompositeNode", "TRKR"));
       if (!DetNode)
       {
         DetNode = new PHCompositeNode("TRKR");
         dstNode->addNode(DetNode);
       }
       mClusHitsVerbose = new ClusHitsVerbosev1();
-      auto newNode = new PHIODataNode<PHObject>(mClusHitsVerbose, "Trkr_SvtxClusHitsVerbose", "PHObject");
+      auto *newNode = new PHIODataNode<PHObject>(mClusHitsVerbose, "Trkr_SvtxClusHitsVerbose", "PHObject");
       DetNode->addNode(newNode);
     }
   }
@@ -227,18 +251,28 @@ int MvtxClusterizer::InitRun(PHCompositeNode *topNode)
   if (Verbosity() > 0)
   {
     std::cout << "====================== MvtxClusterizer::InitRun() "
-            "====================="
-         << std::endl;
+                 "====================="
+              << std::endl;
     std::cout << " Z-dimension Clustering = " << std::boolalpha << m_makeZClustering
-         << std::noboolalpha << std::endl;
+              << std::noboolalpha << std::endl;
     std::cout << "=================================================================="
-            "========="
-         << std::endl;
+                 "========="
+              << std::endl;
   }
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Cluster MVTX hits for a single event and record resulting clusters.
+ *
+ * Resets existing MVTX clusters and cluster-hit associations, reads either
+ * regular or raw MVTX hit sets from the node tree depending on configuration,
+ * runs the appropriate clustering routine, and stores clusters and associations.
+ *
+ * @param topNode Root node of the event data tree.
+ * @return int Fun4AllReturnCodes::EVENT_OK on success; Fun4AllReturnCodes::ABORTRUN if required nodes are missing.
+ */
 int MvtxClusterizer::process_event(PHCompositeNode *topNode)
 {
   // get node containing the digitized hits
@@ -283,7 +317,7 @@ int MvtxClusterizer::process_event(PHCompositeNode *topNode)
 
   // reset MVTX clusters and cluster associations
   const auto hitsetkeys = m_clusterlist->getHitSetKeys(TrkrDefs::mvtxId);
-  for( const auto& hitsetkey:hitsetkeys)
+  for (const auto &hitsetkey : hitsetkeys)
   {
     m_clusterlist->removeClusters(hitsetkey);
     m_clusterhitassoc->removeAssocs(hitsetkey);
@@ -304,6 +338,15 @@ int MvtxClusterizer::process_event(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Cluster MVTX hits into TrkrCluster objects and record cluster–hit associations.
+ *
+ * For the current event node, collects MVTX hits per hitset, groups adjacent hits into clusters,
+ * creates TrkrClusterv5 objects with position, size, and error estimates, adds clusters to the
+ * module cluster container, and records associations between cluster keys and hit keys.
+ *
+ * @param topNode Top-level PHCompositeNode for the current event (used to retrieve geometry and hit containers).
+ */
 void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
 {
   if (Verbosity() > 0)
@@ -337,8 +380,8 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
       unsigned int chip = MvtxDefs::getChipId(hitsetitr->first);
       unsigned int strobe = MvtxDefs::getStrobeId(hitsetitr->first);
       std::cout << "MvtxClusterizer found hitsetkey " << hitsetitr->first
-           << " layer " << layer << " stave " << stave << " chip " << chip
-           << " strobe " << strobe << std::endl;
+                << " layer " << layer << " stave " << stave << " chip " << chip
+                << " strobe " << strobe << std::endl;
     }
 
     if (Verbosity() > 2)
@@ -394,7 +437,7 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
     std::vector<int> component(num_vertices(G));
 
     // this is the actual clustering, performed by boost
-    boost::connected_components(G, &component[0]);
+    boost::connected_components(G, component.data());
 
     // Loop over the components(hits) compiling a list of the
     // unique connected groups (ie. clusters).
@@ -405,7 +448,7 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
       cluster_ids.insert(component[i]);
       clusters.insert(make_pair(component[i], hitvec[i]));
     }
-    for (const auto& clusid:cluster_ids)
+    for (const auto &clusid : cluster_ids)
     {
       auto clusrange = clusters.equal_range(clusid);
       auto ckey = TrkrDefs::genClusKey(hitset->getHitSetKey(), clusid);
@@ -413,7 +456,8 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
       // determine the size of the cluster in phi and z
       std::set<int> phibins;
       std::set<int> zbins;
-      std::map<int, unsigned int> m_phi, m_z;  // Note, there are no "cut" bins for Svtx Clusters
+      std::map<int, unsigned int> m_phi;
+      std::map<int, unsigned int> m_z;  // Note, there are no "cut" bins for Svtx Clusters
 
       // determine the cluster position...
       double locxsum = 0.;
@@ -426,7 +470,7 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
 
       // we need the geometry object for this layer to get the global positions
       int layer = TrkrDefs::getLayer(ckey);
-      auto layergeom = dynamic_cast<CylinderGeom_Mvtx *>(geom_container->GetLayerGeom(layer));
+      auto *layergeom = dynamic_cast<CylinderGeom_Mvtx *>(geom_container->GetLayerGeom(layer));
       if (!layergeom)
       {
         exit(1);
@@ -574,11 +618,11 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
       if (Verbosity() > 0)
       {
         std::cout << " MvtxClusterizer: cluskey " << ckey << " layer " << layer
-             << " rad " << layergeom->get_radius() << " phibins "
-             << phibins.size() << " pitch " << pitch << " phisize " << phisize
-             << " zbins " << zbins.size() << " length " << length << " zsize "
-             << zsize << " local x " << locclusx << " local y " << locclusz
-             << std::endl;
+                  << " rad " << layergeom->get_radius() << " phibins "
+                  << phibins.size() << " pitch " << pitch << " phisize " << phisize
+                  << " zbins " << zbins.size() << " length " << length << " zsize "
+                  << zsize << " local x " << locclusx << " local y " << locclusz
+                  << std::endl;
       }
 
       auto clus = std::make_unique<TrkrClusterv5>();
@@ -605,7 +649,7 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
       }
 
     }  // clusitr loop
-  }    // loop over hitsets
+  }  // loop over hitsets
 
   if (Verbosity() > 1)
   {
@@ -616,6 +660,15 @@ void MvtxClusterizer::ClusterMvtx(PHCompositeNode *topNode)
   return;
 }
 
+/**
+ * @brief Cluster MVTX raw hits and record resulting clusters.
+ *
+ * Groups adjacent RawHit objects (per the module's adjacency rules) into connected components,
+ * computes each cluster's local position, size, and error estimates, and inserts a TrkrClusterv5
+ * for each cluster into the module's cluster container using a generated cluster key.
+ *
+ * @param topNode Event node tree root used to fetch MVTX geometry and raw-hit containers.
+ */
 void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
 {
   if (Verbosity() > 0)
@@ -650,8 +703,8 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
       unsigned int chip = MvtxDefs::getChipId(hitsetitr->first);
       unsigned int strobe = MvtxDefs::getStrobeId(hitsetitr->first);
       std::cout << "MvtxClusterizer found hitsetkey " << hitsetitr->first
-           << " layer " << layer << " stave " << stave << " chip " << chip
-           << " strobe " << strobe << std::endl;
+                << " layer " << layer << " stave " << stave << " chip " << chip
+                << " strobe " << strobe << std::endl;
     }
 
     if (Verbosity() > 2)
@@ -695,7 +748,7 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
     std::vector<int> component(num_vertices(G));
 
     // this is the actual clustering, performed by boost
-    boost::connected_components(G, &component[0]);
+    boost::connected_components(G, component.data());
 
     // Loop over the components(hits) compiling a list of the
     // unique connected groups (ie. clusters).
@@ -709,7 +762,7 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
     }
     //    std::cout << "found cluster #: "<< clusters.size()<< std::endl;
     // loop over the componenets and make clusters
-    for( const auto& clusid:cluster_ids)
+    for (const auto &clusid : cluster_ids)
     {
       auto clusrange = clusters.equal_range(clusid);
 
@@ -731,7 +784,7 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
 
       // we need the geometry object for this layer to get the global positions
       int layer = TrkrDefs::getLayer(ckey);
-      auto layergeom = dynamic_cast<CylinderGeom_Mvtx *>(
+      auto *layergeom = dynamic_cast<CylinderGeom_Mvtx *>(
           geom_container->GetLayerGeom(layer));
       if (!layergeom)
       {
@@ -845,11 +898,11 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
       if (Verbosity() > 0)
       {
         std::cout << " MvtxClusterizer: cluskey " << ckey << " layer " << layer
-             << " rad " << layergeom->get_radius() << " phibins "
-             << phibins.size() << " pitch " << pitch << " phisize " << phisize
-             << " zbins " << zbins.size() << " length " << length << " zsize "
-             << zsize << " local x " << locclusx << " local y " << locclusz
-             << std::endl;
+                  << " rad " << layergeom->get_radius() << " phibins "
+                  << phibins.size() << " pitch " << pitch << " phisize " << phisize
+                  << " zbins " << zbins.size() << " length " << length << " zsize "
+                  << zsize << " local x " << locclusx << " local y " << locclusz
+                  << std::endl;
       }
 
       auto clus = std::make_unique<TrkrClusterv5>();
@@ -875,7 +928,7 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
         m_clusterlist->addClusterSpecifyKey(ckey, clus.release());
       }
     }  // clusitr loop
-  }    // loop over hitsets
+  }  // loop over hitsets
 
   if (Verbosity() > 1)
   {
@@ -886,6 +939,15 @@ void MvtxClusterizer::ClusterMvtxRaw(PHCompositeNode *topNode)
   return;
 }
 
+/**
+ * @brief Print a verbosity-controlled summary of clusters found under the TRKR_CLUSTER node.
+ *
+ * If verbosity is enabled (>0) this retrieves the TRKR_CLUSTER container from the provided
+ * node tree and prints the total number of clusters; at higher verbosity (>3) it also
+ * calls the container's identify() method to print detailed information.
+ *
+ * @param topNode Root node of the PHENIX node tree from which TRKR_CLUSTER is retrieved.
+ */
 void MvtxClusterizer::PrintClusters(PHCompositeNode *topNode)
 {
   if (Verbosity() > 0)
@@ -898,11 +960,11 @@ void MvtxClusterizer::PrintClusters(PHCompositeNode *topNode)
     }
 
     std::cout << "================= After MvtxClusterizer::process_event() "
-            "===================="
-         << std::endl;
+                 "===================="
+              << std::endl;
 
     std::cout << " There are " << clusterlist->size()
-         << " clusters recorded: " << std::endl;
+              << " clusters recorded: " << std::endl;
 
     if (Verbosity() > 3)
     {
@@ -910,8 +972,8 @@ void MvtxClusterizer::PrintClusters(PHCompositeNode *topNode)
     }
 
     std::cout << "=================================================================="
-            "========="
-         << std::endl;
+                 "========="
+              << std::endl;
   }
 
   return;

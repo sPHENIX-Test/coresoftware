@@ -3,10 +3,13 @@
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/SubsysReco.h>  // for SubsysReco
 
-#include <phool/PHCompositeNode.h>
-
 #include <iostream>
 
+/**
+ * @brief Construct a Timing subsystem with the specified name.
+ *
+ * @param name Name used to identify this SubsysReco instance.
+ */
 Timing::Timing(const std::string &name)
   : SubsysReco(name)
 {

@@ -34,6 +34,7 @@
 #include <TNtuple.h>
 #include <TSystem.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>   // for exit
 #include <cstdlib>   // for exit
@@ -169,6 +170,17 @@ int TpcCombinedRawDataUnpackerDebug::InitRun(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Process a single event: unpack TPC raw hits, build TrkrHits, and apply optional zero-suppression and baseline corrections.
+ *
+ * Processes TPC raw data from the provided node tree, converts raw samples into TrkrHit entries (with or without zero suppression),
+ * estimates per-channel pedestals and widths when enabled, computes per-FEE baseline corrections when configured, applies noise
+ * rejection, and optionally fills debugging ntuples and histograms. Updates the TRKR_HITSET node with produced hits.
+ *
+ * @param topNode Root of the PHENIX node tree used to find input containers and attach output hit sets.
+ * @return int Fun4All return code: `EVENT_OK` on successful processing, `DISCARDEVENT` when the event is outside the configured event range
+ * or when required nodes are missing in a recoverable manner, or `ABORTRUN` when a fatal geometry node is absent.
+ */
 int TpcCombinedRawDataUnpackerDebug::process_event(PHCompositeNode* topNode)
 {
   if (_ievent < startevt || _ievent > endevt)
@@ -234,14 +246,8 @@ int TpcCombinedRawDataUnpackerDebug::process_event(PHCompositeNode* topNode)
     TpcRawHit* tpchit = tpccont->get_hit(i);
     uint64_t gtm_bco = tpchit->get_gtm_bco();
 
-    if (gtm_bco < bco_min)
-    {
-      bco_min = gtm_bco;
-    }
-    if (gtm_bco > bco_max)
-    {
-      bco_max = gtm_bco;
-    }
+    bco_min = std::min(gtm_bco, bco_min);
+    bco_max = std::max(gtm_bco, bco_max);
 
     int fee = tpchit->get_fee();
     int channel = tpchit->get_channel();
@@ -539,7 +545,7 @@ int TpcCombinedRawDataUnpackerDebug::process_event(PHCompositeNode* topNode)
 
         for (int binx = 1; binx < hist2d->GetNbinsX(); binx++)
         {
-          double timebin = ((TAxis*) hist2d->GetXaxis())->GetBinCenter(binx);
+          double timebin = ( hist2d->GetXaxis())->GetBinCenter(binx);
           std::string histname1d = "h" + std::to_string(hiter.first) + "_" + std::to_string((int) timebin);
           TH1D* hist1d = hist2d->ProjectionY(histname1d.c_str(), binx, binx);
           float local_ped = 0;
@@ -697,11 +703,8 @@ int TpcCombinedRawDataUnpackerDebug::process_event(PHCompositeNode* topNode)
           if ((float(adc) - pedestal_offset - corr) > (hpedwidth2 * m_ped_sig_cut))
           {
             float nuadc = (float(adc) - corr - pedestal_offset);
-            if (nuadc < 0)
-            {
-              nuadc = 0;
-            }
-            hitr->second->setAdc(float(nuadc));
+            nuadc = std::max<float>(nuadc, 0);
+            hitr->second->setAdc(nuadc);
 #ifdef DEBUG
             //	    hitr->second->setAdc(10);
             if (tbin == 383 && layer >= 7 + 32 && fee == 21)

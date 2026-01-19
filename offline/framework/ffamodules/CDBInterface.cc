@@ -120,6 +120,19 @@ void CDBInterface::Print(const std::string & /* what */) const
   }
 }
 
+/**
+ * @brief Retrieve a calibration or data URL for a given domain, using configured global tag and timestamp.
+ *
+ * Queries the CDB for the URL associated with the specified domain and the TIMESTAMP/CDB_GLOBALTAG flags from recoConsts.
+ * If the interface is disabled, returns an empty string immediately. If no URL is found and disabling of defaults is not enabled,
+ * the function will retry using the domain suffixed with "_default" and, if still not found, fall back to the provided filename.
+ * When a non-empty URL is obtained, the (domain, url, timestamp) tuple is recorded in the instance URL cache.
+ * If required flags are missing, the process terminates via gSystem->Exit(1).
+ *
+ * @param domain Domain name to query in the CDB.
+ * @param filename Local filename to use as a fallback when no CDB URL is found and defaults are allowed.
+ * @return std::string The resolved URL if found, the provided filename when used as fallback, or an empty string if disabled or no URL and defaults are disabled.
+ */
 std::string CDBInterface::getUrl(const std::string &domain, const std::string &filename)
 {
   if (disable)
@@ -185,11 +198,14 @@ std::string CDBInterface::getUrl(const std::string &domain, const std::string &f
       std::cout << "... reply: " << return_url << std::endl;
     }
   }
-  auto pret = m_UrlVector.insert(make_tuple(domain_noconst, return_url, timestamp));
-  if (!pret.second && Verbosity() > 1)
+  if (! return_url.empty())
   {
-    std::cout << PHWHERE << "not adding again " << domain_noconst << ", url: " << return_url
-              << ", time stamp: " << timestamp << std::endl;
+    auto pret = m_UrlVector.insert(make_tuple(domain_noconst, return_url, timestamp));
+    if (!pret.second && Verbosity() > 1)
+    {
+      std::cout << PHWHERE << "not adding again " << domain_noconst << ", url: " << return_url
+		<< ", time stamp: " << timestamp << std::endl;
+    }
   }
   return return_url;
 }

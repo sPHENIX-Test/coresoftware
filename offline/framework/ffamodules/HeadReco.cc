@@ -61,6 +61,19 @@ int HeadReco::InitRun(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Populates EventHeader with event-level metadata from the node tree.
+ *
+ * Populates the EventHeader node using heavy-ion information from the foreground
+ * PHHepMCGenEvent (if present) — including impact parameter, event plane angle,
+ * flow psi values (when available), eccentricity, Ncoll, and Npart — or falls
+ * back to the PRDF Event's event type when no generator map is present. Also
+ * sets the run number and event sequence from the Fun4AllServer and invokes
+ * identify() when verbosity is enabled.
+ *
+ * @param topNode Top-level node of the current event's node tree.
+ * @return int Fun4AllReturnCodes::EVENT_OK on success.
+ */
 int HeadReco::process_event(PHCompositeNode *topNode)
 {
   Fun4AllServer *se = Fun4AllServer::instance();
@@ -84,10 +97,13 @@ int HeadReco::process_event(PHCompositeNode *topNode)
           {
             evtheader->set_ImpactParameter(hi->impact_parameter());
             evtheader->set_EventPlaneAngle(hi->event_plane_angle());
-            for (unsigned int n = 1; n <= 6; ++n)
-            {
-              evtheader->set_FlowPsiN(n, genevt->get_flow_psi(n));
-            }
+	    if (! genevt->get_flow_psi_map().empty())
+	    {
+	      for (unsigned int n = 1; n <= 6; ++n)
+	      {
+		evtheader->set_FlowPsiN(n, genevt->get_flow_psi(n));
+	      }
+	    }
             evtheader->set_eccentricity(hi->eccentricity());
             evtheader->set_ncoll(hi->Ncoll());
             evtheader->set_npart(hi->Npart_targ() + hi->Npart_proj());

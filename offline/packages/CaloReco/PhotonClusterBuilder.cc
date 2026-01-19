@@ -272,6 +272,21 @@ void PhotonClusterBuilder::calculate_bdt_score(PhotonClusterv1* photon)
   photon->set_shower_shape_parameter("bdt_score", bdt_score);
 }
 
+/**
+ * @brief Compute and assign electromagnetic shower-shape, HCAL, timing, and isolation parameters for a photon cluster.
+ *
+ * Calculates a 7x7 EMCal energy grid centered on the cluster, derives standard shower-shape sums and moment-like variables
+ * (e11, e22, e33, e55, e77, e13, e15, e17, e31, e51, e71, e35, e37, e53, e73, e57, e75, weta, wphi, weta_cog, wphi_cog, etc.),
+ * cluster timing and saturation counts, nearest HCAL tower matching with 2x2/3x3 HCAL Et sums, and calorimeter-layer isolation
+ * values at multiple radii. All computed quantities are stored on the provided PhotonClusterv1 via set_shower_shape_parameter.
+ *
+ * If the input RawCluster contains no shower-shape data (empty), the function returns without modifying the photon.
+ *
+ * @param rc Pointer to the input RawCluster providing tower map and shower-shape inputs.
+ * @param photon PhotonClusterv1 object to receive computed shower-shape, HCAL and isolation parameters.
+ * @param cluster_eta Cluster pseudorapidity used for ET and isolation calculations.
+ * @param cluster_phi Cluster phi used for grid centering and isolation calculations.
+ */
 void PhotonClusterBuilder::calculate_shower_shapes(RawCluster* rc, PhotonClusterv1* photon, float cluster_eta, float cluster_phi)
 {
   std::vector<float> showershape = rc->get_shower_shapes(m_shape_min_tower_E);
@@ -566,6 +581,7 @@ void PhotonClusterBuilder::calculate_shower_shapes(RawCluster* rc, PhotonCluster
   photon->set_shower_shape_parameter("et3", showershape[2]);
   photon->set_shower_shape_parameter("et4", showershape[3]);
   photon->set_shower_shape_parameter("e11", e11);
+  photon->set_shower_shape_parameter("e22", showershape[8] + showershape[9] + showershape[10] + showershape[11]);
   photon->set_shower_shape_parameter("e33", e33);
   photon->set_shower_shape_parameter("e55", e55);
   photon->set_shower_shape_parameter("e77", e77);

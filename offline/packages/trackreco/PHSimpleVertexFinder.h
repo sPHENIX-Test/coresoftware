@@ -51,11 +51,33 @@ class PHSimpleVertexFinder : public SubsysReco
   void setTrackPtCut(const double cut) { _track_pt_cut = cut; }
   // void setUseTrackCovariance(bool set) {_use_track_covariance = set;}
   void setOutlierPairCut(const double cut) { _outlier_cut = cut; }
-  void setTrackMapName(const std::string &name) { _track_map_name = name; }
-  void setVertexMapName(const std::string &name) { _vertex_map_name = name; }
-  void zeroField(const bool flag) { _zero_field = flag; }
-  void setTrkrClusterContainerName(std::string &name){ m_clusterContainerName = name; }
-  void set_pp_mode(bool mode) { _pp_mode = mode; }
+  /**
+ * Set the node name used to look up the track map in the node tree.
+ * @param name Node name for the SvtxTrackMap to retrieve (e.g., "SvtxTrackMap").
+ */
+void setTrackMapName(const std::string &name) { _track_map_name = name; }
+  /**
+ * Set the node name used for the SvtxVertexMap container.
+ * @param name Name of the vertex map node in the node tree.
+ */
+void setVertexMapName(const std::string &name) { _vertex_map_name = name; }
+  /**
+ * Configure whether vertex finding should assume a zero magnetic field (use straight-line track propagation).
+ * @param flag `true` to treat the magnetic field as zero, `false` to use the nonzero field behavior.
+ */
+void zeroField(const bool flag) { _zero_field = flag; }
+  /**
+ * Set the name of the tracker cluster container used by the finder.
+ *
+ * @param name Name of the TrkrClusterContainer node (e.g., "TRKR_CLUSTER").
+ */
+void setTrkrClusterContainerName(const std::string &name){ m_clusterContainerName = name; }
+  /**
+ * Set proton–proton collision mode.
+ * 
+ * @param mode If `true`, enable proton–proton (pp) mode; if `false`, disable pp mode (use non-pp/heavy-ion mode).
+ */
+void set_pp_mode(bool mode) { _pp_mode = mode; }
 
  private:
   int GetNodes(PHCompositeNode *topNode);

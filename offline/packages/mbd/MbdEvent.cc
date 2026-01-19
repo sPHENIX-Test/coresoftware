@@ -402,7 +402,26 @@ bool MbdEvent::isbadtch(const int ipmtch)
 
 
 #ifndef ONLINE
-// Get raw data from event combined DSTs
+/**
+ * Populate per-channel sample buffers from two combined DST CaloPacket objects and
+ * convert them into MBD-level raw and PMT containers.
+ *
+ * Extracts sample arrays, clocks, and FEM clocks from the two CaloPacket inputs (packets
+ * 1001 and 1002), fills internal sample buffers used by MbdEvent, runs packet-level
+ * processing to produce MbdRawContainer contents, and then produces MbdPmtContainer
+ * outputs. When provided, GL1 trigger information (gl1raw) is used to require MBD
+ * trigger bits during calibration passes.
+ *
+ * @param dstp Array of two CaloPacket pointers (packets 1001 and 1002) supplying samples and clocks.
+ * @param bbcraws Output MbdRawContainer to be filled from packet processing.
+ * @param bbcpmts Output MbdPmtContainer to be filled from raw-container processing.
+ * @param gl1raw Optional GL1 trigger packet used to filter events in calibration passes.
+ * @return Fun4AllReturnCodes::DISCARDEVENT if both input packets are null;
+ *         Fun4AllReturnCodes::ABORTEVENT if a packet is missing or contains zero samples,
+ *         or if calibration-mode trigger bits are not set in gl1raw;
+ *         otherwise the processing status (typically the current event index or the
+ *         value returned by ProcessPackets/ProcessRawContainer).
+ */
 int MbdEvent::SetRawData(std::array< CaloPacket *,2> &dstp, MbdRawContainer *bbcraws, MbdPmtContainer *bbcpmts, Gl1Packet *gl1raw)
 {
   //std::cout << "MbdEvent::SetRawData()" << std::endl;
@@ -451,6 +470,7 @@ int MbdEvent::SetRawData(std::array< CaloPacket *,2> &dstp, MbdRawContainer *bbc
     if (dstp[ipkt])
     {
       _nsamples = dstp[ipkt]->iValue(0, "SAMPLES");
+
       {
         static bool printcount{true};
         if ( printcount && Verbosity() > 0)
@@ -458,6 +478,13 @@ int MbdEvent::SetRawData(std::array< CaloPacket *,2> &dstp, MbdRawContainer *bbc
           std::cout << "NSAMPLES = " << _nsamples << std::endl;
 	  printcount = false;
         }
+      }
+
+      // skip empty packets, corrupt event
+      if ( _nsamples == 0 )
+      {
+        std::cout << PHWHERE << " ERROR, evt " << m_evt << " no samples in Packet " << pktid << std::endl;
+        return Fun4AllReturnCodes::ABORTEVENT;
       }
 
       m_xmitclocks[ipkt] = static_cast<UShort_t>(dstp[ipkt]->iValue(0, "CLOCK"));
@@ -484,9 +511,17 @@ int MbdEvent::SetRawData(std::array< CaloPacket *,2> &dstp, MbdRawContainer *bbc
         }
 
         _mbdsig[feech].SetNSamples( _nsamples );
-        _mbdsig[feech].SetXY(m_samp[feech], m_adc[feech]);
-
+        
+        if ( _nsamples > 0 && _nsamples <= 30 )
+        {
+          _mbdsig[feech].SetXY(m_samp[feech], m_adc[feech]);
+        }
         /*
+        else
+        {
+          std::cout << PHWHERE << " empty feech " << feech << std::endl;
+        }
+
         std::cout << "feech " << feech << std::endl;
         _mbdsig[feech].Print();
         */
@@ -516,7 +551,18 @@ int MbdEvent::SetRawData(std::array< CaloPacket *,2> &dstp, MbdRawContainer *bbc
 
   return status;
 }
-#endif  // ONLINE
+#endif  /**
+ * @brief Populate MBD raw and PMT containers from an Event's PRDF packets.
+ *
+ * Validates the Event and its sample data, extracts per-channel sample arrays
+ * from packets 1001 and 1002 into internal signal objects, and then fills the
+ * provided MbdRawContainer and MbdPmtContainer via the processing pipeline.
+ *
+ * @param event Input Event; must be a DATAEVENT and non-null.
+ * @param bbcraws Output container that will be filled with per-channel raw results.
+ * @param bbcpmts Output container that will be filled with per-PMT time/charge results.
+ * @return int `m_evt` (the processed event index) on success; `Fun4AllReturnCodes::ABORTEVENT`, `-1`, or other negative error codes on failure (e.g., missing packets or zero samples).
+ */
 
 int MbdEvent::SetRawData(Event *event, MbdRawContainer *bbcraws, MbdPmtContainer *bbcpmts)
 {
@@ -565,6 +611,7 @@ int MbdEvent::SetRawData(Event *event, MbdRawContainer *bbcraws, MbdPmtContainer
     if (p[ipkt])
     {
       _nsamples = p[ipkt]->iValue(0, "SAMPLES");
+
       {
         static int counter = 0;
         if ( counter<1 )
@@ -572,6 +619,15 @@ int MbdEvent::SetRawData(Event *event, MbdRawContainer *bbcraws, MbdPmtContainer
           std::cout << "NSAMPLES = " << _nsamples << std::endl;
         }
         counter++;
+      }
+
+      // If packets are missing, stop processing event
+      if ( _nsamples == 0 )
+      {
+        std::cout << PHWHERE << " ERROR, skipping evt " << m_evt << " nsamples = 0 " << pktid << std::endl;
+        delete p[ipkt];
+        p[ipkt] = nullptr;
+        return Fun4AllReturnCodes::ABORTEVENT;
       }
 
       m_xmitclocks[ipkt] = static_cast<UShort_t>(p[ipkt]->iValue(0, "CLOCK"));
@@ -631,13 +687,21 @@ int MbdEvent::SetRawData(Event *event, MbdRawContainer *bbcraws, MbdPmtContainer
   return status;
 }
 
+/**
+ * @brief Process per-FEE packet signals and populate the raw PMT container.
+ *
+ * Processes all configured FEE channels for the current event, applies timing and charge extraction, updates internal event/clocks state, and fills bbcraws with per-PMT raw amplitude, time, and charge values. May advance the internal event counter and short-circuit processing when performing sample-maximum calibration.
+ *
+ * @param bbcraws Output container that will be filled with per-PMT raw results (amplitude, time, charge), number of PMTs, and clock metadata.
+ * @return int Current event index after processing, or a negative code to indicate special conditions (for example, -1001 when processing is stopped early to collect sample-maximum calibration data).
+ */
 int MbdEvent::ProcessPackets(MbdRawContainer *bbcraws)
 {
   //std::cout << "In ProcessPackets" << std::endl;
   // Do a quick sanity check that all fem counters agree
   if (m_xmitclocks[0] != m_xmitclocks[1])
   {
-    std::cout << __FILE__ << ":" << __LINE__ << " ERROR, xmitclocks don't agree" << std::endl;
+    std::cout << __FILE__ << ":" << __LINE__ << " ERROR, xmitclocks don't agree, evt " << m_evt << std::endl;
   }
   /*
   // format changed in run2024, need to update check
@@ -672,6 +736,11 @@ int MbdEvent::ProcessPackets(MbdRawContainer *bbcraws)
   {
     int pmtch = _mbdgeom->get_pmt(ifeech);
     int type = _mbdgeom->get_type(ifeech);  // 0 = T-channel, 1 = Q-channel
+
+    if ( _mbdsig[ifeech].GetNSamples()==0 )
+    {
+      continue;
+    }
 
     // time channel
     if (type == 0)
@@ -731,6 +800,15 @@ int MbdEvent::ProcessPackets(MbdRawContainer *bbcraws)
   return m_evt;
 }
 
+/**
+ * @brief Convert per-channel raw signals into calibrated PMT-level time and charge and update event state.
+ *
+ * Processes each front-end channel that contains samples, computes per-PMT time and charge values (applying sample-maximum, T/Q conversions, t0/scorrection and gain corrections where applicable), writes results into the provided MbdPmtContainer, updates clock fields, runs post-processing on PMTs, and advances the internal event counter.
+ *
+ * @param bbcraws Raw per-channel container providing sampled waveforms and per-channel raw results.
+ * @param bbcpmts Output PMT-level container which will be populated with per-PMT charge and time (`set_pmt`) and whose `npmt` will be set.
+ * @return int The event index after processing (internal m_evt after it has been incremented).
+ */
 int MbdEvent::ProcessRawContainer(MbdRawContainer *bbcraws, MbdPmtContainer *bbcpmts)
 {
   //std::cout << "In ProcessRawContainer" << std::endl;
@@ -738,6 +816,11 @@ int MbdEvent::ProcessRawContainer(MbdRawContainer *bbcraws, MbdPmtContainer *bbc
   {
     int pmtch = _mbdgeom->get_pmt(ifeech);
     int type = _mbdgeom->get_type(ifeech);  // 0 = T-channel, 1 = Q-channel
+
+    if ( _mbdsig[ifeech].GetNSamples()==0 )
+    {
+      continue;
+    }
 
     // time channel
     if (type == 0)
@@ -854,8 +937,14 @@ int MbdEvent::ProcessRawContainer(MbdRawContainer *bbcraws, MbdPmtContainer *bbc
         */
 
         TGraphErrors *gsubpulse = _mbdsig[ifeech].GetGraph();
-        Double_t *y = gsubpulse->GetY();
-        h2_trange->Fill( y[samp_max], pmtch );  // fill ped-subtracted tdc
+        if ( gsubpulse )
+        {
+          Double_t *y = gsubpulse->GetY();
+          if ( y )
+          {
+            h2_trange->Fill( y[samp_max], pmtch );  // fill ped-subtracted tdc
+          }
+        }
       }
     }
 

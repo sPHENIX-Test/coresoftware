@@ -8,16 +8,18 @@
 #include <string>  // for string
 #include <ctime>
 
-class PHCompositeNode;
-
 class Timing : public SubsysReco
 {
  public:
   Timing(const std::string &name = "Timing");
-  ~Timing() override {}
-  int InitRun(PHCompositeNode *topNode) override;
-  int process_event(PHCompositeNode *topNode) override;
-  void SetCallCounter(unsigned int i) { calls = i; }
+  ~Timing() override = default;
+  int InitRun(PHCompositeNode * /*topNode*/) override;
+  int process_event(PHCompositeNode * /*topNode*/) override;
+  /**
+ * Set the target maximum number of calls used by the Timing module.
+ * @param i Target number of calls.
+ */
+void SetCallCounter(unsigned int i) { calls = i; }
 
  private:
   unsigned int call_counter{0};

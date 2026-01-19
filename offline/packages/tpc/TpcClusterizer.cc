@@ -25,7 +25,6 @@
 #include <trackbase/RawHit.h>
 #include <trackbase/RawHitSet.h>
 #include <trackbase/RawHitSetContainer.h>
-#include <trackbase/RawHitSet.h>
 
 #include <fun4all/Fun4AllReturnCodes.h>
 #include <fun4all/SubsysReco.h>  // for SubsysReco
@@ -50,6 +49,7 @@
 
 #include <TFile.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>  // for sqrt, cos, sin
 #include <iostream>
@@ -64,7 +64,14 @@
 namespace
 {
   template <class T>
-  inline constexpr T square(const T &x)
+  /**
+   * @brief Compute the square of a value.
+   *
+   * @tparam T Type that supports multiplication (T operator*(const T&, const T&)).
+   * @param x Value to square.
+   * @return T The value multiplied by itself (x * x).
+   */
+  constexpr T square(const T &x)
   {
     return x * x;
   }
@@ -357,6 +364,19 @@ namespace
     return;
   }
 
+  /**
+   * @brief Determines whether a hit at the given phi/time bin has any non-zero neighbors.
+   *
+   * Checks the 3x3 neighborhood centered on (iphi, it) (excluding the center bin) and
+   * treats bins outside [0, NPhiBinsMax) or [0, NTBinsMax) as clipped to the valid range.
+   *
+   * @param iphi Phi-bin index of the hit.
+   * @param it Time-bin index of the hit.
+   * @param NPhiBinsMax Number of phi bins (upper exclusive bound).
+   * @param NTBinsMax Number of time bins (upper exclusive bound).
+   * @param adcval 2D array of ADC values indexed as adcval[phi][time].
+   * @return int `1` if all neighboring bins in the 8-neighborhood have ADC value 0, `0` otherwise.
+   */
   int is_hit_isolated(int iphi, int it, int NPhiBinsMax, int NTBinsMax, const std::vector<std::vector<unsigned short>> &adcval)
   {
     // check isolated hits
@@ -365,20 +385,14 @@ namespace
 
     int isosum = 0;
     int isophimin = iphi - 1;
-    if (isophimin < 0)
-    {
-      isophimin = 0;
-    }
+    isophimin = std::max(isophimin, 0);
     int isophimax = iphi + 1;
     if (!(isophimax < NPhiBinsMax))
     {
       isophimax = NPhiBinsMax - 1;
     }
     int isotmin = it - 1;
-    if (isotmin < 0)
-    {
-      isotmin = 0;
-    }
+    isotmin = std::max(isotmin, 0);
     int isotmax = it + 1;
     if (!(isotmax < NTBinsMax))
     {
@@ -465,6 +479,26 @@ namespace
     return;
   }
 
+  /**
+   * @brief Compute cluster properties from a list of hits and append resulting cluster data to thread state.
+   *
+   * Processes the provided hits to form a cluster: computes ADC-weighted centroid in phi and drift time,
+   * estimates spatial errors, determines the corresponding detector surface, and — if the cluster passes
+   * quality thresholds — constructs a TrkrClusterv5 and appends it to my_data.cluster_vector.
+   * When configured, this routine also:
+   * - runs a neural-network refinement to adjust cluster phi/z,
+   * - produces a TrainingHits object for supervised training and appends it to my_data.v_hits,
+   * - records per-bin ADC summaries for verbose output,
+   * - and records cluster–hit associations into my_data.association_vector.
+   *
+   * @param iphi_center Phi-bin index of the seed (center) hit within the local layer indexing.
+   * @param it_center Time-bin index of the seed (center) hit within the local layer indexing.
+   * @param ihit_list Vector of hits (iphi/it/adc/edge) that belong to the candidate cluster.
+   * @param my_data Per-thread processing context where produced clusters, associations, verbose records,
+   *                and configuration (thresholds, geometry, NN flags, etc.) are stored and read.
+   * @param ntouch Number of overlapping hits touching other clusters; recorded on the created cluster.
+   * @param nedge Number of edge hits in the cluster; recorded on the created cluster.
+   */
   void calc_cluster_parameter(const int iphi_center, const int it_center,
                               const std::vector<ihit> &ihit_list, thread_data &my_data, int ntouch, int nedge)
   {
@@ -537,30 +571,11 @@ namespace
         continue;
       }
 
-      if (adc > max_adc)
-      {
-        max_adc = adc;
-      }
-
-      if (iphi > phibinhi)
-      {
-        phibinhi = iphi;
-      }
-
-      if (iphi < phibinlo)
-      {
-        phibinlo = iphi;
-      }
-
-      if (it > tbinhi)
-      {
-        tbinhi = it;
-      }
-
-      if (it < tbinlo)
-      {
-        tbinlo = it;
-      }
+      max_adc = std::max(max_adc, static_cast<int>(std::round(adc))); // preserves rounding (0.5 -> 1)
+      phibinhi = std::max(iphi, phibinhi);
+      phibinlo = std::min(iphi, phibinlo);
+      tbinhi = std::max(it, tbinhi);
+      tbinlo = std::min(it, tbinlo);
 
       // if(it==it_center){ yg_sum += adc; }
       // update phi sums
@@ -686,7 +701,7 @@ namespace
     //	std::cout << "clus num" << my_data.cluster_vector.size() << " X " << local(0) << " Y " << clust << std::endl;
     if (sqrt(phi_err_square) > my_data.min_err_squared)
     {
-      auto clus = new TrkrClusterv5;
+      auto *clus = new TrkrClusterv5;
       // auto clus = std::make_unique<TrkrClusterv3>();
       clus_base = clus;
       clus->setAdc(adc_sum);
@@ -738,19 +753,19 @@ namespace
     if (my_data.fillClusHitsVerbose && b_made_cluster)
     {
       // push the data back to
-      my_data.phivec_ClusHitsVerbose.push_back(std::vector<std::pair<int, int>>{});
-      my_data.zvec_ClusHitsVerbose.push_back(std::vector<std::pair<int, int>>{});
+      my_data.phivec_ClusHitsVerbose.emplace_back();
+      my_data.zvec_ClusHitsVerbose.emplace_back();
 
       auto &vphi = my_data.phivec_ClusHitsVerbose.back();
       auto &vz = my_data.zvec_ClusHitsVerbose.back();
 
       for (auto &entry : m_phi)
       {
-        vphi.push_back({entry.first, entry.second});
+        vphi.emplace_back(entry.first, entry.second);
       }
       for (auto &entry : m_z)
       {
-        vz.push_back({entry.first, entry.second});
+        vz.emplace_back(entry.first, entry.second);
       }
     }
 
@@ -777,6 +792,24 @@ namespace
     //      std::cout << "done calc" << std::endl;
   }
 
+  /**
+   * @brief Process a single sector (layer/side/sector) to find and build TPC clusters.
+   *
+   * Reads hits from the thread-specific hitset or rawhitset, constructs a 2D ADC map,
+   * identifies local maxima and grows clusters around peaks, computes per-cluster
+   * parameters (including optional neural-network refinement), and records cluster
+   * objects and hit associations into the provided thread-local outputs.
+   *
+   * The function respects configured thresholds, wedge emulation, fixed-window logic,
+   * and single-hit suppression flags. When enabled, it also generates training hit
+   * records for each cluster.
+   *
+   * @param my_data Pointer to the thread_data structure containing input hitset/rawhitset,
+   *                geometry and configuration parameters. This object is mutated:
+   *                - cluster_vector is appended with created cluster objects,
+   *                - association_vector is appended with cluster↔hit associations,
+   *                - v_hits is appended with generated TrainingHits when training is enabled.
+   */
   void ProcessSectorData(thread_data *my_data)
   {
     const auto &pedestal = my_data->pedestal;
@@ -875,7 +908,7 @@ namespace
           }
           if (adc > my_data->edge_threshold)
           {
-            adcval[phibin][tbin] = (unsigned short) adc;
+            adcval[phibin][tbin] = adc;
           }
         }
       }
@@ -967,7 +1000,7 @@ namespace
     }
     */
     // std::cout << "done filling " << std::endl;
-    while (all_hit_map.size() > 0)
+    while (!all_hit_map.empty())
     {
       // std::cout << "all hit map size: " << all_hit_map.size() << std::endl;
       auto iter = all_hit_map.rbegin();
@@ -1013,22 +1046,10 @@ namespace
           {
             continue;
           }
-          if (wiphi > wphibinhi)
-          {
-            wphibinhi = wiphi;
-          }
-          if (wiphi < wphibinlo)
-          {
-            wphibinlo = wiphi;
-          }
-          if (wit > wtbinhi)
-          {
-            wtbinhi = wit;
-          }
-          if (wit < wtbinlo)
-          {
-            wtbinlo = wit;
-          }
+          wphibinhi = std::max(wiphi, wphibinhi);
+          wphibinlo = std::min(wiphi, wphibinlo);
+          wtbinhi = std::max(wit, wtbinhi);
+          wtbinlo = std::min(wit, wtbinlo);
         }
         char wtsize = wtbinhi - wtbinlo + 1;
         char wphisize = wphibinhi - wphibinlo + 1;
@@ -1075,9 +1096,15 @@ namespace
     */
     // pthread_exit(nullptr);
   }
+  /**
+   * @brief Thread entry point that processes a sector's data.
+   *
+   * @param threadarg Pointer to a thread_data instance containing per-thread sector context.
+   * @return void* Never returns; the thread terminates via pthread_exit(nullptr).
+   */
   void *ProcessSector(void *threadarg)
   {
-    auto my_data = static_cast<thread_data *>(threadarg);
+    auto *my_data = static_cast<thread_data *>(threadarg);
     ProcessSectorData(my_data);
     pthread_exit(nullptr);
   }
@@ -1120,6 +1147,18 @@ bool TpcClusterizer::is_in_sector_boundary(int phibin, int sector, PHG4TpcGeom *
   return reject_it;
 }
 
+/**
+ * @brief Initialize runtime nodes, geometry, and optional neural-network model for the TPC clusterizer.
+ *
+ * Ensures required DST subnodes and containers (TRKR_CLUSTER, TRKR_CLUSTERHITASSOC, TRAINING_HITSET)
+ * exist under the "DST/TRKR" node, configures flags for training hit generation and NN usage,
+ * attempts to load the TorchScript NN model when enabled, optionally prepares a verbose output node,
+ * and reads TPC geometry to initialize ADC timing (AdcClockPeriod) and print sample layer geometry.
+ *
+ * @param topNode Top-level PHCompositeNode for the job; used to locate or create required child nodes.
+ * @return int Fun4AllReturnCodes::EVENT_OK on successful initialization, Fun4AllReturnCodes::ABORTRUN
+ *         if required nodes (DST or TPC geometry) are missing or initialization cannot proceed.
+ */
 int TpcClusterizer::InitRun(PHCompositeNode *topNode)
 {
   PHNodeIterator iter(topNode);
@@ -1133,7 +1172,7 @@ int TpcClusterizer::InitRun(PHCompositeNode *topNode)
   }
 
   // Create the Cluster node if required
-  auto trkrclusters = findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
+  auto *trkrclusters = findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
   if (!trkrclusters)
   {
     PHNodeIterator dstiter(dstNode);
@@ -1151,7 +1190,7 @@ int TpcClusterizer::InitRun(PHCompositeNode *topNode)
     DetNode->addNode(TrkrClusterContainerNode);
   }
 
-  auto clusterhitassoc = findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
+  auto *clusterhitassoc = findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
   if (!clusterhitassoc)
   {
     PHNodeIterator dstiter(dstNode);
@@ -1168,7 +1207,7 @@ int TpcClusterizer::InitRun(PHCompositeNode *topNode)
     DetNode->addNode(newNode);
   }
 
-  auto training_container = findNode::getClass<TrainingHitsContainer>(dstNode, "TRAINING_HITSET");
+  auto *training_container = findNode::getClass<TrainingHitsContainer>(dstNode, "TRAINING_HITSET");
   if (!training_container)
   {
     PHNodeIterator dstiter(dstNode);
@@ -1217,18 +1256,18 @@ int TpcClusterizer::InitRun(PHCompositeNode *topNode)
     if (!mClusHitsVerbose)
     {
       PHNodeIterator dstiter(dstNode);
-      auto DetNode = dynamic_cast<PHCompositeNode *>(dstiter.findFirst("PHCompositeNode", "TRKR"));
+      auto *DetNode = dynamic_cast<PHCompositeNode *>(dstiter.findFirst("PHCompositeNode", "TRKR"));
       if (!DetNode)
       {
         DetNode = new PHCompositeNode("TRKR");
         dstNode->addNode(DetNode);
       }
       mClusHitsVerbose = new ClusHitsVerbosev1();
-      auto newNode = new PHIODataNode<PHObject>(mClusHitsVerbose, "Trkr_SvtxClusHitsVerbose", "PHObject");
+      auto *newNode = new PHIODataNode<PHObject>(mClusHitsVerbose, "Trkr_SvtxClusHitsVerbose", "PHObject");
       DetNode->addNode(newNode);
     }
   }
-  auto geom =
+  auto *geom =
       findNode::getClass<PHG4TpcGeomContainer>(topNode, "TPCGEOMCONTAINER");
   if (!geom)
   {
@@ -1239,18 +1278,33 @@ int TpcClusterizer::InitRun(PHCompositeNode *topNode)
   AdcClockPeriod = geom->GetFirstLayerCellGeom()->get_zstep();
 
   std::cout << "FirstLayerCellGeomv1 streamer: " << std::endl;  
-  auto *g1 = (PHG4TpcGeomv1*) geom->GetFirstLayerCellGeom(); // cast because << not in the base class
+  auto *g1 = static_cast<PHG4TpcGeomv1*> (geom->GetFirstLayerCellGeom()); // cast because << not in the base class
   std::cout << *g1 << std::endl;
   std::cout << "LayerCellGeomv1 streamer for layer 24: " << std::endl;
-  auto *g2 = (PHG4TpcGeomv1*) geom->GetLayerCellGeom(24); // cast because << not in the base class
+  auto *g2 = static_cast<PHG4TpcGeomv1*> (geom->GetLayerCellGeom(24)); // cast because << not in the base class
   std::cout << *g2 << std::endl;
   std::cout << "LayerCellGeomv1 streamer for layer 40: " << std::endl;  
-  auto *g3 = (PHG4TpcGeomv1*) geom->GetLayerCellGeom(40); // cast because << not in the base class
+  auto *g3 = static_cast<PHG4TpcGeomv1*> (geom->GetLayerCellGeom(40)); // cast because << not in the base class
   std::cout << *g3 << std::endl;
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Perform TPC clustering for the current event and write clusters and associations to DST nodes.
+ *
+ * Clusters hits (either digitized or raw) per TPC hitset (layer/sector/side) using a sectorized,
+ * optionally multi-threaded algorithm, optionally produces training hit records and verbose hit output,
+ * and stores resulting TrkrCluster objects and cluster-hit associations into the DST node tree.
+ * Alignment transforms are temporarily disabled for the duration of this call to ensure consistent
+ * construction-space coordinates during clustering.
+ *
+ * @param topNode Top-level node of the event node tree (DST) from which input hit sets, geometry,
+ *                and output containers are retrieved and to which resulting cluster containers are written.
+ * @return int Fun4AllReturnCodes::EVENT_OK on success; Fun4AllReturnCodes::ABORTRUN if required
+ *             nodes (e.g. DST, hitset, geometry, or cluster containers) are missing; nonzero on
+ *             internal errors (e.g. mutex or thread creation failures).
+ */
 int TpcClusterizer::process_event(PHCompositeNode *topNode)
 {
   // The TPC is the only subsystem that clusters in global coordinates. For consistency,
@@ -1489,18 +1543,18 @@ int TpcClusterizer::process_event(PHCompositeNode *topNode)
           const auto ckey = TrkrDefs::genClusKey(hitsetkey, index);
 
           // get cluster
-          auto cluster = data.cluster_vector[index];
+          auto *cluster = data.cluster_vector[index];
 
           // insert in map
           m_clusterlist->addClusterSpecifyKey(ckey, cluster);
 
           if (mClusHitsVerbose)
           {
-            for (auto &hit : data.phivec_ClusHitsVerbose[index])
+            for (const auto &hit : data.phivec_ClusHitsVerbose[index])
             {
               mClusHitsVerbose->addPhiHit(hit.first, hit.second);
             }
-            for (auto &hit : data.zvec_ClusHitsVerbose[index])
+            for (const auto &hit : data.zvec_ClusHitsVerbose[index])
             {
               mClusHitsVerbose->addZHit(hit.first, hit.second);
             }
@@ -1624,7 +1678,7 @@ int TpcClusterizer::process_event(PHCompositeNode *topNode)
           const auto ckey = TrkrDefs::genClusKey(hitsetkey, index);
 
           // get cluster
-          auto cluster = data.cluster_vector[index];
+          auto *cluster = data.cluster_vector[index];
 
           // insert in map
           m_clusterlist->addClusterSpecifyKey(ckey, cluster);
@@ -1668,7 +1722,7 @@ int TpcClusterizer::process_event(PHCompositeNode *topNode)
         const auto ckey = TrkrDefs::genClusKey(hitsetkey, index);
 
         // get cluster
-        auto cluster = data.cluster_vector[index];
+        auto *cluster = data.cluster_vector[index];
 
         // insert in map
         // std::cout << "X: " << cluster->getLocalX() << "Y: " << cluster->getLocalY() << std::endl;
@@ -1676,11 +1730,11 @@ int TpcClusterizer::process_event(PHCompositeNode *topNode)
 
         if (mClusHitsVerbose)
         {
-          for (auto &hit : data.phivec_ClusHitsVerbose[index])
+          for (const auto &hit : data.phivec_ClusHitsVerbose[index])
           {
             mClusHitsVerbose->addPhiHit(hit.first, (float) hit.second);
           }
-          for (auto &hit : data.zvec_ClusHitsVerbose[index])
+          for (const auto &hit : data.zvec_ClusHitsVerbose[index])
           {
             mClusHitsVerbose->addZHit(hit.first, (float) hit.second);
           }
@@ -1698,7 +1752,7 @@ int TpcClusterizer::process_event(PHCompositeNode *topNode)
         m_clusterhitassoc->addAssoc(ckey, hkey);
       }
 
-      for (auto v_hit : thread_pair.data.v_hits)
+      for (auto *v_hit : thread_pair.data.v_hits)
       {
         if (_store_hits)
         {

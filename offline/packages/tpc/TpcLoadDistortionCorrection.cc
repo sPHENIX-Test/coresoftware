@@ -45,7 +45,17 @@ TpcLoadDistortionCorrection::TpcLoadDistortionCorrection(const std::string& name
 {
 }
 
-//_____________________________________________________________________
+/**
+ * @brief Load distortion correction histograms from configured files into node tree containers.
+ *
+ * For each enabled correction slot, ensures a TpcDistortionCorrectionContainer exists under the
+ * RUN node, opens the configured ROOT file, reads the per-side distortion histograms
+ * (hIntDistortionP/R/Z for _negz and _posz), sets the container's dimension and configuration
+ * flags (phi units, z-interpolation, and scaling), and optionally prints histogram info.
+ *
+ * @param topNode Top-level node of the current run/event node tree; used to find or create the RUN/<container> nodes.
+ * @return `Fun4AllReturnCodes::ABORTRUN` if the RUN node is missing, `Fun4AllReturnCodes::EVENT_OK` on successful initialization.
+ */
 int TpcLoadDistortionCorrection::InitRun(PHCompositeNode* topNode)
 {
   // look for distortion calibration object
@@ -58,7 +68,7 @@ int TpcLoadDistortionCorrection::InitRun(PHCompositeNode* topNode)
   }
   
   /// Get the RUN node and check
-  auto runNode = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "RUN"));
+  auto *runNode = dynamic_cast<PHCompositeNode*>(iter.findFirst("PHCompositeNode", "RUN"));
   if (!runNode)
   {
     std::cout << "TpcLoadDistortionCorrection::InitRun - RUN Node missing, quitting" << std::endl;
@@ -74,17 +84,17 @@ int TpcLoadDistortionCorrection::InitRun(PHCompositeNode* topNode)
     }
 
     // get distortion correction object and create if not found
-    auto distortion_correction_object = findNode::getClass<TpcDistortionCorrectionContainer>(topNode, m_node_name[i]);
+    auto *distortion_correction_object = findNode::getClass<TpcDistortionCorrectionContainer>(topNode, m_node_name[i]);
     if (!distortion_correction_object)
     {
       std::cout << "TpcLoadDistortionCorrection::InitRun - creating TpcDistortionCorrectionContainer in node " << m_node_name[i] << std::endl;
       distortion_correction_object = new TpcDistortionCorrectionContainer;
-      auto node = new PHDataNode<TpcDistortionCorrectionContainer>(distortion_correction_object, m_node_name[i]);
+      auto *node = new PHDataNode<TpcDistortionCorrectionContainer>(distortion_correction_object, m_node_name[i]);
       runNode->addNode(node);
     }
 
     std::cout << "TpcLoadDistortionCorrection::InitRun - reading corrections from " << m_correction_filename[i] << std::endl;
-    auto distortion_tfile = TFile::Open(m_correction_filename[i].c_str());
+    auto *distortion_tfile = TFile::Open(m_correction_filename[i].c_str());
     if (!distortion_tfile)
     {
       std::cout << "TpcLoadDistortionCorrection::InitRun - cannot open " << m_correction_filename[i] << std::endl;

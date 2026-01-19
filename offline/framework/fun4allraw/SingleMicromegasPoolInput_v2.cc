@@ -524,7 +524,14 @@ void SingleMicromegasPoolInput_v2::FillBcoQA(uint64_t gtm_bco)
   // how many waveforms found for this BCO
   h_waveform->Fill(n_waveforms);
 }
-//_______________________________________________________
+/**
+ * @brief Create and register QA histograms and (optionally) an evaluation TTree for Micromegas BCO and waveform monitoring.
+ *
+ * Sets up histograms that track per-GTM-BCO packet and waveform counts, per-packet and per-FEE waveform totals and drop counts,
+ * and heartbeat statistics. When evaluation mode is enabled, opens an output TFile and creates a TTree with branches that record
+ * per-waveform metadata and matching information (is_heartbeat, matched, packet_id, fee_id, channel, GTM and FEE BCO fields,
+ * and predicted-matching fields).
+ */
 void SingleMicromegasPoolInput_v2::createQAHistos()
 {
   auto* hm = QAHistManagerDef::getHistoManager();
@@ -607,6 +614,7 @@ void SingleMicromegasPoolInput_v2::createQAHistos()
     m_evaluation_file.reset(new TFile(m_evaluation_filename.c_str(), "RECREATE"));
     m_evaluation_tree = new TTree("T", "T");
     m_evaluation_tree->Branch("is_heartbeat", &m_waveform.is_heartbeat);
+    m_evaluation_tree->Branch("matched", &m_waveform.matched);
     m_evaluation_tree->Branch("packet_id", &m_waveform.packet_id);
     m_evaluation_tree->Branch("fee_id", &m_waveform.fee_id);
     m_evaluation_tree->Branch("channel", &m_waveform.channel);
@@ -788,7 +796,20 @@ void SingleMicromegasPoolInput_v2::decode_gtm_data(int packet_id, const SingleMi
   }
 }
 
-//____________________________________________________________________
+/**
+ * @brief Process and decode a complete FEE data buffer for a given packet and FEE, producing Micromegas raw hits.
+ *
+ * Parses one or more FEE sub-packets from the per-FEE buffer, validates headers and CRC, updates QA counters/histograms
+ * and heartbeat statistics, attempts to match FEE BX timestamps to a GTM BCO, and on successful match constructs and
+ * stores MicromegasRawHitv3 objects (and forwards them to the StreamingInputManager if available).
+ *
+ * When BCO matching fails for a waveform the function increments drop counters and histograms and skips creating a hit.
+ * If evaluation mode is enabled, per-waveform evaluation fields (including match status and predicted/matched BCOs)
+ * are populated and the evaluation tree is filled for both matched and non-matched cases.
+ *
+ * @param packet_id Identifier of the packet (index in per-packet bookkeeping) whose matching context is used.
+ * @param fee_id Identifier of the FEE whose data buffer will be consumed.
+ */
 void SingleMicromegasPoolInput_v2::process_fee_data(int packet_id, unsigned int fee_id)
 {
   // get bco information
@@ -912,6 +933,13 @@ void SingleMicromegasPoolInput_v2::process_fee_data(int packet_id, unsigned int 
 
     // try get gtm bco matching fee
     const auto& fee_bco = payload.bx_timestamp;
+    if( m_do_evaluation )
+    {
+      m_waveform.is_heartbeat = is_heartbeat;
+      m_waveform.fee_id = fee_id;
+      m_waveform.channel = payload.channel;
+      m_waveform.fee_bco = fee_bco;
+    }
 
     // find matching gtm bco
     uint64_t gtm_bco = 0;
@@ -920,9 +948,20 @@ void SingleMicromegasPoolInput_v2::process_fee_data(int packet_id, unsigned int 
     {
       // assign gtm bco
       gtm_bco = result.value();
-    }
-    else
-    {
+      if( m_do_evaluation )
+      {
+        m_waveform.matched = true;
+        m_waveform.gtm_bco_matched = gtm_bco;
+        {
+          const auto predicted = bco_matching_information.get_predicted_fee_bco(gtm_bco);;
+          if( predicted )
+          {
+            m_waveform.fee_bco_predicted_matched = predicted.value();
+          }
+        }
+        m_evaluation_tree->Fill();
+      }
+    } else {
       // increment counter and histogram
       ++m_waveform_counters[packet_id].dropped_bco;
       ++m_fee_waveform_counters[fee_id].dropped_bco;
@@ -935,28 +974,16 @@ void SingleMicromegasPoolInput_v2::process_fee_data(int packet_id, unsigned int 
         ++m_fee_heartbeat_counters[fee_id].dropped_bco;
       }
 
-      // skip the waverform
-      continue;
-    }
-
-    if (m_do_evaluation)
-    {
-      m_waveform.is_heartbeat = (payload.type == HEARTBEAT_T);
-      m_waveform.fee_id = fee_id;
-      m_waveform.channel = payload.channel;
-      m_waveform.fee_bco = fee_bco;
-
-      m_waveform.gtm_bco_matched = gtm_bco;
+      if( m_do_evaluation )
       {
-        const auto predicted = bco_matching_information.get_predicted_fee_bco(gtm_bco);
-        ;
-        if (predicted)
-        {
-          m_waveform.fee_bco_predicted_matched = predicted.value();
-        }
+        m_waveform.matched = false;
+        m_waveform.gtm_bco_matched = 0;
+        m_waveform.fee_bco_predicted_matched = 0;
+        m_evaluation_tree->Fill();
       }
 
-      m_evaluation_tree->Fill();
+      // skip the waverform
+      continue;
     }
 
     // ignore heartbeat waveforms

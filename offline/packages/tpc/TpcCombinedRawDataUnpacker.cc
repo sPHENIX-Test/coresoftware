@@ -53,11 +53,23 @@ TpcCombinedRawDataUnpacker::~TpcCombinedRawDataUnpacker()
 {
   delete m_cdbttree;
 }
+/**
+ * @brief Enable zero-suppression emulation and load TPC zero-suppression thresholds.
+ *
+ * Sets internal flags to enable zero-suppression emulation and disable baseline correction,
+ * then attempts to load ADU thresholds for the three TPC regions from the CDB entry
+ * identified by "TPC_ZS_THRESHOLDS". If the CDB directory is empty, the method returns
+ * without changing the existing threshold values (default threshold of 20 is used).
+ *
+ * @details
+ * Loaded threshold values are stored in m_zs_threshold[0..2]. Verbose diagnostic output
+ * is printed when Verbosity() > 1.
+ */
 void TpcCombinedRawDataUnpacker::ReadZeroSuppressedData()
 {
   m_do_zs_emulation = true;
   m_do_baseline_corr = false;
-  auto cdb = CDBInterface::instance();
+  auto *cdb = CDBInterface::instance();
   std::string dir = cdb->getUrl("TPC_ZS_THRESHOLDS");
 
   auto cdbtree = std::make_unique<CDBTTree>(dir);
@@ -75,7 +87,7 @@ void TpcCombinedRawDataUnpacker::ReadZeroSuppressedData()
   {
     name.str("");
     name << "R"<<i+1<<"ADUThreshold";
-    m_zs_threshold[i] = cdbtree->GetSingleFloatValue(name.str().c_str());
+    m_zs_threshold[i] = cdbtree->GetSingleFloatValue(name.str());
     if(Verbosity() > 1)
     {
       std::cout << "Loading ADU threshold of " << m_zs_threshold[i] << " for region " << i << std::endl;

@@ -140,10 +140,28 @@ class Fun4AllServer : public Fun4AllBase
   int ScreamEveryEvent{0};
   int unregistersubsystem{0};
   int runnumber{0};
-  int eventnumber{0};
-  int eventcounter{0};
-  int keep_db_connected{0};
-
+  /**
+ * Current event number tracked by the server.
+ *
+ * This counter is incremented for each processed event and is initialized to 0.
+ */
+int eventnumber{0};
+  /**
+ * @brief Counts processed events.
+ *
+ * Total number of events processed by the server since initialization.
+ * This counter is incremented for each event that the framework processes.
+ */
+int eventcounter{0};
+  /**
+ * Control persistence of the database connection across runs.
+ *
+ * When set to 1 the server keeps the database connection open between operations;
+ * when set to 0 the connection is closed when not in use.
+ */
+int keep_db_connected{0};
+  
+  std::ios m_saved_cout_state{nullptr};
   std::vector<std::string> ComplaintList;
   std::vector<std::string> ResetNodeList {"DST"};
   std::vector<std::pair<SubsysReco *, PHCompositeNode *>> Subsystems;

@@ -61,7 +61,12 @@ MicromegasClusterQA::MicromegasClusterQA(const std::string& name)
 {
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Initialize Micromegas cluster QA: load calibrations, read geometry to determine detectors, and create QA histograms.
+ *
+ * @param topNode Framework top-level node providing access to geometry and calibration data.
+ * @return int Fun4AllReturnCodes::EVENT_OK on successful initialization.
+ */
 int MicromegasClusterQA::InitRun(PHCompositeNode* topNode)
 {
   // print configuration
@@ -72,6 +77,9 @@ int MicromegasClusterQA::InitRun(PHCompositeNode* topNode)
       << " m_calibration_filename: "
       << (m_calibration_filename.empty() ? "unspecified" : m_calibration_filename)
       << std::endl;
+
+  std::cout << "MicromegasClusterQA::InitRun - m_sample_min: " << m_sample_min << std::endl;
+  std::cout << "MicromegasClusterQA::InitRun - m_sample_max: " << m_sample_max << std::endl;
 
   // read calibrations
   if (!m_calibration_filename.empty())
@@ -115,7 +123,16 @@ int MicromegasClusterQA::InitRun(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-//____________________________________________________________________________..
+/**
+ * Process a single event: analyze Micromegas clusters and fill QA histograms for cluster size, charge,
+ * per-detector multiplicity, and reference/found cluster counts.
+ *
+ * Clusters are skipped if none of their associated hits have a sample within [m_sample_min, m_sample_max).
+ * Cluster charge is computed as the sum of (ADC - pedestal) over associated hits; clusters with charge > 200
+ * are counted as "good" for reference/found statistics.
+ *
+ * @return Fun4AllReturnCodes::EVENT_OK on success.
+ */
 int MicromegasClusterQA::process_event(PHCompositeNode* topNode)
 {
   // acts geometry
@@ -161,6 +178,13 @@ int MicromegasClusterQA::process_event(PHCompositeNode* topNode)
     {
       // find associated hits
       const auto hit_range = m_cluster_hit_map->getHits(ckey);
+
+      // check hit samples
+      // if none of the associated hits' sample is within acceptable range, skip the cluster
+      if( std::none_of( hit_range.first, hit_range.second,
+        [this]( const TrkrClusterHitAssoc::Map::value_type& pair )
+        { return MicromegasDefs::getSample( pair.second ) >= m_sample_min &&  MicromegasDefs::getSample( pair.second ) < m_sample_max; } ) )
+      { continue; }
 
       // store cluster size and fill cluster size histogram
       const int cluster_size = std::distance(hit_range.first, hit_range.second);
