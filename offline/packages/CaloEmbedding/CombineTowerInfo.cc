@@ -129,3 +129,4 @@ int CombineTowerInfo::process_event(PHCompositeNode* /*topNode*/)
 
   return Fun4AllReturnCodes::EVENT_OK;
 }
+
