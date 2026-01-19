@@ -32,9 +32,21 @@ class MbdSig
   void SetY(const Float_t *y, const int invert = 1);
   void SetXY(const Float_t *x, const Float_t *y, const int invert = 1);
 
+  /**
+ * Get the number of samples in this signal.
+ *
+ * @return The number of samples (_nsamples).
+ */
+int  GetNSamples() { return _nsamples; }
+
   void SetCalib(MbdCalib *mcal);
 
-  TH1 *GetHist() { return hpulse; }
+  /**
+ * Accesses the pulse histogram for this signal.
+ *
+ * @returns Pointer to the pulse histogram (hpulse), or `nullptr` if not available.
+ */
+TH1 *GetHist() { return hpulse; }
   TGraphErrors *GetGraph() { return gpulse; }
   Double_t GetAmpl() { return f_ampl; }
   Double_t GetTime() { return f_time; }

@@ -387,6 +387,17 @@ int PHSiliconTpcTrackMatching::End(PHCompositeNode * /*unused*/)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Retrieve required nodes from the PHCompositeNode tree and create missing output container.
+ *
+ * Searches the provided top-level node tree for and assigns internal pointers to required containers and services
+ * (cluster crossing assoc, silicon track seeds, TPC track seeds, cluster container, and Acts geometry).
+ * If the SvtxTrackSeedContainer node is absent, it is created under the DST/SVTX subtree and registered on the node tree.
+ *
+ * @param topNode Top-level PHCompositeNode to search for required nodes.
+ * @return int Fun4All return code: `Fun4AllReturnCodes::EVENT_OK` on success; `Fun4AllReturnCodes::ABORTEVENT` if a required node
+ * (silicon track seed container, TPC track seed container, cluster container, or Acts geometry) is missing.
+ */
 int PHSiliconTpcTrackMatching::GetNodes(PHCompositeNode *topNode)
 {
   //---------------------------------
@@ -445,10 +456,10 @@ int PHSiliconTpcTrackMatching::GetNodes(PHCompositeNode *topNode)
     svtxNode->addNode(node);
   }
 
-  _cluster_map = findNode::getClass<TrkrClusterContainer>(topNode, "TRKR_CLUSTER");
+  _cluster_map = findNode::getClass<TrkrClusterContainer>(topNode, _cluster_map_name);
   if (!_cluster_map)
   {
-    std::cout << PHWHERE << " ERROR: Can't find node TRKR_CLUSTER" << std::endl;
+    std::cout << PHWHERE << " ERROR: Can't find node " <<_cluster_map_name << std::endl;
     return Fun4AllReturnCodes::ABORTEVENT;
   }
 

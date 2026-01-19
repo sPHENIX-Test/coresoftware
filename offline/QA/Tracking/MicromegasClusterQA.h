@@ -23,6 +23,39 @@ class TH2;
 
 class PHCompositeNode;
 
+/**
+ * Set the default pedestal value used for hit charge calculation when calibration data is not used.
+ * @param value Default pedestal value in ADC units.
+ */
+
+/**
+ * Enable or disable use of the default pedestal instead of per-channel calibration data.
+ * @param value `true` to use the default pedestal, `false` to use calibration data when available.
+ */
+
+/**
+ * Set the path to the Micromegas calibration file to be loaded for per-channel pedestal and gain.
+ * @param value Filesystem path or identifier of the calibration file.
+ */
+
+/**
+ * Set the minimum sample index (inclusive) to consider when integrating signal for a hit.
+ * @param value Minimum sample index for signal integration.
+ */
+
+/**
+ * Set the maximum sample index (inclusive) to consider when integrating signal for a hit.
+ * @param value Maximum sample index for signal integration.
+ */
+
+/**
+ * Create and initialize all QA histograms used by this module.
+ */
+
+/**
+ * Get the prefix used for histogram names produced by this module.
+ * @returns Prefix string for histogram naming.
+ */
 class MicromegasClusterQA : public SubsysReco
 {
  public:
@@ -50,6 +83,13 @@ class MicromegasClusterQA : public SubsysReco
   {
     m_calibration_filename = value;
   }
+
+  /// set min sample for signal hits
+  void set_sample_min(uint16_t value) { m_sample_min = value; }
+
+  /// set max sample for signal hits
+  void set_sample_max(uint16_t value) { m_sample_max = value; }
+
 
  private:
   void create_histograms();
@@ -97,6 +137,12 @@ class MicromegasClusterQA : public SubsysReco
 
   /// keep track of detector names
   std::vector<std::string> m_detector_names;
+
+  /// min sample for signal
+  uint16_t m_sample_min = 0;
+
+  /// max sample for signal
+  uint16_t m_sample_max = 1024;
 
   ///@name calibration filename
   //@{

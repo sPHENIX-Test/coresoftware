@@ -136,10 +136,35 @@ class PHSiliconTpcTrackMatching : public SubsysReco, public PHParameterInterface
   //  void set_use_old_matching(const bool flag) { _use_old_matching = flag; }
 
   void set_test_windows_printout(const bool test) { _test_windows = test; }
-  void set_file_name(const std::string &name) { _file_name = name; }
-  void set_pp_mode(const bool flag) { _pp_mode = flag; }
-  void set_use_intt_crossing(const bool flag) { _use_intt_crossing = flag; }
-
+  /**
+ * Set the output ROOT file name used by the module.
+ *
+ * @param name New filename for the module's output TFile.
+ */
+void set_file_name(const std::string &name) { _file_name = name; }
+  /**
+ * Enable or disable pp (proton–proton) collision mode.
+ * @param flag `true` to enable pp mode, `false` to disable it.
+ */
+void set_pp_mode(const bool flag) { _pp_mode = flag; }
+  /**
+ * Enable or disable using INTT-derived cluster crossing corrections.
+ *
+ * When enabled, cluster z-crossing information from the INTT detector is used
+ * to correct cluster positions for matching; when disabled, INTT crossing data
+ * is ignored.
+ *
+ * @param flag `true` to use INTT crossings, `false` to ignore them.
+ */
+void set_use_intt_crossing(const bool flag) { _use_intt_crossing = flag; }
+  /**
+   * Set the node name used to locate the cluster container.
+   * @param name Node name of the cluster map (e.g., "TRKR_CLUSTER").
+   */
+  void set_cluster_map_name(const std::string &name)
+  {
+    _cluster_map_name = name;
+  }
   int InitRun(PHCompositeNode *topNode) override;
 
   int process_event(PHCompositeNode *) override;
@@ -200,7 +225,12 @@ class PHSiliconTpcTrackMatching : public SubsysReco, public PHParameterInterface
 
   //  double _collision_rate = 50e3;  // input rate for phi correction
   //  double _reference_collision_rate = 50e3;  // reference rate for phi correction
-  //  double _si_vertex_dzmax = 0.25;  // mm
+  /**
+ * Retrieve the list of cluster keys associated with a given tracklet.
+ *
+ * @param tracklet Pointer to the TrackSeed whose constituent clusters are requested.
+ * @returns A vector of TrkrDefs::cluskey values corresponding to clusters used by the tracklet.
+ */
   double fieldstrength{std::numeric_limits<double>::quiet_NaN()};
 
   bool _test_windows = false;
@@ -210,6 +240,7 @@ class PHSiliconTpcTrackMatching : public SubsysReco, public PHParameterInterface
   int _n_iteration = 0;
   std::string _track_map_name = "TpcTrackSeedContainer";
   std::string _silicon_track_map_name = "SiliconTrackSeedContainer";
+  std::string _cluster_map_name = "TRKR_CLUSTER";
   std::string m_fieldMap = "1.4";
   std::vector<TrkrDefs::cluskey> getTrackletClusterList(TrackSeed* tracklet);
 };

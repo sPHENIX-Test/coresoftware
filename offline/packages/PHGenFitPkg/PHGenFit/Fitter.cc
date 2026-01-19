@@ -44,6 +44,18 @@ namespace genfit
 
 namespace PHGenFit
 {
+  /**
+   * @brief Constructs a Fitter using a geometry file and configures field, materials, fitter type, and optional event display.
+   *
+   * Initializes the geometry from the given TGeo file, installs the provided PHField into GenFit, configures material effects,
+   * optionally enables the GenFit event display, and selects the internal GenFit fitter implementation according to fitter_choice.
+   *
+   * @param tgeo_file_name Path to a ROOT TGeo geometry file to import.
+   * @param field Pointer to a PHField used to construct the GenFit field mapping; must not be null.
+   * @param fitter_choice Name of the fitter implementation to instantiate (e.g., "KalmanFitterRefTrack", "KalmanFitter", "DafSimple", "DafRef").
+   * @param /*track_rep_choice*/ Placeholder for track representation choice (ignored by this constructor).
+   * @param doEventDisplay If true, enables and retains a GenFit EventDisplay instance for later use.
+   */
   Fitter::Fitter(
       const std::string& tgeo_file_name,
       const PHField* field,
@@ -51,9 +63,9 @@ namespace PHGenFit
       const std::string& /*track_rep_choice*/,
       const bool doEventDisplay)
     : verbosity(1000)
+    , _tgeo_manager(new TGeoManager("Default", "Geane geometry"))
     , _doEventDisplay(doEventDisplay)
   {
-    _tgeo_manager = new TGeoManager("Default", "Geane geometry");
     TGeoManager::Import(tgeo_file_name.data());
 
     assert(field);
@@ -73,26 +85,24 @@ namespace PHGenFit
     }
 
     // init fitter
-    if (fitter_choice.compare("KalmanFitterRefTrack") == 0)
+    if (fitter_choice == "KalmanFitterRefTrack")
     {
       _fitter = new genfit::KalmanFitterRefTrack();
     }
-    else if (fitter_choice.compare("KalmanFitter") == 0)
-// NOLINTNEXTLINE(bugprone-branch-clone)
-    {
+    else if (fitter_choice == "KalmanFitter")
+    {  // NOLINT(bugprone-branch-clone)
       _fitter = new genfit::KalmanFitter();
     }
-    else if (fitter_choice.compare("DafSimple") == 0)
+    else if (fitter_choice == "DafSimple")
     {
       _fitter = new genfit::DAF(false);
     }
-    else if (fitter_choice.compare("DafRef") == 0)
+    else if (fitter_choice == "DafRef")
     {
       _fitter = new genfit::DAF(true);
     }
     else
-// NOLINTNEXTLINE(bugprone-branch-clone)
-    {
+    {  // NOLINT(bugprone-branch-clone)
       _fitter = new genfit::KalmanFitter();
     }
 
@@ -203,6 +213,17 @@ namespace PHGenFit
     return new Fitter(tgeo_manager, fieldMap, fitter_choice, track_rep_choice, doEventDisplay);
   }
 
+  /**
+   * @brief Constructs a Fitter using an existing geometry manager and field map, and configures the chosen GenFit fitter and optional event display.
+   *
+   * Initializes the GenFit FieldManager and MaterialEffects, creates the selected fitter implementation, and enables event display if requested.
+   *
+   * @param tgeo_manager Pointer to an existing TGeoManager that provides detector geometry for fitting.
+   * @param fieldMap Pointer to a GenFit magnetic field map used during propagation and fitting.
+   * @param fitter_choice Enum value selecting which GenFit fitter implementation to instantiate (e.g., KalmanFitter, KalmanFitterRefTrack, DafSimple, DafRef).
+   * @param /*track_rep_choice*/ Unused parameter retained for API compatibility; the constructor ignores track representation choice.
+   * @param doEventDisplay If true, initializes and retains a GenFit EventDisplay instance for visualizing fitted tracks.
+   */
   Fitter::Fitter(TGeoManager* tgeo_manager, genfit::AbsBField* fieldMap,
                  const PHGenFit::Fitter::FitterType& fitter_choice,
                  const PHGenFit::Fitter::TrackRepType& /*track_rep_choice*/,
@@ -235,7 +256,7 @@ namespace PHGenFit
     {
       _fitter = new genfit::KalmanFitterRefTrack();
     }
-    if (fitter_choice == PHGenFit::Fitter::DafSimple)
+    else if (fitter_choice == PHGenFit::Fitter::DafSimple)
     {
       _fitter = new genfit::DAF(false);
     }
@@ -266,6 +287,19 @@ namespace PHGenFit
     return new Fitter(tgeo_manager, fieldMap, fitter_choice, track_rep_choice, doEventDisplay);
   }
 
+  /**
+   * @brief Constructs a Fitter using an existing geometry manager and field map.
+   *
+   * Initializes the GenFit field manager and material effects, optionally enables
+   * the event display, and instantiates the requested fitter implementation.
+   *
+   * @param tgeo_manager Pointer to an existing TGeoManager that provides geometry.
+   * @param fieldMap GenFit magnetic field map used for propagation.
+   * @param fitter_choice Name of the fitter to create; supported values:
+   *        "KalmanFitterRefTrack", "KalmanFitter", "DafSimple", "DafRef".
+   *        If the value is unrecognized, no fitter is created and an error is logged.
+   * @param doEventDisplay If true, acquires the GenFit EventDisplay singleton for visualization.
+   */
   Fitter::Fitter(TGeoManager* tgeo_manager, genfit::AbsBField* fieldMap,
                  const std::string& fitter_choice, const std::string& /*track_rep_choice*/,
                  const bool doEventDisplay)
@@ -289,19 +323,19 @@ namespace PHGenFit
     }
 
     // init fitter
-    if (fitter_choice.compare("KalmanFitterRefTrack") == 0)
+    if (fitter_choice == "KalmanFitterRefTrack")
     {
       _fitter = new genfit::KalmanFitterRefTrack();
     }
-    else if (fitter_choice.compare("KalmanFitter") == 0)
+    else if (fitter_choice == "KalmanFitter")
     {
       _fitter = new genfit::KalmanFitter();
     }
-    else if (fitter_choice.compare("DafSimple") == 0)
+    else if (fitter_choice == "DafSimple")
     {
       _fitter = new genfit::DAF(false);
     }
-    else if (fitter_choice.compare("DafRef") == 0)
+    else if (fitter_choice == "DafRef")
     {
       _fitter = new genfit::DAF(true);
     }

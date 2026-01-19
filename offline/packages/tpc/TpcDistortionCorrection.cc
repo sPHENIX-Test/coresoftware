@@ -15,7 +15,14 @@
 namespace
 {
   template <class T>
-  inline constexpr T square(const T& x)
+  /**
+   * @brief Compute the square of a value.
+   *
+   * @tparam T Type of the input value.
+   * @param x Value to be squared.
+   * @return T The input multiplied by itself (x * x).
+   */
+  constexpr T square(const T x)
   {
     return x * x;
   }

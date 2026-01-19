@@ -142,6 +142,21 @@ int CaloValid::process_event(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Process calorimeter towers and related detector data for a single event.
+ *
+ * Decodes trigger information, accumulates per-detector energies, processes calibrated
+ * and raw tower data for CEMC, HCALIN, and HCALOUT, fills QA and correlation histograms,
+ * analyzes MBD PMTs, and performs cluster-based pi0 reconstruction and trigger-alignment
+ * bookkeeping (leading-cluster, per-trigger profiles). Uses nodes from the supplied
+ * PHCompositeNode tree to read event header, vertex, GL1 packet, tower containers,
+ * MBD PMTs, and cluster/geometry containers.
+ *
+ * @param topNode Root node of the Fun4All/PHENIX node tree from which required
+ *                detector and event data are retrieved.
+ * @return int Fun4AllReturnCodes::EVENT_OK on successful processing; returns 0 if the
+ *             CEMC cluster container is missing (fatal condition encountered in this routine).
+ */
 int CaloValid::process_towers(PHCompositeNode* topNode)
 {
   //---------------------------Event header--------------------------------//
@@ -335,13 +350,16 @@ int CaloValid::process_towers(PHCompositeNode* topNode)
           status = status >> 1U;  // clang-tidy mark 1 as unsigned
         }
 
-        totalcemc += offlineenergy;
+        if (isGood)
+        {
+          totalcemc += offlineenergy;
+        }
         h_emcaltime->Fill(_timef);
         if (offlineenergy > emcal_hit_threshold)
         {
           h_cemc_etaphi_time->Fill(ieta, iphi, _timef);
           h_cemc_etaphi->Fill(ieta, iphi);
-          if (isGood && (scaledBits[10] || scaledBits[11]))
+          if (isGood && (scaledBits[10] || scaledBits[12]))
           {
             h_cemc_etaphi_wQA->Fill(ieta, iphi, offlineenergy);
           }
@@ -407,14 +425,17 @@ int CaloValid::process_towers(PHCompositeNode* topNode)
           status = status >> 1U;  // clang-tidy mark 1 as unsigned
         }
 
-        totalihcal += offlineenergy;
+        if (isGood)
+        {
+          totalihcal += offlineenergy;
+        }
         h_ihcaltime->Fill(_timef);
 
         if (offlineenergy > ihcal_hit_threshold)
         {
           h_ihcal_etaphi->Fill(ieta, iphi);
           h_ihcal_etaphi_time->Fill(ieta, iphi, _timef);
-          if (isGood && (scaledBits[10] || scaledBits[11]))
+          if (isGood && (scaledBits[10] || scaledBits[12]))
           {
             h_ihcal_etaphi_wQA->Fill(ieta, iphi, offlineenergy);
           }
@@ -472,14 +493,17 @@ int CaloValid::process_towers(PHCompositeNode* topNode)
           status = status >> 1U;  // clang-tidy mark 1 as unsigned
         }
 
-        totalohcal += offlineenergy;
+        if (isGood)
+        {
+          totalohcal += offlineenergy;
+        }
         h_ohcaltime->Fill(_timef);
 
         if (offlineenergy > ohcal_hit_threshold)
         {
           h_ohcal_etaphi_time->Fill(ieta, iphi, _timef);
           h_ohcal_etaphi->Fill(ieta, iphi);
-          if (isGood && (scaledBits[10] || scaledBits[11]))
+          if (isGood && (scaledBits[10] || scaledBits[12]))
           {
             h_ohcal_etaphi_wQA->Fill(ieta, iphi, offlineenergy);
           }

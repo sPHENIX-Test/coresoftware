@@ -17,19 +17,39 @@
 
 namespace
 {
-  [[maybe_unused]] std::ostream& operator << (std::ostream& out, const Acts::Vector3& v )
+  /**
+   * @brief Formats an Acts::Vector3 as "(x, y, z)" and writes it to an output stream.
+   *
+   * @param out Stream to write the formatted vector to.
+   * @param v  3D vector whose components will be written in the order x, y, z.
+   * @return std::ostream& Reference to the same output stream after writing.
+   */
+  [[maybe_unused]] std::ostream& operator<<(std::ostream& out, const Acts::Vector3& v)
   {
     out << "(" << v.x() << ", " << v.y() << ", " << v.z() << ")";
     return out;
   }
-}
+}  /**
+ * @brief Construct a TpcClusterMover and initialize TPC layer geometry.
+ *
+ * Initializes radial spacing for the inner, middle, and outer TPC regions and
+ * computes the default radius for each of the 48 readout layers as the midpoint
+ * of its region bin.
+ *
+ * @details
+ * - inner/mid/outer spacings are computed from the configured region boundary radii.
+ * - layer_radius[0..15]  are set for the inner region,
+ *   layer_radius[16..31] are set for the middle region,
+ *   layer_radius[32..47] are set for the outer region.
+ */
 
 TpcClusterMover::TpcClusterMover()
+  : inner_tpc_spacing((mid_tpc_min_radius - inner_tpc_min_radius) / 16.0)
+  , mid_tpc_spacing((outer_tpc_min_radius - mid_tpc_min_radius) / 16.0)
+  , outer_tpc_spacing((outer_tpc_max_radius - outer_tpc_min_radius) / 16.0)
 {
   // initialize layer radii
-  inner_tpc_spacing = (mid_tpc_min_radius - inner_tpc_min_radius) / 16.0;
-  mid_tpc_spacing = (outer_tpc_min_radius - mid_tpc_min_radius) / 16.0;
-  outer_tpc_spacing = (outer_tpc_max_radius - outer_tpc_min_radius) / 16.0;
+
   for (int i = 0; i < 16; ++i)
   {
     layer_radius[i] = inner_tpc_min_radius + (double) i * inner_tpc_spacing + 0.5 * inner_tpc_spacing;
@@ -44,7 +64,16 @@ TpcClusterMover::TpcClusterMover()
   }
 }
 
-void TpcClusterMover::initialize_geometry(PHG4TpcGeomContainer *cellgeo)
+/**
+ * @brief Populate internal layer radii from the TPC cell geometry container.
+ *
+ * Reads layer radii from the provided PHG4TpcGeomContainer and stores them
+ * into the mover's internal layer_radius array so subsequent cluster projections
+ * use the geometry-derived surface radii.
+ *
+ * @param cellgeo TPC geometry container providing per-layer radius information.
+ */
+void TpcClusterMover::initialize_geometry(PHG4TpcGeomContainer* cellgeo)
 {
   if (_verbosity > 0)
   {
@@ -62,10 +91,23 @@ void TpcClusterMover::initialize_geometry(PHG4TpcGeomContainer *cellgeo)
   }
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Move TPC clusters on a track to their readout layer surfaces while leaving non‑TPC clusters unchanged.
+ *
+ * Fits a circle to the track's TPC cluster positions to determine the transverse trajectory and fits z as a function
+ * of radius to determine longitudinal position; each TPC cluster is then projected from its distorted position
+ * onto the target readout layer radius and replaced by the projected global position. Clusters for which a valid
+ * projection cannot be determined are omitted from the returned list. If the track contains fewer than three TPC
+ * clusters, the input list is returned unchanged.
+ *
+ * @param global_in Vector of (cluster key, global position) pairs for all clusters on the track. TPC clusters are
+ *                  identified by their cluster key and are the only ones moved; non‑TPC clusters are preserved as provided.
+ * @return std::vector<std::pair<TrkrDefs::cluskey, Acts::Vector3>> Vector of (cluster key, global position) pairs where
+ *         TPC cluster positions have been replaced by their projections to the corresponding readout layer radii;
+ *         non‑TPC clusters are included unchanged. Clusters that could not be projected are not included for the failed entries.
+ */
 std::vector<std::pair<TrkrDefs::cluskey, Acts::Vector3>> TpcClusterMover::processTrack(const std::vector<std::pair<TrkrDefs::cluskey, Acts::Vector3>>& global_in)
 {
-
   // Get the global positions of the TPC clusters for this track, already corrected for distortions, and move them to the surfaces
   // The input object contains all clusters for the track
 
@@ -74,7 +116,7 @@ std::vector<std::pair<TrkrDefs::cluskey, Acts::Vector3>> TpcClusterMover::proces
   std::vector<Acts::Vector3> tpc_global_vec;
   std::vector<TrkrDefs::cluskey> tpc_cluskey_vec;
 
-  for (const auto& [ckey,global]:global_in)
+  for (const auto& [ckey, global] : global_in)
   {
     const auto trkrid = TrkrDefs::getTrkrId(ckey);
     if (trkrid == TrkrDefs::tpcId)
@@ -85,7 +127,7 @@ std::vector<std::pair<TrkrDefs::cluskey, Acts::Vector3>> TpcClusterMover::proces
     else
     {
       // si clusters stay where they are
-      global_moved.emplace_back(ckey,global);
+      global_moved.emplace_back(ckey, global);
     }
   }
 
@@ -158,7 +200,26 @@ std::vector<std::pair<TrkrDefs::cluskey, Acts::Vector3>> TpcClusterMover::proces
   return global_moved;
 }
 
-int TpcClusterMover::get_circle_circle_intersection(double target_radius, double R, double X0, double Y0, double xclus, double yclus, double &x, double &y)
+/**
+ * @brief Selects the intersection point between a fitted circle and a cylinder at a given radius.
+ *
+ * Computes the two intersection candidates between the circle (centered at (X0,Y0) with radius R)
+ * and the cylinder of radius target_radius, then assigns (x,y) to the candidate chosen based on
+ * proximity to the original cluster position (xclus,yclus). If the intersection computation fails,
+ * the function signals the failure without modifying (x,y).
+ *
+ * @param target_radius Cylinder radius (target surface) to intersect with.
+ * @param R Radius of the fitted circle.
+ * @param X0 X coordinate of the fitted circle center.
+ * @param Y0 Y coordinate of the fitted circle center.
+ * @param xclus X coordinate of the original cluster position, used to select the closer intersection.
+ * @param yclus Y coordinate of the original cluster position, used to select the closer intersection.
+ * @param[out] x Selected intersection X coordinate.
+ * @param[out] y Selected intersection Y coordinate.
+ * @return int `Fun4AllReturnCodes::EVENT_OK` if a valid intersection was selected and (x,y) set;
+ * `Fun4AllReturnCodes::ABORTEVENT` if the intersection calculation failed.
+ */
+int TpcClusterMover::get_circle_circle_intersection(double target_radius, double R, double X0, double Y0, double xclus, double yclus, double& x, double& y) const
 {
   // finds the intersection of the fitted circle with the cylinder having radius = target_radius
   const auto [xplus, yplus, xminus, yminus] = TrackFitUtils::circle_circle_intersection(target_radius, R, X0, Y0);

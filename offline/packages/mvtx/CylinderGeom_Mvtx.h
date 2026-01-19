@@ -8,12 +8,80 @@
 
 #include <iostream>
 
+/**
+ * Construct a CylinderGeom_Mvtx with geometry parameters for a specific layer.
+ * @param layer Detector layer index.
+ * @param in_N_staves Number of staves in the layer.
+ * @param in_layer_nominal_radius Nominal radius of the layer.
+ * @param in_phistep Angular step between staves (radians).
+ * @param in_phitilt Stave tilt angle (radians).
+ * @param in_phi0 Azimuthal offset of the first stave (radians).
+ */
+
+/**
+ * Output identifying information about this geometry to the provided stream.
+ * @param os Stream to write identification information to.
+ */
+
+/**
+ * Determine stave and chip indices corresponding to world coordinates.
+ * @param world World coordinates as a vector of three doubles {x,y,z}.
+ * @param stave Output stave index.
+ * @param chip Output chip index within the stave.
+ */
+
+/**
+ * Map local sensor coordinates to integer pixel row and column indices.
+ * @param sensor_local Local coordinates in the sensor frame.
+ * @param iRow Output pixel row index.
+ * @param iCol Output pixel column index.
+ * @returns `true` if the coordinates map to a valid pixel, `false` otherwise.
+ */
+
+/**
+ * Map local sensor coordinates to a flattened pixel index.
+ * @param sensor_local Local coordinates in the sensor frame.
+ * @returns Flattened pixel index corresponding to the local coordinates, or a negative value if outside the sensor.
+ */
+
+/**
+ * Return the local sensor coordinates for a given flattened pixel index.
+ * @param NXZ Flattened pixel index.
+ * @returns Local coordinates of the pixel center as a TVector3.
+ */
+
+/**
+ * Return the local sensor coordinates for a given pixel row and column.
+ * @param iRow Pixel row index.
+ * @param iCol Pixel column index.
+ * @returns Local coordinates of the pixel center as a TVector3.
+ */
+
+/**
+ * Return the X (column) index for a flattened pixel number.
+ * @param NXZ Flattened pixel index.
+ * @returns X (column) index of the pixel.
+ */
+
+/**
+ * Return the Z (row) index for a flattened pixel number.
+ * @param NXZ Flattened pixel index.
+ * @returns Z (row) index of the pixel.
+ */
+
+/**
+ * Compute a flattened pixel number from X (column) and Z (row) bin indices.
+ * @param xbin X (column) bin index.
+ * @param zbin Z (row) bin index.
+ * @returns Flattened pixel index corresponding to the provided bin indices.
+ * @deprecated This method is obsolete.
+ */
 class CylinderGeom_Mvtx : public PHG4CylinderGeom
 {
  public:
   CylinderGeom_Mvtx(
       int layer,
-      int in_Nstaves,
+      int in_N_staves,
       double in_layer_nominal_radius,
       double in_phistep,
       double in_phitilt,
@@ -31,7 +99,7 @@ class CylinderGeom_Mvtx : public PHG4CylinderGeom
   {
   }
 
-  ~CylinderGeom_Mvtx() override {}
+  ~CylinderGeom_Mvtx() override = default;
 
   // from PHObject
   void identify(std::ostream& os = std::cout) const override;
@@ -53,11 +121,11 @@ class CylinderGeom_Mvtx : public PHG4CylinderGeom
   TVector3 get_local_coords_from_pixel(int NXZ);
   TVector3 get_local_coords_from_pixel(int iRow, int iCol);
 
-  int get_pixel_X_from_pixel_number(int NXZ);
+  int get_pixel_X_from_pixel_number(int NXZ) const;
 
-  int get_pixel_Z_from_pixel_number(int NXZ);
+  int get_pixel_Z_from_pixel_number(int NXZ) const;
 
-  int get_pixel_number_from_xbin_zbin(int xbin, int zbin);  // obsolete
+  int get_pixel_number_from_xbin_zbin(int xbin, int zbin) const;  // obsolete
 
   double get_stave_phi_tilt() const { return stave_phi_tilt; }
   double get_stave_phi_0() const { return stave_phi_0; }

@@ -111,6 +111,16 @@ int LaserEventIdentifier::InitRun(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Processes a single event to identify laser-induced TPC signals and update event metadata.
+ *
+ * Examines GL1 raw hit information and TPC hit time-bin distributions to detect laser events or GL1 laser/pileup conditions.
+ * Updates the LaserEventInfo node with GL1 flags, laser-event flag, per-side peak sample indices, and peak widths.
+ * Accumulates time-bin counts into per-side histograms, performs peak finding and Gaussian fits, and optionally fills a debug TTree.
+ *
+ * @param topNode Top-level node of the PHENIX/Fun4All node tree containing input and output nodes (e.g., "LaserEventInfo", "GL1RAWHIT", TRKR hit nodes).
+ * @return int Fun4All return code: `Fun4AllReturnCodes::ABORTRUN` if the LaserEventInfo node is missing; `Fun4AllReturnCodes::EVENT_OK` otherwise.
+ */
 int LaserEventIdentifier::process_event(PHCompositeNode *topNode)
 {
   m_laserEventInfo = findNode::getClass<LaserEventInfo>(topNode, "LaserEventInfo");
@@ -130,7 +140,7 @@ int LaserEventIdentifier::process_event(PHCompositeNode *topNode)
   }
   else if(m_runnumber > 66153)
   {
-    if ((gl1pkt->getGTMAllBusyVector() & (1<<14)) == 0)
+    if ((gl1pkt->getGTMAllBusyVector() & (1U<<14U)) == 0)
     {
       m_laserEventInfo->setIsGl1LaserEvent(true);
       m_laserEventInfo->setIsGl1LaserPileupEvent(false);

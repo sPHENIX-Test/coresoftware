@@ -59,6 +59,17 @@ TpcRawWriter::TpcRawWriter(const std::string &name)
   std::cout << PHWHERE << "Construct TpcRawWriter" << std::endl;
 }
 
+/**
+ * @brief Ensure TRKR-related DST nodes and containers exist, creating them if missing.
+ *
+ * Ensures the DST composite node contains a TRKR composite node and that the
+ * TRKR_CLUSTER, TRKR_CLUSTERHITASSOC, and TRKR_RAWHITSET containers are present;
+ * missing nodes/containers are created and attached under DST/TRKR.
+ *
+ * @param topNode Top-level node of the Fun4All node tree where DST is expected.
+ * @return Fun4AllReturnCodes::EVENT_OK on successful initialization,
+ *         Fun4AllReturnCodes::ABORTRUN if the DST node is missing.
+ */
 int TpcRawWriter::InitRun(PHCompositeNode *topNode)
 {
   if (topNode)
@@ -76,7 +87,7 @@ int TpcRawWriter::InitRun(PHCompositeNode *topNode)
   }
 
   // Create the Cluster node if required
-  auto trkrclusters = findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
+  auto *trkrclusters = findNode::getClass<TrkrClusterContainer>(dstNode, "TRKR_CLUSTER");
   if (!trkrclusters)
   {
     PHNodeIterator dstiter(dstNode);
@@ -94,7 +105,7 @@ int TpcRawWriter::InitRun(PHCompositeNode *topNode)
     DetNode->addNode(TrkrClusterContainerNode);
   }
 
-  auto clusterhitassoc = findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
+  auto *clusterhitassoc = findNode::getClass<TrkrClusterHitAssoc>(topNode, "TRKR_CLUSTERHITASSOC");
   if (!clusterhitassoc)
   {
     PHNodeIterator dstiter(dstNode);
@@ -116,7 +127,7 @@ int TpcRawWriter::InitRun(PHCompositeNode *topNode)
   if (!m_rawhits)
   {
     PHNodeIterator dstiter(dstNode);
-    auto DetNode = dynamic_cast<PHCompositeNode *>(dstiter.findFirst("PHCompositeNode", "TRKR"));
+    auto *DetNode = dynamic_cast<PHCompositeNode *>(dstiter.findFirst("PHCompositeNode", "TRKR"));
     if (!DetNode)
     {
       DetNode = new PHCompositeNode("TRKR");
@@ -124,7 +135,7 @@ int TpcRawWriter::InitRun(PHCompositeNode *topNode)
     }
 
     m_rawhits = new RawHitSetContainerv1;
-    auto newNode = new PHIODataNode<PHObject>(m_rawhits, "TRKR_RAWHITSET", "PHObject");
+    auto *newNode = new PHIODataNode<PHObject>(m_rawhits, "TRKR_RAWHITSET", "PHObject");
     DetNode->addNode(newNode);
   }
 

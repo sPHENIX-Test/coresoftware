@@ -145,7 +145,29 @@ int DSTClusterPruning::load_nodes(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-//_____________________________________________________________________
+/**
+ * @brief Populate the reduced cluster container with clusters referenced by track seeds.
+ *
+ * This routine ensures that every cluster referenced by the configured track seed containers
+ * is present in the reduced cluster map by copying missing clusters from the full cluster map.
+ *
+ * @details
+ * - If required containers (full cluster map, reduced cluster map, track seed container,
+ *   silicon seed container, and TPC seed container) are not all present, the function returns
+ *   without modifying state.
+ * - When m_pruneAllSeeds is true, the function iterates over both the TPC and silicon seed
+ *   containers and processes every TrackSeed found.
+ * - When m_pruneAllSeeds is false, the function iterates over the main track seed container,
+ *   uses per-track indices to locate corresponding TPC and silicon seeds, and processes only
+ *   those seeds.
+ * - For each referenced cluster key, if the cluster exists in the full cluster map but is
+ *   missing from the reduced cluster map, a new TrkrClusterv5 is allocated, populated by
+ *   copying the full cluster, and inserted into the reduced cluster map.
+ *
+ * Side effects:
+ * - Allocates TrkrClusterv5 objects for missing reduced clusters and adds them to m_reduced_cluster_map.
+ * - Emits diagnostic output to stdout depending on Verbosity().
+ */
 void DSTClusterPruning::prune_clusters()
 {
   // use this to create object that looks through both tracks and clusters and saves into new object
@@ -177,6 +199,39 @@ void DSTClusterPruning::prune_clusters()
     }
     return;
   }
+  if(m_pruneAllSeeds)
+  {
+    for(const auto& container : {m_tpc_track_seed_container, m_silicon_track_seed_container})
+    {
+      for (const auto& trackseed : *container)
+      {
+        if (!trackseed)
+        {
+          std::cout << "No TrackSeed" << std::endl;
+          continue;
+        }
+
+        for (auto key_iter = trackseed->begin_cluster_keys(); key_iter != trackseed->end_cluster_keys(); ++key_iter)
+        {
+          const auto& cluster_key = *key_iter;
+          auto *cluster = m_cluster_map->findCluster(cluster_key);
+          if (!cluster)
+          {
+            std::cout << "DSTClusterPruning::evaluate_tracks - unable to find cluster for key " << cluster_key << std::endl;
+            continue;
+          }
+          if (!m_reduced_cluster_map->findCluster(cluster_key))
+          {
+            m_cluster = new TrkrClusterv5();
+            m_cluster->CopyFrom(cluster);
+            m_reduced_cluster_map->addClusterSpecifyKey(cluster_key, m_cluster);
+          }
+        }
+      }
+    }
+    return;
+  }
+
   for (const auto& trackseed : *m_track_seed_container)
   {
     if (!trackseed)

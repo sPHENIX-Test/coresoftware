@@ -1213,6 +1213,20 @@ int MbdCalib::Download_SlewCorr(const std::string& dbase_location)
   return 1;
 }
 
+/**
+ * @brief Load per-channel time-RMS calibration data and build interpolated lookup curves.
+ *
+ * Reads time-RMS calibration vectors from either a CDB `.root` tree or a `.calib` text file,
+ * populates per-FEE channel containers (_trms_y, _trms_npts, _trms_minrange, _trms_maxrange),
+ * and produces interpolated per-ADC-index curves in _trms_y_interp for use by lookup routines.
+ * Q-channels (as defined by the geometry) are skipped.
+ *
+ * @param dbase_location Filesystem path or CDB file location to read calibration data from
+ *                       (expects either a `.root` CDB tree or a `.calib` text file).
+ * @return int `1` on success; `-1` if calibration data are missing or invalid after load;
+ *             `-2` if the file contains an invalid FEE channel index;
+ *             `-3` if the input file could not be opened. 
+ */
 int MbdCalib::Download_TimeRMS(const std::string& dbase_location)
 {
   //Verbosity(100);
@@ -1331,7 +1345,7 @@ int MbdCalib::Download_TimeRMS(const std::string& dbase_location)
 
   if ( _trms_y[0].empty() )
   {
-    std::cout << PHWHERE << ", ERROR, unknown file type, " << dbase_location << std::endl;
+    std::cout << PHWHERE << ", WARNING, trms calib missing " << dbase_location << std::endl;
     _status = -1;
     return _status;  // file not found
   }
