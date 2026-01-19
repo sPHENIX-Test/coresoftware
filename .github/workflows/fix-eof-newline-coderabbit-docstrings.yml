@@ -62,7 +62,7 @@ jobs:
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
           files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
-            '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' || true)
+            '*.C' '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' || true)
 
           if [[ -z "${files}" ]]; then
             echo "No relevant files changed."
