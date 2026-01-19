@@ -70,7 +70,15 @@ int MbdReco::InitRun(PHCompositeNode *topNode)
   return ret;
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Process a single event: validate inputs, ingest raw MBD data, run calibration and calculation, and produce MBD outputs.
+ *
+ * @param topNode Top-level node of the event node tree used to locate input and output nodes.
+ * @return int One of Fun4AllReturnCodes:
+ * - `Fun4AllReturnCodes::ABORTEVENT` if required nodes are missing or SetRawData requested an abort.
+ * - `Fun4AllReturnCodes::DISCARDEVENT` if SetRawData requested the event be discarded (including sampmax-only events).
+ * - `Fun4AllReturnCodes::EVENT_OK` when processing completed or the event was skipped (e.g., missing packet pair or non-fatal negative status).
+ */
 int MbdReco::process_event(PHCompositeNode *topNode)
 {
   getNodes(topNode);
@@ -103,7 +111,8 @@ int MbdReco::process_event(PHCompositeNode *topNode)
     int status = Fun4AllReturnCodes::EVENT_OK;
     if ( m_evtheader!=nullptr )
     {
-      m_mbdevent->set_EventNumber( m_evtheader->get_EvtSequence() );
+      _evtnum = m_evtheader->get_EvtSequence();
+      m_mbdevent->set_EventNumber( _evtnum );
     }
 
     if ( m_event!=nullptr )
@@ -125,7 +134,7 @@ int MbdReco::process_event(PHCompositeNode *topNode)
       static int counter = 0;
       if ( counter<3 )
       {
-        std::cout << PHWHERE << " Warning, MBD discarding event " << std::endl;
+        std::cout << PHWHERE << " Warning, MBD discarding event " << _evtnum << std::endl;
         counter++;
       }
       return Fun4AllReturnCodes::DISCARDEVENT;
@@ -135,7 +144,7 @@ int MbdReco::process_event(PHCompositeNode *topNode)
       static int counter = 0;
       if ( counter<3 )
       {
-        std::cout << PHWHERE << " Warning, MBD aborting event " << std::endl;
+        std::cout << PHWHERE << " Warning, MBD aborting event " << _evtnum << std::endl;
         counter++;
       }
       return Fun4AllReturnCodes::ABORTEVENT;

@@ -14,6 +14,10 @@
 #include <eventplaneinfo/Eventplaneinfo.h>
 #include <eventplaneinfo/EventplaneinfoMap.h>
 
+#include <centrality/CentralityInfo.h>
+#include <ffamodules/CDBInterface.h>
+#include <cdbobjects/CDBTTree.h>
+
 #include <jetbase/Jet.h>
 #include <jetbase/JetContainer.h>
 
@@ -50,11 +54,88 @@ DetermineTowerBackground::DetermineTowerBackground(const std::string &name)
   _UE.resize(3, std::vector<float>(1, 0));
 }
 
+/**
+ * @brief Initialize runtime resources for DetermineTowerBackground and prepare output nodes.
+ *
+ * When configured to use centrality-based flow (_do_flow == 4), attempts to load average calorimeter
+ * v2 calibrations before creating the output node structure.
+ *
+ * @param topNode Top-level node of the current processing tree used to create or locate output nodes.
+ * @return int Fun4All return code: EVENT_OK on success, ABORTRUN if calibration loading fails.
+ */
 int DetermineTowerBackground::InitRun(PHCompositeNode *topNode)
 {
+  if (_do_flow == 4)
+    {
+      if (Verbosity())
+	{
+	  std::cout << "Loading the average calo v2" << std::endl;
+	}
+      if (LoadCalibrations())
+	{
+	  std::cout << "Load calibrations failed." << std::endl;
+	  return Fun4AllReturnCodes::ABORTRUN;
+	}
+
+    }
+  
   return CreateNode(topNode);
 }
 
+/**
+ * @brief Load average calorimeter v2 calibrations into the object.
+ *
+ * Reads per-centrality-bin `jet_calo_v2` values from the calibration source and fills the internal
+ * _CENTRALITY_V2 vector (size 100) with those values. The calibration source is taken from the
+ * configured calibration name and may be overridden by the member path override flag/path.
+ *
+ * If no calibration path is available, the function prints an error message and terminates the
+ * process with exit(-1).
+ *
+ * @return int Fun4AllReturnCodes::EVENT_OK on success.
+ */
+int DetermineTowerBackground::LoadCalibrations()
+{
+  
+  CDBTTree *cdbtree_calo_v2 = nullptr;
+
+  std::string calibdir = CDBInterface::instance()->getUrl(m_calibName);
+  if (m_overwrite_average_calo_v2)
+    {
+      calibdir = m_overwrite_average_calo_v2_path;
+    }
+
+  if (calibdir.empty())
+    {
+      std::cout << "Could not find filename for calo average v2, exiting" << std::endl;
+      exit(-1);
+    }
+
+  cdbtree_calo_v2 = new CDBTTree(calibdir);
+  
+    
+  cdbtree_calo_v2->LoadCalibrations();
+
+  _CENTRALITY_V2.assign(100,0);
+
+  for (int icent = 0; icent < 100; icent++)
+    {
+      _CENTRALITY_V2[icent] = cdbtree_calo_v2->GetFloatValue(icent, "jet_calo_v2");
+    }
+      
+  delete cdbtree_calo_v2;
+
+  return Fun4AllReturnCodes::EVENT_OK;
+}
+  
+/**
+ * @brief Process one event: compute per-layer per-eta background energy densities, extract event-plane (Psi2) and elliptic modulation (v2), and write results to the TowerBackground node.
+ *
+ * This routine selects seed jets, builds per-tower energy and bad-tower masks, determines flow according to the configured mode (HIJING truth, sEPD, calorimeter, or centrality-based), applies seed and flow-based exclusions and modulation, computes UE (underlying-event) energy density per eta bin for each calorimeter layer, and fills the TowerBackground output node.
+ *
+ * @param topNode Top-level node of the current event tree used to access input containers and to store the TowerBackground output.
+ * @return int `Fun4AllReturnCodes::EVENT_OK` on success, `Fun4AllReturnCodes::ABORTRUN` if required input objects are missing or processing cannot proceed, or a negative/other error code on fatal failures. 
+ */
 int DetermineTowerBackground::process_event(PHCompositeNode *topNode)
 {
   
@@ -481,7 +562,92 @@ int DetermineTowerBackground::process_event(PHCompositeNode *topNode)
     }
   }
 
-  if ( _do_flow >= 1 )
+
+  // Get psi
+  if (_do_flow == 2)
+    { // HIJING truth flow extraction
+      PHG4TruthInfoContainer *truthinfo = findNode::getClass<PHG4TruthInfoContainer>(topNode, "G4TruthInfo");
+
+      if (!truthinfo)
+        {
+          std::cout << "DetermineTowerBackground::process_event: FATAL , G4TruthInfo does not exist , cannot extract truth flow with do_flow = " << _do_flow << std::endl;
+          return -1;
+        }
+
+      PHG4TruthInfoContainer::Range range = truthinfo->GetPrimaryParticleRange();
+
+      float Hijing_Qx = 0;
+      float Hijing_Qy = 0;
+
+      for (PHG4TruthInfoContainer::ConstIterator iter = range.first; iter != range.second; ++iter)
+        { 
+          PHG4Particle *g4particle = iter->second;
+
+          if (truthinfo->isEmbeded(g4particle->get_track_id()) != 0)
+	    {
+	      continue;
+	    }
+
+          TLorentzVector t;
+          t.SetPxPyPzE(g4particle->get_px(), g4particle->get_py(), g4particle->get_pz(), g4particle->get_e());
+
+          float truth_pt = t.Pt();
+          if (truth_pt < 0.4)
+	    {
+	      continue;
+	    }
+          float truth_eta = t.Eta();
+          if (std::fabs(truth_eta) > 1.1)
+	    {
+	      continue;
+	    }
+          float truth_phi = t.Phi();
+          int truth_pid = g4particle->get_pid();
+
+          if (Verbosity() > 10)
+	    {
+	      std::cout << "DetermineTowerBackground::process_event: determining truth flow, using particle w/ pt / eta / phi " << truth_pt << " / " << truth_eta << " / " << truth_phi << " , embed / PID = " << truthinfo->isEmbeded(g4particle->get_track_id()) << " / " << truth_pid << std::endl;
+	    }
+
+          Hijing_Qx += truth_pt * std::cos(2 * truth_phi);
+          Hijing_Qy += truth_pt * std::sin(2 * truth_phi);
+        }
+
+      _Psi2 = std::atan2(Hijing_Qy, Hijing_Qx) / 2.0;
+
+      if (Verbosity() > 0)
+        {
+          std::cout << "DetermineTowerBackground::process_event: flow extracted from Hijing truth particles, setting Psi2 = " << _Psi2 << " ( " << _Psi2 / M_PI << " * pi ) " << std::endl;
+        }
+    }
+  else if (_do_flow == 3 || _do_flow == 4)
+    { // sEPD event plane extraction
+      // get event plane map
+      EventplaneinfoMap *epmap = findNode::getClass<EventplaneinfoMap>(topNode, "EventplaneinfoMap");
+      if (!epmap)
+        {
+          std::cout << "DetermineTowerBackground::process_event: FATAL, EventplaneinfoMap does not exist, cannot extract sEPD flow with do_flow = " << _do_flow << std::endl;
+          exit(-1);
+        }
+      if (!(epmap->empty()))
+        {
+          auto *EPDNS = epmap->get(EventplaneinfoMap::sEPDNS);
+          _Psi2 = EPDNS->get_shifted_psi(2);
+        }
+      else
+        {
+          _is_flow_failure = true;
+          _Psi2 = 0; 
+        }
+    
+      if (Verbosity() > 0)
+        {
+          std::cout << "DetermineTowerBackground::process_event: flow extracted from sEPD, setting Psi2 = " << _Psi2 << " ( " << _Psi2 / M_PI << " * pi ) " << std::endl;
+        }
+
+    }
+
+  if ( _do_flow >= 1 && _do_flow < 4)
   {
 
     if (Verbosity() > 0)
@@ -754,88 +920,6 @@ int DetermineTowerBackground::process_event(PHCompositeNode *topNode)
       { // Calo event plane
         _Psi2 = std::atan2(Q_y, Q_x) / 2.0;
       }
-      else if (_do_flow == 2)
-      { // HIJING truth flow extraction
-        PHG4TruthInfoContainer *truthinfo = findNode::getClass<PHG4TruthInfoContainer>(topNode, "G4TruthInfo");
-
-        if (!truthinfo)
-        {
-          std::cout << "DetermineTowerBackground::process_event: FATAL , G4TruthInfo does not exist , cannot extract truth flow with do_flow = " << _do_flow << std::endl;
-          return -1;
-        }
-
-        PHG4TruthInfoContainer::Range range = truthinfo->GetPrimaryParticleRange();
-
-        float Hijing_Qx = 0;
-        float Hijing_Qy = 0;
-
-        for (PHG4TruthInfoContainer::ConstIterator iter = range.first; iter != range.second; ++iter)
-        { 
-          PHG4Particle *g4particle = iter->second;
-
-          if (truthinfo->isEmbeded(g4particle->get_track_id()) != 0)
-          {
-            continue;
-          }
-
-          TLorentzVector t;
-          t.SetPxPyPzE(g4particle->get_px(), g4particle->get_py(), g4particle->get_pz(), g4particle->get_e());
-
-          float truth_pt = t.Pt();
-          if (truth_pt < 0.4)
-          {
-            continue;
-          }
-          float truth_eta = t.Eta();
-          if (std::fabs(truth_eta) > 1.1)
-          {
-            continue;
-          }
-          float truth_phi = t.Phi();
-          int truth_pid = g4particle->get_pid();
-
-          if (Verbosity() > 10)
-          {
-            std::cout << "DetermineTowerBackground::process_event: determining truth flow, using particle w/ pt / eta / phi " << truth_pt << " / " << truth_eta << " / " << truth_phi << " , embed / PID = " << truthinfo->isEmbeded(g4particle->get_track_id()) << " / " << truth_pid << std::endl;
-          }
-
-          Hijing_Qx += truth_pt * std::cos(2 * truth_phi);
-          Hijing_Qy += truth_pt * std::sin(2 * truth_phi);
-        }
-
-        _Psi2 = std::atan2(Hijing_Qy, Hijing_Qx) / 2.0;
-
-        if (Verbosity() > 0)
-        {
-          std::cout << "DetermineTowerBackground::process_event: flow extracted from Hijing truth particles, setting Psi2 = " << _Psi2 << " ( " << _Psi2 / M_PI << " * pi ) " << std::endl;
-        }
-      }
-      else if (_do_flow == 3)
-      { // sEPD event plane extraction
-        // get event plane map
-        EventplaneinfoMap *epmap = findNode::getClass<EventplaneinfoMap>(topNode, "EventplaneinfoMap");
-        if (!epmap)
-        {
-          std::cout << "DetermineTowerBackground::process_event: FATAL, EventplaneinfoMap does not exist, cannot extract sEPD flow with do_flow = " << _do_flow << std::endl;
-          exit(-1);
-        }
-        if (!(epmap->empty()))
-        {
-          auto *EPDNS = epmap->get(EventplaneinfoMap::sEPDNS);
-          _Psi2 = EPDNS->get_shifted_psi(2);
-        }
-        else
-        {
-          _is_flow_failure = true;
-          _Psi2 = 0; 
-        }
-    
-        if (Verbosity() > 0)
-        {
-          std::cout << "DetermineTowerBackground::process_event: flow extracted from sEPD, setting Psi2 = " << _Psi2 << " ( " << _Psi2 / M_PI << " * pi ) " << std::endl;
-        }
-
-      }
 
       if (std::isnan(_Psi2) || std::isinf(_Psi2))
       {
@@ -890,7 +974,30 @@ int DetermineTowerBackground::process_event(PHCompositeNode *topNode)
       std::cout << "DetermineTowerBackground::process_event: flow extraction successful, Psi2 = " << _Psi2 << " ( " << _Psi2 / M_PI << " * pi ) , v2 = " << _v2 << std::endl;
     }
   }  // if do flow
+  else if (_do_flow == 4)
+    {
 
+      CentralityInfo *centinfo = findNode::getClass<CentralityInfo>(topNode, "CentralityInfo");
+      
+      if (!centinfo)
+	{
+	  std::cout << "DetermineTowerBackground::process_event: FATAL, CentralityInfo does not exist, cannot extract centrality with do_flow = " << _do_flow << std::endl;
+	  exit(-1);
+	}
+
+      int centrality_bin = centinfo->get_centrality_bin(CentralityInfo::PROP::mbd_NS);
+      
+      if (centrality_bin > 0 && centrality_bin < 95)
+	{
+	  _v2 = _CENTRALITY_V2[centrality_bin];
+	}
+      else
+	{
+	  _v2 = 0;
+	  _is_flow_failure = true;
+	  _Psi2 = 0;
+	}
+    }
 
   // now calculate energy densities...
   _nTowers = 0;  // store how many towers were used to determine bkg
@@ -1106,7 +1213,6 @@ void DetermineTowerBackground::FillNode(PHCompositeNode *topNode)
 
   return;
 }
-
 
 
 

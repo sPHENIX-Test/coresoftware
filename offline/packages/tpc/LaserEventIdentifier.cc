@@ -111,6 +111,17 @@ int LaserEventIdentifier::InitRun(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Identify laser events from TPC hits and GL1 packet information and record results.
+ *
+ * Processes the event by locating the LaserEventInfo node and optional GL1RAWHIT packet, updating
+ * GL1-related flags, accumulating TPC time-bin histograms per side, detecting Gaussian-like
+ * time-bin peaks, and storing laser-event and peak information into the LaserEventInfo object.
+ * If debugging is enabled, per-event debug data are written to the debug TTree.
+ *
+ * @param topNode Top-level node of the framework's node tree used to find input/output nodes.
+ * @return Fun4AllReturnCodes::ABORTRUN if the LaserEventInfo node is missing; Fun4AllReturnCodes::EVENT_OK otherwise.
+ */
 int LaserEventIdentifier::process_event(PHCompositeNode *topNode)
 {
   m_laserEventInfo = findNode::getClass<LaserEventInfo>(topNode, "LaserEventInfo");
@@ -130,7 +141,7 @@ int LaserEventIdentifier::process_event(PHCompositeNode *topNode)
   }
   else if(m_runnumber > 66153)
   {
-    if ((gl1pkt->getGTMAllBusyVector() & (1<<14)) == 0)
+    if ((gl1pkt->getGTMAllBusyVector() & (1U<<14U)) == 0)
     {
       m_laserEventInfo->setIsGl1LaserEvent(true);
       m_laserEventInfo->setIsGl1LaserPileupEvent(false);

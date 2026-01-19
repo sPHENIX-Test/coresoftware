@@ -17,7 +17,66 @@
 
 class PHCompositeNode;
 
-/// micromegas raw data decoder
+/**
+ * MicromegasCombinedDataDecoder decodes Micromegas raw data, applies calibration,
+ * hot-channel masking and channel-to-channel mapping, and produces reconstructed hits.
+ */
+
+/**
+ * Initialize global resources required by the decoder.
+ * @param topNode Top-level node of the framework's node tree.
+ * @returns `0` on success, non-zero on failure.
+ */
+
+/**
+ * Perform per-run initialization (e.g., load calibration and hot-channel map).
+ * @param topNode Top-level node of the framework's node tree.
+ * @returns `0` on success, non-zero on failure.
+ */
+
+/**
+ * Decode and process Micromegas raw data for a single event, producing calibrated
+ * and mapped hits while applying thresholds and hot-channel masking.
+ * @param topNode Top-level node of the framework's node tree.
+ * @returns `0` on success, non-zero on failure.
+ */
+
+/**
+ * Finalize processing and release any allocated resources.
+ * @param topNode Top-level node of the framework's node tree.
+ * @returns `0` on success, non-zero on failure.
+ */
+
+/**
+ * Set the calibration file path to use for pedestal and RMS information.
+ * @param value Path to the calibration file.
+ */
+
+/**
+ * Set the hot-channel map file path used to identify and mask noisy channels.
+ * @param value Path to the hot-channel map file.
+ */
+
+/**
+ * Set the number of RMS sigmas used to compute the static per-channel threshold.
+ * @param value Number of RMS sigmas.
+ */
+
+/**
+ * Set the minimum ADC value (after pedestal subtraction and RMS consideration).
+ * Channels with ADC below this value are treated as faulty and ignored.
+ * @param value Minimum ADC threshold.
+ */
+
+/**
+ * Set the minimum sample index considered when searching for signal hits.
+ * @param value Minimum sample index (inclusive).
+ */
+
+/**
+ * Set the maximum sample index considered when searching for signal hits.
+ * @param value Maximum sample index (inclusive).
+ */
 class MicromegasCombinedDataDecoder : public SubsysReco
 {
  public:
@@ -46,13 +105,24 @@ class MicromegasCombinedDataDecoder : public SubsysReco
   void set_n_sigma(double value) { m_n_sigma = value; }
 
   /// set minimum ADC value, disregarding pedestal and RMS.
-  /** This removes faulty channels for which calibration has failed */
+  /**
+ * Set the minimum ADC threshold used to ignore channels with unreliable pedestal or RMS.
+ * @param value Minimum ADC value; channels with pedestal or RMS below this threshold are treated as faulty and ignored.
+ */
   void set_min_adc(double value) { m_min_adc = value; }
 
-  /// set min sample for noise estimation
+  /**
+ * Set the minimum sample index considered for signal hits.
+ * This value defines the lower bound (inclusive) of the sample window used when identifying signal samples.
+ *
+ * @param value Minimum sample index to accept as part of a signal.
+ */
   void set_sample_min(uint16_t value) { m_sample_min = value; }
 
-  /// set min sample for noise estimation
+  /**
+ * Set the maximum sample index considered when selecting signal hits.
+ * @param value Maximum sample index (inclusive) to include in signal-hit selection.
+ */
   void set_sample_max(uint16_t value) { m_sample_max = value; }
 
  private:
@@ -85,7 +155,7 @@ class MicromegasCombinedDataDecoder : public SubsysReco
   uint16_t m_sample_min = 0;
 
   /// max sample for signal
-  uint16_t m_sample_max = 100;
+  uint16_t m_sample_max = 1024;
 
   /// keep track of number of hits per hitsetid
   using hitcountmap_t = std::map<TrkrDefs::hitsetkey, int>;

@@ -1213,6 +1213,15 @@ int MbdCalib::Download_SlewCorr(const std::string& dbase_location)
   return 1;
 }
 
+/**
+ * @brief Load time-RMS calibration data for all channels from a calibration source.
+ *
+ * Reads per-channel time-RMS calibration points from the specified CDB (.root) or text (.calib) file,
+ * validates presence of data, and builds per-channel interpolated lookup vectors for ADC→time-RMS.
+ *
+ * @param dbase_location Path to the calibration source (CDB .root file or text .calib file).
+ * @return int Status code: `1` on success; `-1` if calibration data are missing; `-2` on invalid channel entries in the input; `-3` if the text file could not be opened.
+ */
 int MbdCalib::Download_TimeRMS(const std::string& dbase_location)
 {
   //Verbosity(100);
@@ -1331,7 +1340,7 @@ int MbdCalib::Download_TimeRMS(const std::string& dbase_location)
 
   if ( _trms_y[0].empty() )
   {
-    std::cout << PHWHERE << ", ERROR, unknown file type, " << dbase_location << std::endl;
+    std::cout << PHWHERE << ", WARNING, trms calib missing " << dbase_location << std::endl;
     _status = -1;
     return _status;  // file not found
   }
@@ -2418,4 +2427,3 @@ TGraph *MbdCalib::get_lut_graph(const int pmtch, std::string_view type)
 
   return g;
 }
-

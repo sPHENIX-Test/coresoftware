@@ -61,7 +61,19 @@ MicromegasClusterQA::MicromegasClusterQA(const std::string& name)
 {
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Initialize configuration, geometry mapping, and QA histograms.
+ *
+ * Loads calibration data if a calibration filename is provided, prints runtime
+ * configuration values, reads the Micromegas cylinder geometry to determine
+ * the number of layers and per-tile detector names, records the first layer,
+ * and creates QA histograms.
+ *
+ * Populates member state including m_calibration_data (when loaded),
+ * m_nlayers, m_detector_names, and m_firstlayer, then calls create_histograms().
+ *
+ * @return int Fun4AllReturnCodes::EVENT_OK on success.
+ */
 int MicromegasClusterQA::InitRun(PHCompositeNode* topNode)
 {
   // print configuration
@@ -72,6 +84,9 @@ int MicromegasClusterQA::InitRun(PHCompositeNode* topNode)
       << " m_calibration_filename: "
       << (m_calibration_filename.empty() ? "unspecified" : m_calibration_filename)
       << std::endl;
+
+  std::cout << "MicromegasClusterQA::InitRun - m_sample_min: " << m_sample_min << std::endl;
+  std::cout << "MicromegasClusterQA::InitRun - m_sample_max: " << m_sample_max << std::endl;
 
   // read calibrations
   if (!m_calibration_filename.empty())
@@ -115,7 +130,20 @@ int MicromegasClusterQA::InitRun(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Process Micromegas clusters for the current event and fill QA histograms.
+ *
+ * Iterates Micromegas hitsets and their clusters to compute per-detector cluster
+ * multiplicity, size, and charge. Clusters whose associated hits contain no
+ * sample within [m_sample_min, m_sample_max) are skipped. Per-detector counts
+ * of "good" clusters (cluster charge > 200) are accumulated and used to fill
+ * reference/found comparison histograms. All results are recorded in the
+ * module's QA histograms.
+ *
+ * @param topNode Top-level node of the Fun4All node tree (provides geometry,
+ *                hitsets, clusters, and cluster-hit associations).
+ * @return Fun4AllReturnCodes::EVENT_OK on success.
+ */
 int MicromegasClusterQA::process_event(PHCompositeNode* topNode)
 {
   // acts geometry
@@ -161,6 +189,13 @@ int MicromegasClusterQA::process_event(PHCompositeNode* topNode)
     {
       // find associated hits
       const auto hit_range = m_cluster_hit_map->getHits(ckey);
+
+      // check hit samples
+      // if none of the associated hits' sample is within acceptable range, skip the cluster
+      if( std::none_of( hit_range.first, hit_range.second,
+        [this]( const TrkrClusterHitAssoc::Map::value_type& pair )
+        { return MicromegasDefs::getSample( pair.second ) >= m_sample_min &&  MicromegasDefs::getSample( pair.second ) < m_sample_max; } ) )
+      { continue; }
 
       // store cluster size and fill cluster size histogram
       const int cluster_size = std::distance(hit_range.first, hit_range.second);

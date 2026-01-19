@@ -53,11 +53,19 @@ TpcCombinedRawDataUnpacker::~TpcCombinedRawDataUnpacker()
 {
   delete m_cdbttree;
 }
+/**
+ * @brief Enable zero-suppressed data handling and load ADU thresholds.
+ *
+ * Enables zero-suppression emulation, disables baseline correction, and loads
+ * per-region ADU thresholds into m_zs_threshold[0..2] from the CDB entry
+ * identified by "TPC_ZS_THRESHOLDS". If the CDB URL is empty, the function
+ * leaves existing thresholds unchanged (the codebase default is 20 ADU).
+ */
 void TpcCombinedRawDataUnpacker::ReadZeroSuppressedData()
 {
   m_do_zs_emulation = true;
   m_do_baseline_corr = false;
-  auto cdb = CDBInterface::instance();
+  auto *cdb = CDBInterface::instance();
   std::string dir = cdb->getUrl("TPC_ZS_THRESHOLDS");
 
   auto cdbtree = std::make_unique<CDBTTree>(dir);
@@ -75,7 +83,7 @@ void TpcCombinedRawDataUnpacker::ReadZeroSuppressedData()
   {
     name.str("");
     name << "R"<<i+1<<"ADUThreshold";
-    m_zs_threshold[i] = cdbtree->GetSingleFloatValue(name.str().c_str());
+    m_zs_threshold[i] = cdbtree->GetSingleFloatValue(name.str());
     if(Verbosity() > 1)
     {
       std::cout << "Loading ADU threshold of " << m_zs_threshold[i] << " for region " << i << std::endl;

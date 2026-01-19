@@ -48,8 +48,8 @@
 
 #define WILD_DOUBLE (-999999)
 
-//#define _DEBUG_
-//#define _PRINT_MATRIX_
+// #define _DEBUG_
+// #define _PRINT_MATRIX_
 
 #ifdef _DEBUG_
 #include <fstream>
@@ -59,11 +59,22 @@ ofstream fout_matrix("matrix.txt");
 
 namespace PHGenFit
 {
+  /**
+   * @brief Constructs a Track with a seeded state and underlying GenFit track.
+   *
+   * Initializes the underlying GenFit track using the provided track representation and a seed state
+   * defined by position, momentum, and covariance.
+   *
+   * @param rep Pointer to the GenFit track representation used for propagation and fitting.
+   * @param seed_pos Seed 3D position in detector coordinates.
+   * @param seed_mom Seed 3D momentum vector.
+   * @param seed_cov 6x6 covariance matrix describing uncertainties of the seeded state (position and momentum).
+   * @param v Verbosity level controlling diagnostic output.
+   */
   Track::Track(genfit::AbsTrackRep* rep, const TVector3& seed_pos, const TVector3& seed_mom, const TMatrixDSym& seed_cov, const int v)
+    : verbosity(v)
   {
     // TODO Add input param check
-
-    verbosity = v;
 
     genfit::MeasuredStateOnPlane seedMSoP(rep);
     seedMSoP.setPosMomCov(seed_pos, seed_mom, seed_cov);
@@ -77,15 +88,33 @@ namespace PHGenFit
     //_track = NEW(genfit::Track)(rep, seedState, seedCov);
   }
 
+  /**
+   * @brief Creates a deep copy of a PHGenFit::Track.
+   *
+   * Constructs a new Track by cloning the source's underlying GenFit track and copying its
+   * verbosity, cluster ID list, cluster key list, and vertex identifier.
+   *
+   * @param t Source track to copy.
+   */
   Track::Track(const PHGenFit::Track& t)
+    : verbosity(t.verbosity)
+    , _track(new genfit::Track(*(t.getGenFitTrack())))
+    , _clusterIDs(t.get_cluster_IDs())
+    , _clusterkeys(t.get_cluster_keys())
+    , _vertex_id(t.get_vertex_id())
   {
-    _track = new genfit::Track(*(t.getGenFitTrack()));
-    verbosity = t.verbosity;
-    _clusterIDs = t.get_cluster_IDs();
-    _clusterkeys = t.get_cluster_keys();
-    _vertex_id = t.get_vertex_id();
   }
 
+  /**
+   * @brief Inserts a measurement into the underlying GenFit track and records its cluster identifiers.
+   *
+   * The provided Measurement is added to the internal genfit::Track, its cluster ID and cluster key
+   * are appended to the track's bookkeeping vectors, and the Measurement object is deleted (ownership
+   * is transferred and consumed).
+   *
+   * @param measurement Measurement to insert; this object is consumed and deleted by the call.
+   * @return int 0 on success.
+   */
   int Track::addMeasurement(PHGenFit::Measurement* measurement)
   {
     std::vector<genfit::AbsMeasurement*> msmts;
@@ -182,6 +211,17 @@ namespace PHGenFit
     return pathlenth;
   }
 
+  /**
+   * @brief Produce a MeasuredStateOnPlane for the track extrapolated to the plane defined by origin O and normal n.
+   *
+   * Extrapolates the track state (using the fitter state at the given track point) to the destination plane and returns
+   * a newly allocated MeasuredStateOnPlane representing the extrapolated state.
+   *
+   * @param O Origin point of the destination plane.
+   * @param n Normal vector of the destination plane.
+   * @param tr_point_id Index of the track point whose fitter state is used as the starting state for extrapolation.
+   * @return genfit::MeasuredStateOnPlane* Pointer to a newly allocated MeasuredStateOnPlane containing the extrapolated state, or `nullptr` if extrapolation failed. Caller assumes ownership of the returned pointer.
+   */
   genfit::MeasuredStateOnPlane* Track::extrapolateToPlane(const TVector3& O, const TVector3& n, const int tr_point_id) const
   {
     genfit::MeasuredStateOnPlane* state = new genfit::MeasuredStateOnPlane();
@@ -191,12 +231,24 @@ namespace PHGenFit
       delete state;
       return nullptr;
     }
-    else
-    {
-      return state;
-    }
+
+    return state;
   }
 
+  /**
+   * @brief Extrapolates the track's backward-updated fitted state to a specified line and stores the resulting measured state.
+   *
+   * Extrapolates the backward-updated Kalman fitted state (obtained from the TrackPoint identified by tr_point_id)
+   * to the closest point on the line defined by line_point and line_direction, and assigns the resulting
+   * MeasuredStateOnPlane to the provided state parameter.
+   *
+   * @param[out] state Measured state on plane to receive the extrapolated state.
+   * @param line_point A point on the destination line.
+   * @param line_direction Direction vector of the destination line.
+   * @param tr_point_id Index of the TrackPoint whose fitter info supplies the backward-updated fitted state.
+   * @return double Path length along the track from the source fitted state to the extrapolated point on the line;
+   *         `WILD_DOUBLE` if the TrackPoint/fitter info is missing or if an exception occurs during extrapolation.
+   */
   double Track::extrapolateToLine(genfit::MeasuredStateOnPlane& state, const TVector3& line_point, const TVector3& line_direction, const int tr_point_id) const
   {
     double pathlenth = WILD_DOUBLE;
@@ -231,6 +283,18 @@ namespace PHGenFit
     return pathlenth;
   }
 
+  /**
+   * @brief Create and return a MeasuredStateOnPlane extrapolated to a line.
+   *
+   * Constructs a new MeasuredStateOnPlane and fills it by extrapolating the track to
+   * the line through `line_point` with direction `line_direction` for the given
+   * track point index.
+   *
+   * @param line_point A point on the target line.
+   * @param line_direction Direction vector of the target line.
+   * @param tr_point_id Index of the track point used as the extrapolation source.
+   * @return genfit::MeasuredStateOnPlane* Pointer to the allocated MeasuredStateOnPlane containing the extrapolated state, or `nullptr` if extrapolation failed. Caller takes ownership of the returned pointer.
+   */
   genfit::MeasuredStateOnPlane* Track::extrapolateToLine(const TVector3& line_point, const TVector3& line_direction, const int tr_point_id) const
   {
     genfit::MeasuredStateOnPlane* state = new genfit::MeasuredStateOnPlane();
@@ -240,12 +304,28 @@ namespace PHGenFit
       delete state;
       return nullptr;
     }
-    else
-    {
-      return state;
-    }
+
+    return state;
   }
 
+  /**
+   * @brief Extrapolates the track state to the surface of a cylinder and returns the path length.
+   *
+   * The function obtains a reference state from the specified track point's Kalman update (forward when
+   * `direction == 1`, backward when `direction == -1`) if available; otherwise it uses the track seed state.
+   * It extrapolates that state to a cylinder defined by `radius` and the line (`line_point`, `line_direction`),
+   * assigns the resulting measured state to `state`, and returns the path length from the reference state to
+   * the intersection with the cylinder.
+   *
+   * @param[out] state Measured state on the plane at the extrapolated cylinder intersection (assigned on success).
+   * @param radius Radius of the target cylinder.
+   * @param line_point A point on the cylinder axis.
+   * @param line_direction Direction vector of the cylinder axis.
+   * @param tr_point_id Index of the track point to use as the reference for the fitted state; if that point has
+   *                    no fitter update, the track seed state is used.
+   * @param direction Extrapolation direction: `1` to use the forward update, `-1` to use the backward update.
+   * @return double Path length from the reference state to the cylinder intersection; `WILD_DOUBLE` on failure.
+   */
   double Track::extrapolateToCylinder(genfit::MeasuredStateOnPlane& state, double radius, const TVector3& line_point, const TVector3& line_direction, const int tr_point_id, const int direction) const
   {
 #ifdef _DEBUG_
@@ -351,6 +431,20 @@ namespace PHGenFit
     return pathlenth;
   }
 
+  /**
+   * @brief Allocate and extrapolate a measured state to the surface of a cylinder.
+   *
+   * Creates a new genfit::MeasuredStateOnPlane, attempts to extrapolate the track to a cylinder
+   * defined by the given radius and axis (line_point, line_direction), and returns the extrapolated state
+   * if successful.
+   *
+   * @param radius Radius of the cylinder.
+   * @param line_point A point on the cylinder axis.
+   * @param line_direction Direction vector of the cylinder axis.
+   * @param tr_point_id Index of the track point to use as the starting reference.
+   * @param direction Extrapolation direction: must be `1` (forward) or `-1` (backward).
+   * @return genfit::MeasuredStateOnPlane* Pointer to the newly allocated extrapolated state on success, `nullptr` on failure.
+   */
   genfit::MeasuredStateOnPlane* Track::extrapolateToCylinder(double radius, const TVector3& line_point, const TVector3& line_direction, const int tr_point_id, const int direction) const
   {
     assert(direction == 1 || direction == -1);
@@ -361,12 +455,26 @@ namespace PHGenFit
       delete state;
       return nullptr;
     }
-    else
-    {
-      return state;
-    }
+
+    return state;
   }
 
+  /**
+   * @brief Evaluate Kalman updates for a set of candidate measurements and record resulting chi2 increments with new track copies.
+   *
+   * For each measurement in @p measurements this method clones the current track, attaches the measurement, predicts from a base track point (or seed if no fitter info),
+   * applies a Kalman update for the measurement(s) on the constructed plane, and if the incremental chi2 is positive inserts the new track into @p incr_chi2s_new_tracks
+   * keyed by that chi2 increment.
+   *
+   * @param measurements Vector of pointers to candidate measurements. Each measurement is consumed by the inserted track (ownership is transferred).
+   * @param incr_chi2s_new_tracks Map to receive pairs of (chi2 increment, new track) for positive chi2 increments produced by the updates.
+   * @param base_tp_idx Index of the base TrackPoint (used to obtain the prediction state); negative indices are allowed as in genfit.
+   * @param direction Direction indicator for prediction/update (forward/backward convention used by the fitter).
+   * @param blowup_factor Factor by which to enlarge the predicted covariance before updating; values <= 1 leave the covariance unchanged.
+   * @param use_fitted_state If true, use the fitted state at the base point for prediction; otherwise use the directional update state.
+   *
+   * @return int -1 if @p measurements is empty, 0 on completion.
+   */
   int Track::updateOneMeasurementKalman(
       const std::vector<PHGenFit::Measurement*>& measurements,
       std::map<double, std::shared_ptr<PHGenFit::Track> >& incr_chi2s_new_tracks,
@@ -385,7 +493,7 @@ namespace PHGenFit
         << std::endl;
 #endif
 
-    if (measurements.size() == 0)
+    if (measurements.empty())
     {
       return -1;
     }
@@ -437,11 +545,11 @@ namespace PHGenFit
 #endif
             continue;
           }
-          //#ifdef _DEBUG_
+          // #ifdef _DEBUG_
           //				std::cout << __LINE__ << "\n ###################################################################"<<std::endl;
           //				kfi->Print();
           //				std::cout << __LINE__ << "\n ###################################################################"<<std::endl;
-          //#endif
+          // #endif
           if (use_fitted_state)
           {
             const genfit::MeasuredStateOnPlane* tempFS = &(kfi->getFittedState(true));
@@ -579,7 +687,7 @@ namespace PHGenFit
         //			std::cout << err_phi << "\t" << err_z << "\t";
       }
 #endif
-      for (auto rawMeasurement : rawMeasurements)
+      for (auto* rawMeasurement : rawMeasurements)
       {
         fi->addMeasurementsOnPlane(
             rawMeasurement->constructMeasurementsOnPlane(*state));
@@ -598,7 +706,7 @@ namespace PHGenFit
           << ": size of fi's MeasurementsOnPlane: " << measurements_on_plane.size()
           << std::endl;
 #endif
-      for (auto it : measurements_on_plane)
+      for (auto* it : measurements_on_plane)
       {
         const genfit::MeasurementOnPlane& mOnPlane = *it;
         // const double weight = mOnPlane.getWeight();
@@ -760,6 +868,15 @@ namespace PHGenFit
     return pathlenth;
   }
 
+  /**
+   * @brief Extrapolates the track state to a specific point in space.
+   *
+   * Extrapolates the track to the point P using the track point identified by tr_point_id and returns the resulting measured state on a plane at that point.
+   *
+   * @param P Target point in global coordinates.
+   * @param tr_point_id Index of the TrackPoint to use as the starting/reference point for extrapolation.
+   * @return genfit::MeasuredStateOnPlane* Pointer to the extrapolated measured state on a plane at P, or `nullptr` if extrapolation fails.
+   */
   genfit::MeasuredStateOnPlane* Track::extrapolateToPoint(const TVector3& P, const int tr_point_id) const
   {
     genfit::MeasuredStateOnPlane* state = new genfit::MeasuredStateOnPlane();
@@ -769,12 +886,16 @@ namespace PHGenFit
       delete state;
       return nullptr;
     }
-    else
-    {
-      return state;
-    }
+    return state;
   }
 
+  /**
+   * @brief Retrieves the fit chi-squared for the track.
+   *
+   * Obtains the chi-squared value from the track's fit status for the cardinal representation.
+   *
+   * @return double The chi-squared value, or NaN if the cardinal representation or fit status is unavailable.
+   */
   double Track::get_chi2() const
   {
     double chi2 = std::numeric_limits<double>::quiet_NaN();

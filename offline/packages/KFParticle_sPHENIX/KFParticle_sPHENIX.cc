@@ -132,6 +132,14 @@ int KFParticle_sPHENIX::InitRun(PHCompositeNode *topNode)
   return 0;
 }
 
+/**
+ * @brief Process a single event: locate tracks and vertices, reconstruct decay candidates, and optionally save results.
+ *
+ * Accesses track and vertex maps from the provided node tree, skips processing when there are no tracks or when a real primary vertex is required but none exist, constructs mother/intermediate/daughter KFParticle candidates, and — for each candidate — increments the internal candidate counter and conditionally writes outputs.
+ *
+ * @param topNode Root node of the event’s PHENIX node tree used to retrieve inputs (track/vertex maps) and to write output nodes/branches.
+ * @return int Fun4All return code. Returns `Fun4AllReturnCodes::EVENT_OK` in normal operation; event processing is skipped (but still returns `EVENT_OK`) when no tracks are present or when a required primary vertex is missing.
+ */
 int KFParticle_sPHENIX::process_event(PHCompositeNode *topNode)
 {
   
@@ -148,7 +156,7 @@ int KFParticle_sPHENIX::process_event(PHCompositeNode *topNode)
     {
       std::cout << "KFParticle: Event skipped as there are no tracks" << std::endl;
     }
-    return Fun4AllReturnCodes::ABORTEVENT;
+    return Fun4AllReturnCodes::EVENT_OK;
   }
 
   if (!m_use_fake_pv)
@@ -162,7 +170,7 @@ int KFParticle_sPHENIX::process_event(PHCompositeNode *topNode)
         {
           std::cout << "KFParticle: Event skipped as there are no vertices" << std::endl;
         }
-        return Fun4AllReturnCodes::ABORTEVENT;
+        return Fun4AllReturnCodes::EVENT_OK;
       }
     }
     else
@@ -174,10 +182,9 @@ int KFParticle_sPHENIX::process_event(PHCompositeNode *topNode)
         {
           std::cout << "KFParticle: Event skipped as there are no vertices" << std::endl;
         }
-        return Fun4AllReturnCodes::ABORTEVENT;
+        return Fun4AllReturnCodes::EVENT_OK;
       }
     }
-
   }
   
   createDecay(topNode, mother, vertex_kfparticle, daughters, intermediates, nPVs);

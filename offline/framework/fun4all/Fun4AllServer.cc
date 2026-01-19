@@ -120,6 +120,14 @@ Fun4AllServer::~Fun4AllServer()
   return;
 }
 
+/**
+ * @brief Initialize core server state, managers, and top-level node tree.
+ *
+ * Performs global startup actions required before processing runs and events:
+ * disables ROOT signal handlers, snapshots startup monitoring, saves cout formatting state,
+ * creates and registers the server histogram manager and FrameWorkVars histogram,
+ * constructs the default sync manager, and creates the TOP node with its subtree.
+ */
 void Fun4AllServer::InitAll()
 {
   // first remove stupid root signal handler to get
@@ -128,9 +136,9 @@ void Fun4AllServer::InitAll()
   {
     gSystem->IgnoreSignal((ESignals) i);
   }
+  m_saved_cout_state.copyfmt(std::cout); // save current state
   Fun4AllMonitoring::instance()->Snapshot("StartUp");
-  std::string histomanagername;
-  histomanagername = Name() + "HISTOS";
+  std::string histomanagername = Name() + "HISTOS";
   ServerHistoManager = new Fun4AllHistoManager(histomanagername);
   registerHistoManager(ServerHistoManager);
   double uplim = NFRAMEWORKBINS - 0.5;
@@ -176,6 +184,18 @@ int Fun4AllServer::isHistoRegistered(const std::string &name) const
   return iret;
 }
 
+/**
+ * @brief Register a SubsysReco instance with the server under a named top node.
+ *
+ * Creates (if necessary) ROOT TDirectory subdirectories for the top node and the
+ * subsystem, calls the subsystem's Init() with the resolved top node, and on
+ * successful Init stores the subsystem with its target top node, creates a
+ * per-subsystem timer entry, and records the subsystem return code.
+ *
+ * @param subsystem Pointer to the SubsysReco to register.
+ * @param topnodename Name of the top-level node under which the subsystem's node subtree will be placed.
+ * @return int `0` on successful registration; if the subsystem's Init() returns DONOTREGISTERSUBSYSTEM the call is treated as success and returns `0`; any other nonzero value from Init() is returned to indicate failure.
+ */
 int Fun4AllServer::registerSubsystem(SubsysReco *subsystem, const std::string &topnodename)
 {
   Fun4AllServer *se = Fun4AllServer::instance();
@@ -245,6 +265,7 @@ int Fun4AllServer::registerSubsystem(SubsysReco *subsystem, const std::string &t
               << subsystem->Name() << std::endl;
     exit(1);
   }
+  std::cout.copyfmt(m_saved_cout_state); // restore cout to default formatting
   gROOT->cd(currdir.c_str());
   if (iret)
   {
@@ -503,6 +524,26 @@ TNamed *Fun4AllServer::getHisto(const std::string &hname) const
   return (ServerHistoManager->getHisto(hname));
 }
 
+/**
+ * @brief Process a single event through the framework.
+ *
+ * Runs the event loop for one event: increments internal counters, invokes
+ * each registered subsystem's process_event, records subsystem return codes,
+ * writes output managers and histogram managers as required, resets per-event
+ * state (subsystems and sync managers), updates monitoring, and resets the
+ * transient node tree.
+ *
+ * The method enforces subsystem return-code semantics (e.g., discard, abort
+ * event/run/processing), enforces output-node consistency before writing, and
+ * updates run and histogram state when files are rotated or closed.
+ *
+ * @return int One of the Fun4AllReturnCodes values:
+ * - `Fun4AllReturnCodes::EVENT_OK` on successful processing of the event,
+ * - `Fun4AllReturnCodes::DISCARDEVENT` if the event was discarded,
+ * - `Fun4AllReturnCodes::ABORTEVENT` if a subsystem requested aborting this event,
+ * - `Fun4AllReturnCodes::ABORTRUN` if a subsystem requested aborting the run,
+ * - `Fun4AllReturnCodes::ABORTPROCESSING` if processing must stop entirely.
+ */
 int Fun4AllServer::process_event()
 {
   eventcounter++;
@@ -576,6 +617,7 @@ int Fun4AllServer::process_event()
       ffamemtracker->Snapshot("Fun4AllServerProcessEvent");
 #endif
       int retcode = Subsystem.first->process_event(Subsystem.second);
+      std::cout.copyfmt(m_saved_cout_state); // restore cout to default formatting
 #ifdef FFAMEMTRACKER
       ffamemtracker->Snapshot("Fun4AllServerProcessEvent");
 #endif
@@ -854,6 +896,17 @@ int Fun4AllServer::BeginRunTimeStamp(PHTimeStamp &TimeStp)
   return 0;
 }
 
+/**
+ * @brief Prepare and start a new run identified by the given run number.
+ *
+ * Resets the per-run event counter, updates or preserves the begin-of-run timestamp,
+ * invokes BeginRun on all currently registered subsystems (and any subsystems
+ * added during this phase), processes any pending subsystem unregistrations,
+ * and prints the node tree state.
+ *
+ * @param runno Run number to begin.
+ * @return int The return code from the last subsystem's BeginRun call (0 if no subsystem invoked). 
+ */
 int Fun4AllServer::BeginRun(const int runno)
 {
   eventcounter = 0;  // reset event counter for every new run
@@ -899,6 +952,7 @@ int Fun4AllServer::BeginRun(const int runno)
   for (iter = Subsystems.begin(); iter != Subsystems.end(); ++iter)
   {
     iret = BeginRunSubsystem(*iter);
+    std::cout.copyfmt(m_saved_cout_state); // restore cout to default formatting
   }
   for (; !NewSubsystems.empty(); NewSubsystems.pop_front())
   {
@@ -1048,6 +1102,16 @@ int Fun4AllServer::MakeNodesPersistent(PHCompositeNode *startNode)  // NOLINT(mi
   return 0;
 }
 
+/**
+ * @brief Finalizes all registered subsystems for the given run.
+ *
+ * Iterates over each registered SubsysReco, switches to the subsystem's TDirectory,
+ * and calls its EndRun(runno) method. Restores stdout formatting after each subsystem
+ * and returns to the previous ROOT directory when finished.
+ *
+ * @param runno The run number to end.
+ * @return int `0` on success.
+ */
 int Fun4AllServer::EndRun(const int runno)
 {
   std::vector<std::pair<SubsysReco *, PHCompositeNode *>>::iterator iter;
@@ -1092,12 +1156,23 @@ int Fun4AllServer::EndRun(const int runno)
                 << (*iter).first->Name() << std::endl;
       exit(1);
     }
+    std::cout.copyfmt(m_saved_cout_state); // restore cout to default formatting
   }
   gROOT->cd(currdir.c_str());
 
   return 0;
 }
 
+/**
+ * @brief Finalize the current run and shut down all registered subsystems.
+ *
+ * Calls EndRun for the active run, invokes each registered subsystem's End
+ * method, writes the RUN node to any registered output managers, closes
+ * output files, dumps histograms according to each histogram manager's file
+ * rules, and prints any accumulated complaints collected via ScreamEveryEvent.
+ *
+ * @return int Sum of return values produced by all SubsysReco::End calls.
+ */
 int Fun4AllServer::End()
 {
   recoConsts *rc = recoConsts::instance();
@@ -1144,6 +1219,7 @@ int Fun4AllServer::End()
                 << (*iter).first->Name() << std::endl;
       exit(1);
     }
+    std::cout.copyfmt(m_saved_cout_state); // restore cout to default formatting
   }
   gROOT->cd(currdir.c_str());
   PHNodeIterator nodeiter(TopNode);

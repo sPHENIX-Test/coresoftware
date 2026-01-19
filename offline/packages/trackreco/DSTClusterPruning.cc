@@ -145,7 +145,17 @@ int DSTClusterPruning::load_nodes(PHCompositeNode* topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-//_____________________________________________________________________
+/**
+ * @brief Prunes and propagates clusters into the reduced cluster container based on track seeds.
+ *
+ * @details The function ensures required containers are present and returns early if any are missing.
+ * If m_pruneAllSeeds is true, it iterates all TrackSeed entries in the TPC and silicon seed containers
+ * and for each referenced cluster key copies the corresponding cluster from the full cluster map into
+ * the reduced cluster map if it does not already exist. If m_pruneAllSeeds is false, it iterates the
+ * combined track seed container, resolves the corresponding TPC and silicon seeds by index for each
+ * entry, and copies clusters referenced by those seeds into the reduced map. Missing cluster keys or
+ * null seeds are logged. New clusters are created as TrkrClusterv5 and inserted into m_reduced_cluster_map.
+ */
 void DSTClusterPruning::prune_clusters()
 {
   // use this to create object that looks through both tracks and clusters and saves into new object
@@ -177,6 +187,39 @@ void DSTClusterPruning::prune_clusters()
     }
     return;
   }
+  if(m_pruneAllSeeds)
+  {
+    for(const auto& container : {m_tpc_track_seed_container, m_silicon_track_seed_container})
+    {
+      for (const auto& trackseed : *container)
+      {
+        if (!trackseed)
+        {
+          std::cout << "No TrackSeed" << std::endl;
+          continue;
+        }
+
+        for (auto key_iter = trackseed->begin_cluster_keys(); key_iter != trackseed->end_cluster_keys(); ++key_iter)
+        {
+          const auto& cluster_key = *key_iter;
+          auto *cluster = m_cluster_map->findCluster(cluster_key);
+          if (!cluster)
+          {
+            std::cout << "DSTClusterPruning::evaluate_tracks - unable to find cluster for key " << cluster_key << std::endl;
+            continue;
+          }
+          if (!m_reduced_cluster_map->findCluster(cluster_key))
+          {
+            m_cluster = new TrkrClusterv5();
+            m_cluster->CopyFrom(cluster);
+            m_reduced_cluster_map->addClusterSpecifyKey(cluster_key, m_cluster);
+          }
+        }
+      }
+    }
+    return;
+  }
+
   for (const auto& trackseed : *m_track_seed_container)
   {
     if (!trackseed)

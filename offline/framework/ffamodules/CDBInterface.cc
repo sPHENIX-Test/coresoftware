@@ -120,6 +120,24 @@ void CDBInterface::Print(const std::string & /* what */) const
   }
 }
 
+/**
+ * @brief Retrieve and cache a calibration file URL for the specified domain.
+ *
+ * Queries the configured CDB client for a calibration URL associated with the given
+ * domain at the current TIMESTAMP. On success the returned URL is recorded in the
+ * internal URL vector for later persistence. Behavior is affected by module flags:
+ * - If the internal `disable` flag is true, the function returns an empty string immediately.
+ * - If no URL is found and `disable_default` is false, the function will attempt the
+ *   domain suffixed with `_default` and, if still not found, return the provided filename.
+ * - If required recoConsts flags ("CDB_GLOBALTAG" or "TIMESTAMP") are missing the process
+ *   exits via gSystem->Exit(1).
+ *
+ * @param domain Calibration domain to query (e.g., subsystem/key).
+ * @param filename Fallback filename to return when no URL is found and defaults are allowed.
+ * @return std::string The resolved calibration URL if found; the provided `filename` when no URL
+ *         exists and defaults are allowed; or an empty string if lookups are disabled or no URL
+ *         was found and defaults are disabled.
+ */
 std::string CDBInterface::getUrl(const std::string &domain, const std::string &filename)
 {
   if (disable)
@@ -185,11 +203,14 @@ std::string CDBInterface::getUrl(const std::string &domain, const std::string &f
       std::cout << "... reply: " << return_url << std::endl;
     }
   }
-  auto pret = m_UrlVector.insert(make_tuple(domain_noconst, return_url, timestamp));
-  if (!pret.second && Verbosity() > 1)
+  if (! return_url.empty())
   {
-    std::cout << PHWHERE << "not adding again " << domain_noconst << ", url: " << return_url
-              << ", time stamp: " << timestamp << std::endl;
+    auto pret = m_UrlVector.insert(make_tuple(domain_noconst, return_url, timestamp));
+    if (!pret.second && Verbosity() > 1)
+    {
+      std::cout << PHWHERE << "not adding again " << domain_noconst << ", url: " << return_url
+		<< ", time stamp: " << timestamp << std::endl;
+    }
   }
   return return_url;
 }

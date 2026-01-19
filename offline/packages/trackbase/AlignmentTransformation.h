@@ -14,6 +14,72 @@ class PHCompositeNode;
 
 class ActsGeometry;
 
+/**
+ * Populate the alignment transformation map using nodes from the provided top node.
+ * @param topNode Root node from which required subnodes and geometry are retrieved.
+ */
+ 
+/**
+ * Create or initialize the alignment transformation container attached to the provided top node.
+ * @param topNode Root node under which the alignment transformation container will be created or located.
+ */
+
+/**
+ * Generate random rotation and translation perturbations using the provided standard deviations.
+ * @param angleDev Standard deviations for rotation about local X, Y, Z axes (radians).
+ * @param transformDev Standard deviations for translation along local X, Y, Z axes (same units as detector geometry).
+ */
+
+/**
+ * Configure MVTX perturbation standard deviations and enable MVTX perturbations.
+ * @param mvtxDevs Array of six values: first three are rotation std devs (X, Y, Z in radians), last three are translation std devs (X, Y, Z).
+ */
+
+/**
+ * Configure INTT perturbation standard deviations and enable INTT perturbations.
+ * @param inttDevs Array of six values: first three are rotation std devs (X, Y, Z in radians), last three are translation std devs (X, Y, Z).
+ */
+
+/**
+ * Configure TPC perturbation standard deviations and enable TPC perturbations.
+ * @param tpcDevs Array of six values: first three are rotation std devs (X, Y, Z in radians), last three are translation std devs (X, Y, Z).
+ */
+
+/**
+ * Configure MM perturbation standard deviations and enable MM perturbations.
+ * @param mmDevs Array of six values: first three are rotation std devs (X, Y, Z in radians), last three are translation std devs (X, Y, Z).
+ */
+
+/**
+ * Enable verbose local logging for this AlignmentTransformation instance.
+ */
+
+/**
+ * Set the misalignment factor for a given detector layer.
+ * @param layer Layer identifier for which the misalignment factor will be set.
+ * @param factor Misalignment scaling factor to apply to the specified layer.
+ */
+
+/**
+ * Retrieve the misalignment factor for a given detector layer.
+ * @param layer Layer identifier to query.
+ * @returns The misalignment scaling factor for the specified layer.
+ */
+
+/**
+ * Enable or disable use of INTT survey geometry when building transforms.
+ * @param sur If true, use INTT survey geometry; if false, do not use it.
+ */
+
+/**
+ * Select whether to use the new silicon rotation order when constructing rotations.
+ * @param flag If true, use the new rotation order; if false, use the legacy order.
+ */
+
+/**
+ * Configure whether module tilt should always be considered when computing transforms.
+ * @param flag If true, always apply module tilt; if false, apply tilt according to existing rules.
+ */
 class AlignmentTransformation
 {
  public:
@@ -128,7 +194,8 @@ private:
 
   bool use_new_silicon_rotation_order = false;
   bool use_module_tilt_always = false;
-
+  bool use_module_tilt = false;   // starts at false in all cases
+  
   bool use_intt_survey_geometry = false;
   
   Acts::Transform3 newMakeTransform(const Surface& surf, Eigen::Vector3d& millepedeTranslation, Eigen::Vector3d& sensorAngles, Eigen::Vector3d& localFrameTranslation, Eigen::Vector3d& sensorAnglesGlobal, unsigned int trkrid, bool survey);

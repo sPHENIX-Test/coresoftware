@@ -32,6 +32,7 @@
 #include <TF1.h>
 #include <TFile.h>
 
+#include <algorithm>
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/box.hpp>
 #include <boost/geometry/geometries/point.hpp>
@@ -59,6 +60,18 @@ Tpc3DClusterizer::Tpc3DClusterizer(const std::string &name)
 {
 }
 
+/**
+ * @brief Initialize runtime nodes, I/O, geometry, and timers required by the clusterizer.
+ *
+ * Ensures a LASER_CLUSTER container exists under DST/TRKR (creates it if absent),
+ * opens debug and/or output ROOT files and creates associated histograms/trees/ntuple
+ * when enabled, obtains the TPC geometry container and derives ADC timing parameters,
+ * and initializes per-module timers used to profile processing stages.
+ *
+ * @param topNode The top-level PHCompositeNode of the current event/run node tree.
+ * @return Fun4AllReturnCodes::EVENT_OK on successful initialization;
+ *         Fun4AllReturnCodes::ABORTRUN if required nodes (DST or TPCGEOMCONTAINER) are missing.
+ */
 int Tpc3DClusterizer::InitRun(PHCompositeNode *topNode)
 {
   PHNodeIterator iter(topNode);
@@ -72,7 +85,7 @@ int Tpc3DClusterizer::InitRun(PHCompositeNode *topNode)
   }
 
   // Create the Cluster node if required
-  auto laserclusters = findNode::getClass<LaserClusterContainer>(dstNode, "LASER_CLUSTER");
+  auto *laserclusters = findNode::getClass<LaserClusterContainer>(dstNode, "LASER_CLUSTER");
   if (!laserclusters)
   {
     PHNodeIterator dstiter(dstNode);
@@ -111,13 +124,14 @@ int Tpc3DClusterizer::InitRun(PHCompositeNode *topNode)
     m_clusterTree->Branch("time_erase", &time_erase);
     m_clusterTree->Branch("time_all", &time_all);
   }
-   
-  if (m_output){
+
+  if (m_output)
+  {
     m_outputFile = new TFile(m_outputFileName.c_str(), "RECREATE");
 
-    m_clusterNT = new TNtuple("clus3D", "clus3D","event:seed:x:y:z:r:phi:phibin:tbin:adc:maxadc:layer:phielem:zelem:size:phisize:tsize:lsize");
+    m_clusterNT = new TNtuple("clus3D", "clus3D", "event:seed:x:y:z:r:phi:phibin:tbin:adc:maxadc:layer:phielem:zelem:size:phisize:tsize:lsize");
   }
-  
+
   m_geom_container =
       findNode::getClass<PHG4TpcGeomContainer>(topNode, "TPCGEOMCONTAINER");
   if (!m_geom_container)
@@ -142,13 +156,26 @@ int Tpc3DClusterizer::InitRun(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Process a single event: build 3D TPC clusters from TRKR_HITSET and store them in the LASER_CLUSTER node.
+ *
+ * Traverses TPC hitsets to build spatial indexes, selects seed hits by ADC, forms clusters within a local 3D window,
+ * computes cluster parameters, removes clustered hits from the working sets, and appends created LaserCluster objects
+ * to the LASER_CLUSTER container. Timing and optional debug outputs are updated when enabled.
+ *
+ * @param topNode Root of the node tree for the current event; must contain TRKR_HITSET, LASER_CLUSTER, and ActsGeometry nodes.
+ * @return Fun4AllReturnCodes::EVENT_OK on successful processing of the event; Fun4AllReturnCodes::ABORTRUN if required nodes (DST, TRKR_HITSET, LASER_CLUSTER, or ActsGeometry) are missing.
+ */
 int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
 {
   ++m_event;
-  recoConsts* rc = recoConsts::instance();
-  if (rc->FlagExist("RANDOMSEED")){
-    m_seed = (int)rc->get_IntFlag("RANDOMSEED");
-  }  else {
+  recoConsts *rc = recoConsts::instance();
+  if (rc->FlagExist("RANDOMSEED"))
+  {
+    m_seed = rc->get_IntFlag("RANDOMSEED");
+  }
+  else
+  {
     m_seed = std::numeric_limits<int>::quiet_NaN();
   }
 
@@ -163,11 +190,12 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
   }
   // get node containing the digitized hits
   m_hits = findNode::getClass<TrkrHitSetContainer>(topNode, "TRKR_HITSET");
-  if (!m_hits){
+  if (!m_hits)
+  {
     std::cout << PHWHERE << "ERROR: Can't find node TRKR_HITSET" << std::endl;
     return Fun4AllReturnCodes::ABORTRUN;
   }
-  
+
   // get node for clusters
   m_clusterlist = findNode::getClass<LaserClusterContainer>(topNode, "LASER_CLUSTER");
   if (!m_clusterlist)
@@ -193,7 +221,8 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
   bgi::rtree<pointKeyLaser, bgi::quadratic<16>> rtree_reject;
   for (TrkrHitSetContainer::ConstIterator hitsetitr = hitsetrange.first;
        hitsetitr != hitsetrange.second;
-       ++hitsetitr){
+       ++hitsetitr)
+  {
     TrkrHitSet *hitset = hitsetitr->second;
     unsigned int layer = TrkrDefs::getLayer(hitsetitr->first);
     int side = TpcDefs::getSide(hitsetitr->first);
@@ -202,49 +231,54 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
 
     TrkrHitSet::ConstRange hitrangei = hitset->getHits();
     for (TrkrHitSet::ConstIterator hitr = hitrangei.first;
-	 hitr != hitrangei.second;
-	 ++hitr){
+         hitr != hitrangei.second;
+         ++hitr)
+    {
       int iphi = TpcDefs::getPad(hitr->first);
       int it = TpcDefs::getTBin(hitr->first);
       //      std::cout << " iphi: " << iphi << " it: " << it << std::endl;
-      float_t fadc = (hitr->second->getAdc());// - m_pedestal;  // proper int rounding +0.5
+      float_t fadc = (hitr->second->getAdc());  // - m_pedestal;  // proper int rounding +0.5
       unsigned short adc = 0;
-      if (fadc > 0){
-	adc = (unsigned short) fadc;
+      if (fadc > 0)
+      {
+        adc = (unsigned short) fadc;
       }
-      if (adc <= 0){
-	continue;
+      if (adc <= 0)
+      {
+        continue;
       }
-      
+
       std::vector<pointKeyLaser> testduplicate;
       rtree.query(bgi::intersects(box(point(layer - 0.001, iphi - 0.001, it - 0.001),
-				      point(layer + 0.001, iphi + 0.001, it + 0.001))),
-		  std::back_inserter(testduplicate));
-      if (!testduplicate.empty()){
-	testduplicate.clear();
-	continue;
+                                      point(layer + 0.001, iphi + 0.001, it + 0.001))),
+                  std::back_inserter(testduplicate));
+      if (!testduplicate.empty())
+      {
+        testduplicate.clear();
+        continue;
       }
 
       TrkrDefs::hitkey hitKey = TpcDefs::genHitKey(iphi, it);
-      
+
       auto spechitkey = std::make_pair(hitKey, hitsetKey);
       rtree_reject.insert(std::make_pair(point(1.0 * layer, 1.0 * iphi, 1.0 * it), spechitkey));
     }
   }
-  
+
   std::multimap<unsigned int, std::pair<std::pair<TrkrDefs::hitkey, TrkrDefs::hitsetkey>, std::array<int, 3>>> adcMap;
   //  std::cout << "n hitsets: " << std::distance(hitsetrange.first,hitsetrange.second)
   //          << std::endl;
   for (TrkrHitSetContainer::ConstIterator hitsetitr = hitsetrange.first;
        hitsetitr != hitsetrange.second;
-       ++hitsetitr){
+       ++hitsetitr)
+  {
     TrkrHitSet *hitset = hitsetitr->second;
     unsigned int layer = TrkrDefs::getLayer(hitsetitr->first);
     int side = TpcDefs::getSide(hitsetitr->first);
     unsigned int sector = TpcDefs::getSectorId(hitsetitr->first);
-    //PHG4TpcGeom *layergeom = m_geom_container->GetLayerCellGeom(layer);
-    // double r = layergeom->get_radius();
-    
+    // PHG4TpcGeom *layergeom = m_geom_container->GetLayerCellGeom(layer);
+    //  double r = layergeom->get_radius();
+
     TrkrDefs::hitsetkey hitsetKey = TpcDefs::genHitSetKey(layer, sector, side);
 
     TrkrHitSet::ConstRange hitrangei = hitset->getHits();
@@ -252,74 +286,122 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
     //         << std::endl;
     // int nhits = 0;
     for (TrkrHitSet::ConstIterator hitr = hitrangei.first;
-	 hitr != hitrangei.second;
-	 ++hitr){
+         hitr != hitrangei.second;
+         ++hitr)
+    {
       int iphi = TpcDefs::getPad(hitr->first);
       int it = TpcDefs::getTBin(hitr->first);
       // std::cout << " iphi: " << iphi << " it: " << it << std::endl;
-      float_t fadc = (hitr->second->getAdc());// - m_pedestal;  // proper int rounding +0.5
+      float_t fadc = (hitr->second->getAdc());  // - m_pedestal;  // proper int rounding +0.5
       unsigned short adc = 0;
       // std::cout << " nhit: " << nhits++ << "adc: " << fadc << " phi: " << iphi << " it: " << it << std::endl;
-      if (fadc > 0){
-	adc = (unsigned short) fadc;
+      if (fadc > 0)
+      {
+        adc = (unsigned short) fadc;
       }
-      if (adc <= 0){
-	continue;
+      if (adc <= 0)
+      {
+        continue;
       }
-      if(layer>=7+32){
-	//if(side==1)continue;
-	if(abs(iphi-0)<=2) continue;
-	if(abs(iphi-191)<=2) continue;
-	if(abs(iphi-206)<=1) continue;
-	if(abs(iphi-383)<=2) continue;
-	if(abs(iphi-576)<=2) continue;
-	if(abs(iphi-767)<=2) continue;
-	if(abs(iphi-960)<=2) continue;
-	if(abs(iphi-1522)<=2) continue;
-	if(abs(iphi-1344)<=2) continue;
-	if(abs(iphi-1536)<=2) continue;
-	if(abs(iphi-1728)<=2) continue;
-	if(abs(iphi-1920)<=2) continue;
-	if(abs(iphi-2111)<=2) continue;
-	if(abs(iphi-2303)<=2) continue;
+      if (layer >= 7 + 32)
+      {
+        // if(side==1)continue;
+        if (abs(iphi - 0) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 191) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 206) <= 1)
+        {
+          continue;
+        }
+        if (abs(iphi - 383) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 576) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 767) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 960) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 1522) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 1344) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 1536) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 1728) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 1920) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 2111) <= 2)
+        {
+          continue;
+        }
+        if (abs(iphi - 2303) <= 2)
+        {
+          continue;
+        }
       }
 
       /*
       double phi = layergeom->get_phi(iphi);
       double m_sampa_tbias = 39.6;
       double zdriftlength = (layergeom->get_zcenter(it)+ m_sampa_tbias) * m_tGeometry->get_drift_velocity();
-      
+
       float x = r * cos(phi);
       float y = r * sin(phi);
       float z = m_tdriftmax * m_tGeometry->get_drift_velocity() - zdriftlength;
       if (side == 0){
-	z = -z;
-	it = -it;
+        z = -z;
+        it = -it;
       }
       */
       std::array<int, 3> coords = {(int) layer, iphi, it};
-      
+
       std::vector<pointKeyLaser> testduplicate;
       rtree.query(bgi::intersects(box(point(layer - 0.001, iphi - 0.001, it - 0.001),
-				      point(layer + 0.001, iphi + 0.001, it + 0.001))),
-		  std::back_inserter(testduplicate));
-      if (!testduplicate.empty()){
-	testduplicate.clear();
-	continue;
+                                      point(layer + 0.001, iphi + 0.001, it + 0.001))),
+                  std::back_inserter(testduplicate));
+      if (!testduplicate.empty())
+      {
+        testduplicate.clear();
+        continue;
       }
-      
-      //test for isolated hit
+
+      // test for isolated hit
       std::vector<pointKeyLaser> testisolated;
       rtree_reject.query(bgi::intersects(box(point(layer - 1.001, iphi - 1.001, it - 1.001),
-				      point(layer + 1.001, iphi + 1.001, it + 1.001))),
-		  std::back_inserter(testisolated));
-      if(testisolated.size()==1){
-	//testisolated.clear();
-	continue;
+                                             point(layer + 1.001, iphi + 1.001, it + 1.001))),
+                         std::back_inserter(testisolated));
+      if (testisolated.size() == 1)
+      {
+        // testisolated.clear();
+        continue;
       }
-      
+
       TrkrDefs::hitkey hitKey = TpcDefs::genHitKey(iphi, it);
-      
+
       auto spechitkey = std::make_pair(hitKey, hitsetKey);
       auto keyCoords = std::make_pair(spechitkey, coords);
       adcMap.insert(std::make_pair(adc, keyCoords));
@@ -327,38 +409,43 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
       rtree.insert(std::make_pair(point(1.0 * layer, 1.0 * iphi, 1.0 * it), spechitkey));
     }
   }
-  
-  if (Verbosity() > 1){
+
+  if (Verbosity() > 1)
+  {
     std::cout << "finished looping over hits" << std::endl;
     std::cout << "map size: " << adcMap.size() << std::endl;
     std::cout << "rtree size: " << rtree.size() << std::endl;
   }
-  
+
   // done filling rTree
-  
+
   t_all->restart();
-  
-  while (adcMap.size() > 0){
+
+  while (!adcMap.empty())
+  {
     auto iterKey = adcMap.rbegin();
-    if (iterKey == adcMap.rend()){
+    if (iterKey == adcMap.rend())
+    {
       break;
     }
-    
+
     auto coords = iterKey->second.second;
 
     int layer = coords[0];
     int iphi = coords[1];
     int it = coords[2];
-    
+
     int layerMax = layer + 1;
-    if (layer == 22 || layer == 38 || layer == 54){
+    if (layer == 22 || layer == 38 || layer == 54)
+    {
       layerMax = layer;
     }
     int layerMin = layer - 1;
-    if (layer == 7 || layer == 23 || layer == 39){
+    if (layer == 7 || layer == 23 || layer == 39)
+    {
       layerMin = layer;
     }
-    
+
     std::vector<pointKeyLaser> clusHits;
 
     t_search->restart();
@@ -376,21 +463,24 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
     clusHits.clear();
   }
 
-  if (m_debug){
+  if (m_debug)
+  {
     m_nClus = (int) m_eventClusters.size();
   }
   t_all->stop();
 
-  if (m_debug){
+  if (m_debug)
+  {
     time_search = t_search->get_accumulated_time() / 1000.;
     time_clus = t_clus->get_accumulated_time() / 1000.;
     time_erase = t_erase->get_accumulated_time() / 1000.;
     time_all = t_all->get_accumulated_time() / 1000.;
-    
+
     m_clusterTree->Fill();
   }
-  
-  if (Verbosity()){
+
+  if (Verbosity())
+  {
     std::cout << "rtree search time: " << t_search->get_accumulated_time() / 1000. << " sec" << std::endl;
     std::cout << "clustering time: " << t_clus->get_accumulated_time() / 1000. << " sec" << std::endl;
     std::cout << "erasing time: " << t_erase->get_accumulated_time() / 1000. << " sec" << std::endl;
@@ -401,30 +491,48 @@ int Tpc3DClusterizer::process_event(PHCompositeNode *topNode)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
-int Tpc3DClusterizer::ResetEvent(PHCompositeNode * /*topNode*/){
+/**
+ * @brief Reset per-event diagnostics and debug state.
+ *
+ * Clears per-event iteration and, when debug mode is enabled, timing histograms and the collected event clusters.
+ *
+ * @return int Fun4AllReturnCodes::EVENT_OK on success.
+ */
+int Tpc3DClusterizer::ResetEvent(PHCompositeNode * /*topNode*/)
+{
   m_itHist_0->Reset();
   m_itHist_1->Reset();
-  
+
   if (m_debug)
-    {
-      m_tHist_0->Reset();
-      m_tHist_1->Reset();
-      
-      m_eventClusters.clear();
-    }
-  
+  {
+    m_tHist_0->Reset();
+    m_tHist_1->Reset();
+
+    m_eventClusters.clear();
+  }
+
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Finalize the module by writing and closing enabled debug and output ROOT files.
+ *
+ * If debug mode is enabled, writes the in-memory cluster tree to the debug file and closes it.
+ * If output mode is enabled, writes the cluster NTuple to the output file and closes it.
+ *
+ * @return Fun4AllReturnCodes::EVENT_OK indicating successful completion.
+ */
 int Tpc3DClusterizer::End(PHCompositeNode * /*topNode*/)
 {
-  if (m_debug){
+  if (m_debug)
+  {
     m_debugFile->cd();
     m_clusterTree->Write();
     m_debugFile->Close();
   }
 
-  if (m_output){
+  if (m_output)
+  {
     m_outputFile->cd();
     m_clusterNT->Write();
     m_outputFile->Close();
@@ -432,9 +540,31 @@ int Tpc3DClusterizer::End(PHCompositeNode * /*topNode*/)
   return Fun4AllReturnCodes::EVENT_OK;
 }
 
+/**
+ * @brief Compute and finalize a 3D laser cluster from candidate hits.
+ *
+ * Calculates ADC-weighted cluster centroid and extent in radius, phi, and time,
+ * converts hit coordinates to Cartesian (X,Y,Z) using TPC geometry and drift
+ * velocity, aggregates hit-level ADC and maxima, constructs a LaserCluster
+ * object, and records the cluster in the module outputs.
+ *
+ * @param clusHits Vector of candidate hits for the cluster; each entry pairs
+ *                 a 3D hit coordinate tuple (layer, iphi, it) with the
+ *                 corresponding (hitkey, hitsetkey).
+ * @param adcMap   Multimap keyed by ADC value that maps to pairs of
+ *                 ((hitkey, hitsetkey), coordinate-array). Used to look up
+ *                 per-hit ADC and to remove hits from the active dataset.
+ *
+ * Side effects:
+ * - Adds a LaserCluster to m_clusterlist when at least one hit is processed.
+ * - When debugging is enabled, clones the cluster into m_currentCluster and
+ *   appends to m_eventClusters.
+ * - Fills the m_clusterNT ntuple with per-cluster summary values.
+ * - Returns early without creating a cluster if clusHits is empty.
+ */
 void Tpc3DClusterizer::calc_cluster_parameter(std::vector<pointKeyLaser> &clusHits, std::multimap<unsigned int, std::pair<std::pair<TrkrDefs::hitkey, TrkrDefs::hitsetkey>, std::array<int, 3>>> &adcMap)
 {
-  //std::cout << "nu clus" << std::endl;
+  // std::cout << "nu clus" << std::endl;
   double rSum = 0.0;
   double phiSum = 0.0;
   double tSum = 0.0;
@@ -449,9 +579,12 @@ void Tpc3DClusterizer::calc_cluster_parameter(std::vector<pointKeyLaser> &clusHi
   TrkrDefs::hitsetkey maxKey = 0;
 
   unsigned int nHits = clusHits.size();
-  int iphimin = 6666, iphimax = -1;
-  int ilaymin = 6666, ilaymax = -1;
-  float itmin = 66666666.6, itmax = -6666666666.6;
+  int iphimin = 6666;
+  int iphimax = -1;
+  int ilaymin = 6666;
+  int ilaymax = -1;
+  float itmin = 66666666.6;
+  float itmax = -6666666666.6;
   auto *clus = new LaserClusterv1;
 
   for (auto &clusHit : clusHits)
@@ -468,21 +601,21 @@ void Tpc3DClusterizer::calc_cluster_parameter(std::vector<pointKeyLaser> &clusHi
     double phi = layergeom->get_phi(coords[1], side);
     double t = layergeom->get_zcenter(fabs(coords[2]));
     int tbin = coords[2];
-    int lay = coords[0];//TrkrDefs::getLayer(spechitkey.second);
+    int lay = coords[0];  // TrkrDefs::getLayer(spechitkey.second);
     double hitzdriftlength = t * m_tGeometry->get_drift_velocity();
     double hitZ = m_tdriftmax * m_tGeometry->get_drift_velocity() - hitzdriftlength;
     /*std::cout << " lay: " << lay
-	      << " phi: " << phi
-	      << " t: " << t
-	      << " side: " << side
-	      << std::endl;
+              << " phi: " << phi
+              << " t: " << t
+              << " side: " << side
+              << std::endl;
     */
-    if(phi<iphimin){iphimin = phi;}
-    if(phi>iphimax){iphimax = phi;}
-    if(lay<ilaymin){ilaymin = lay;}
-    if(lay>ilaymax){ilaymax = lay;}
-    if(tbin<itmin){itmin = tbin;}
-    if(tbin>itmax){itmax = tbin;}
+    iphimin = std::min<double>(phi, iphimin);
+    iphimax = std::max<double>(phi, iphimax);
+    ilaymin = std::min(lay, ilaymin);
+    ilaymax = std::max(lay, ilaymax);
+    itmin = std::min<float>(tbin, itmin);
+    itmax = std::max<float>(tbin, itmax);
 
     for (auto &iterKey : adcMap)
     {
@@ -522,7 +655,7 @@ void Tpc3DClusterizer::calc_cluster_parameter(std::vector<pointKeyLaser> &clusHi
 
   if (nHits == 0)
   {
-    std::cout << "no hits"<< std::endl; 
+    std::cout << "no hits" << std::endl;
     return;
   }
 
@@ -554,67 +687,82 @@ void Tpc3DClusterizer::calc_cluster_parameter(std::vector<pointKeyLaser> &clusHi
   clus->setLayer(layerSum / adcSum);
   clus->setIPhi(iphiSum / adcSum);
   clus->setIT(itSum / adcSum);
-  int phisize =  iphimax - iphimin + 1;
-  int lsize =  ilaymax - ilaymin + 1;
-  int tsize = itmax - itmin +1;
+  int phisize = iphimax - iphimin + 1;
+  int lsize = ilaymax - ilaymin + 1;
+  int tsize = itmax - itmin + 1;
   if (m_debug)
   {
     m_currentCluster = (LaserCluster *) clus->CloneMe();
     m_eventClusters.push_back((LaserCluster *) m_currentCluster->CloneMe());
   }
   //  if(nHits>1&&tsize>5){
-  if(nHits>=1){
+  if (nHits >= 1)
+  {
     const auto ckey = TrkrDefs::genClusKey(maxKey, m_clusterlist->size());
     m_clusterlist->addClusterSpecifyKey(ckey, clus);
-  } else {
+  }
+  else
+  {
     delete clus;
   }
 
-
-   //event:seed:x:y:z:r:phi:phibin:tbin::adc:maxadc:layer:phielem:zelem:size:phisize:tsize:lsize
+  // event:seed:x:y:z:r:phi:phibin:tbin::adc:maxadc:layer:phielem:zelem:size:phisize:tsize:lsize
   //"event:seed:x:y:z:r:phi:phibin:tbin::adc:maxadc:layer:phielem:zelem:size:phisize:tsize:lsize"
   /*
   std::cout << " l size: " << lsize
-	    << " phisize : " << phisize
-	    << " tsize: " << tsize
-	    << " maxside: " << maxside
-	    << std::endl;
+            << " phisize : " << phisize
+            << " tsize: " << tsize
+            << " maxside: " << maxside
+            << std::endl;
   */
   // if (m_output){
-    float fX[20] = {0};
-    int n = 0;
-    fX[n++] = m_event;
-    fX[n++] = m_seed;
-    fX[n++] = clusX;
-    fX[n++] = clusY;
-    fX[n++] = clusZ;
-    fX[n++] = clusR;
-    fX[n++] = clusPhi;
-    fX[n++] = clusiPhi;
-    fX[n++] = clusT;
-    fX[n++] = adcSum;
-    fX[n++] = maxAdc;
-    fX[n++] = (layerSum/adcSum);
-    fX[n++] = maxsector;
-    fX[n++] = maxside;
-    fX[n++] = nHits;
-    fX[n++] = phisize;
-    fX[n++] = tsize;
-    fX[n++] = lsize;
-    m_clusterNT->Fill(fX);
-    // }
+  float fX[20] = {0};
+  int n = 0;
+  fX[n++] = m_event;
+  fX[n++] = m_seed;
+  fX[n++] = clusX;
+  fX[n++] = clusY;
+  fX[n++] = clusZ;
+  fX[n++] = clusR;
+  fX[n++] = clusPhi;
+  fX[n++] = clusiPhi;
+  fX[n++] = clusT;
+  fX[n++] = adcSum;
+  fX[n++] = maxAdc;
+  fX[n++] = (layerSum / adcSum);
+  fX[n++] = maxsector;
+  fX[n++] = maxside;
+  fX[n++] = nHits;
+  fX[n++] = phisize;
+  fX[n++] = tsize;
+  fX[n++] = lsize;
+  m_clusterNT->Fill(fX);
+  // }
 }
 
+/**
+ * @brief Remove entries corresponding to cluster hits from the ADC map.
+ *
+ * For each hit in clusHits, erases the first matching entry in adcMap whose
+ * spechitkey equals the hit's stored key. If the provided rtree is empty,
+ * writes "not good" to standard output. This function does not remove
+ * entries from the rtree (rtree removals are intentionally commented out).
+ *
+ * @param clusHits Vector of spatial keys and associated hit keys representing cluster hits.
+ * @param rtree Spatial index of candidate hits; inspected for emptiness and not modified.
+ * @param adcMap Multimap of ADC values to (hit key, hitset key, coordinates) from which matching entries are erased.
+ */
 void Tpc3DClusterizer::remove_hits(std::vector<pointKeyLaser> &clusHits, bgi::rtree<pointKeyLaser, bgi::quadratic<16>> &rtree, std::multimap<unsigned int, std::pair<std::pair<TrkrDefs::hitkey, TrkrDefs::hitsetkey>, std::array<int, 3>>> &adcMap)
 {
   for (auto &clusHit : clusHits)
   {
     auto spechitkey = clusHit.second;
 
-    if(rtree.size()==0){
+    if (rtree.empty())
+    {
       std::cout << "not good" << std::endl;
     }
-    //rtree.remove(clusHit);
+    // rtree.remove(clusHit);
 
     for (auto iterAdc = adcMap.begin(); iterAdc != adcMap.end();)
     {
@@ -623,10 +771,8 @@ void Tpc3DClusterizer::remove_hits(std::vector<pointKeyLaser> &clusHits, bgi::rt
         iterAdc = adcMap.erase(iterAdc);
         break;
       }
-      else
-      {
-        ++iterAdc;
-      }
+
+      ++iterAdc;
     }
   }
 }

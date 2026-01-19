@@ -36,6 +36,12 @@ class TrkrHitSetContainer;
 class TrkrHitTruthAssoc;
 class TrackSeedContainer;
 
+/**
+ * @brief Enable exhaustive dumping of clusters for every seed.
+ *
+ * When called, clusters on all silicon and TPC seeds will be individually
+ * dumped during the pruning step.
+ */
 class DSTClusterPruning : public SubsysReco
 {
  public:
@@ -51,6 +57,12 @@ class DSTClusterPruning : public SubsysReco
 
   //! end of processing
   //int End(PHCompositeNode*) override;
+
+  //! dump all clusters on all seeds out
+  void pruneAllSeeds()
+  {
+    m_pruneAllSeeds = true;
+  }
 
  private:
   //! load nodes
@@ -68,6 +80,9 @@ class DSTClusterPruning : public SubsysReco
   TrackSeedContainer* m_tpc_track_seed_container = nullptr;
   TrackSeedContainer* m_silicon_track_seed_container = nullptr;
 
+//! set to true if you want to dump out all clusters on all silicon
+//! and all tpc seeds individually
+  bool m_pruneAllSeeds = false;
   //@}
 
   // debugging helpers

@@ -1,4 +1,3 @@
-
 #include "TriggerDSTSkimmer.h"
 
 #include <fun4all/Fun4AllReturnCodes.h>
@@ -17,9 +16,30 @@ TriggerDSTSkimmer::TriggerDSTSkimmer(const std::string &name)
 {
 }
 
-//____________________________________________________________________________..
+/**
+ * @brief Evaluate trigger selection for the current event and decide its fate.
+ *
+ * Checks configured trigger indices against the GL1 scaled trigger vector and enforces
+ * the optional maximum accepted-events limit. When an event passes selection the
+ * accepted-events counter is incremented.
+ *
+ * @param topNode Pointer to the event node tree root used to retrieve the Gl1Packet.
+ * @return int Fun4All return code:
+ *   - Fun4AllReturnCodes::EVENT_OK when the event passes selection and is accepted.
+ *   - Fun4AllReturnCodes::ABORTEVENT when the event is skipped because the maximum
+ *     accepted-events limit is reached (if enabled), the Gl1Packet node is missing,
+ *     or no configured trigger fired.
+ *   - Fun4AllReturnCodes::ABORTRUN when a configured trigger index is outside the
+ *     valid range [0..63].
+ */
 int TriggerDSTSkimmer::process_event(PHCompositeNode *topNode)
 {
+
+  if ((accepted_events >= max_accept) && use_max_accept) 
+  {
+    return Fun4AllReturnCodes::ABORTEVENT;
+  }
+  
   if (Verbosity() > 0)
   {
     if (ievent % 1000 == 0)
@@ -45,7 +65,7 @@ int TriggerDSTSkimmer::process_event(PHCompositeNode *topNode)
   if (n_trigger_index != 0)
   {
     bool trigger_fired = false;
-    Gl1Packet *_gl1PacketInfo = findNode::getClass<Gl1Packet>(topNode, "GL1Packet");
+    Gl1Packet *_gl1PacketInfo = findNode::getClass<Gl1Packet>(topNode, 14001);
     int gl1_trigger_vector_scaled[64] = {0};
     if (_gl1PacketInfo)
     {
@@ -61,6 +81,7 @@ int TriggerDSTSkimmer::process_event(PHCompositeNode *topNode)
       std::cout << "TriggerDSTSkimmer::process_event - Error - Can't find Trigger Node Gl1Packet therefore no selection can be made" << std::endl;
       return Fun4AllReturnCodes::ABORTEVENT;
     }
+
     for (int it = 0; it < n_trigger_index; ++it)
     {
       if (gl1_trigger_vector_scaled[m_trigger_index[it]] == 1)
@@ -74,5 +95,8 @@ int TriggerDSTSkimmer::process_event(PHCompositeNode *topNode)
       return Fun4AllReturnCodes::ABORTEVENT;
     }
   }
+
+  accepted_events++;
+
   return Fun4AllReturnCodes::EVENT_OK;
 }

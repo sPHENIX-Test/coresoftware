@@ -9,6 +9,7 @@
 #include <CLHEP/Vector/Rotation.h>
 
 #include <iostream>  // for cout
+#include <limits>
 #include <map>       // for map
 #include <sstream>
 #include <utility>  // for swap
@@ -101,6 +102,14 @@ CLHEP::HepLorentzRotation PHHepMCGenEventv1::get_LorentzRotation_Lab2EvtGen() co
   return get_LorentzRotation_EvtGen2Lab().inverse();
 }
 
+/**
+ * @brief Retrieve the stored flow reaction-plane angle psi_n for the given harmonic order.
+ *
+ * @param n Harmonic order key for the requested reaction-plane angle.
+ * @return float The psi_n angle (radians) if present, `NaN` otherwise.
+ *
+ * If the requested entry is missing, a warning is written to stdout and `NaN` is returned.
+ */
 float PHHepMCGenEventv1::get_flow_psi(unsigned int n) const
 {
   auto it = m_psi_n.find(n);
@@ -109,6 +118,6 @@ float PHHepMCGenEventv1::get_flow_psi(unsigned int n) const
     return it->second;
   }
 
-  std::cout << "PHHepMCGenEventv1::get_flow_psi - Warning - requested reaction plane angle psi_n for n=" << n << " does not exist. Returning 0.0" << std::endl;
-  return 0.0F;
+  std::cout << "PHHepMCGenEventv1::get_flow_psi - Warning - requested reaction plane angle psi_n for n=" << n << " does not exist. Returning NAN" << std::endl;
+  return std::numeric_limits<float>::quiet_NaN();
 }

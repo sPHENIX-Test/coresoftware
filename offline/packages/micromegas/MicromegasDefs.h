@@ -25,7 +25,60 @@ namespace MicromegasDefs
   };
 
   //! tells the drift direction for a given micromegas layer
-  /*! this is needed for properly implementing transverse diffusion in the layer */
+  /**
+ * Direction of electron drift used for transverse diffusion handling in a layer.
+ */
+
+/**
+ * @brief Generate a hitset key for a Micromegas layer.
+ * @param layer Layer index.
+ * @param segmentation Segmentation direction along the cylinder.
+ * @param tile Tile index within the layer.
+ * @returns The generated TrkrDefs::hitsetkey for the specified layer, segmentation, and tile.
+ */
+
+/**
+ * @brief Extract the segmentation type encoded in a hitset key.
+ * @param key Hitset key to decode.
+ * @returns The SegmentationType stored in the provided hitset key.
+ */
+
+/**
+ * @brief Extract the tile id encoded in a hitset key.
+ * @param key Hitset key to decode.
+ * @returns The tile index stored in the provided hitset key.
+ */
+
+/**
+ * @brief Generate a hit key from strip and sample indices within a tile.
+ * @param strip Strip index inside the tile.
+ * @param sample Sample index (defaults to 0).
+ * @returns The generated TrkrDefs::hitkey encoding the strip and sample.
+ */
+
+/**
+ * @brief Retrieve the strip index from a hit key.
+ * @param key Hit key to decode.
+ * @returns The strip index encoded in the hit key.
+ */
+
+/**
+ * @brief Retrieve the sample index from a hit key.
+ * @param key Hit key to decode.
+ * @returns The sample index encoded in the hit key.
+ */
+
+/**
+ * @brief Extract the segmentation type encoded in a cluster key.
+ * @param key Cluster key to decode.
+ * @returns The SegmentationType stored in the provided cluster key.
+ */
+
+/**
+ * @brief Extract the tile id encoded in a cluster key.
+ * @param key Cluster key to decode.
+ * @returns The tile index stored in the provided cluster key.
+ */
   enum class DriftDirection: uint8_t
   {
     INWARD,
@@ -60,11 +113,15 @@ namespace MicromegasDefs
   /*!
    * @brief Generate a hitkey from strip index inside tile
    * @param[in] strip strip index
+   * @param[in] sample sample index
    */
-  TrkrDefs::hitkey genHitKey(uint16_t strip );
+  TrkrDefs::hitkey genHitKey(uint16_t strip, uint16_t sample = 0 );
 
   //! get strip from hit key
-  uint16_t getStrip(TrkrDefs::hitkey);
+  uint8_t getStrip(TrkrDefs::hitkey);
+
+  //! get sample from hit key
+  uint16_t getSample(TrkrDefs::hitkey);
 
   /*!
    * @brief Get the segmentation type from cluster key

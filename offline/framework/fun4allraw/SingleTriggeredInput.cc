@@ -327,6 +327,13 @@ int SingleTriggeredInput::fileclose()
   return 0;
 }
 
+/**
+ * @brief Populate per-packet event deques up to the configured pool depth.
+ *
+ * Fills m_PacketEventDeque for each tracked packet ID by reading events (advancing the active EventIterator and opening subsequent files as needed) until either the pool depth is reached or an existing deque already contains entries. This routine updates internal per-packet clock and diff arrays, may create DST nodes on the first call, handles GL1-driven skip/trace behavior when present, and maintains internal shift/backup state used for alignment.
+ *
+ * @return int `-1` if a fatal input-file/open failure occurs; otherwise the number of complete events available in the pool (the minimum size across all per-packet deques after filling).
+ */
 int SingleTriggeredInput::FillEventVector()
 {
   while (GetEventIterator() == nullptr)  // at startup this is a null pointer
@@ -352,6 +359,12 @@ int SingleTriggeredInput::FillEventVector()
     m_bclkarray_map[pid][0] = tmp;
     m_bclkdiffarray_map[pid].fill(std::numeric_limits<uint64_t>::max());
 
+    static bool firstclockarray=true;
+    if(firstclockarray){
+      std::cout << "first clock call pid " << pid << " m_bclkarray_map[pid][0] : " << m_bclkarray_map[pid][0] << std::endl;
+      firstclockarray=false;
+    }
+
     if ( representative_pid == -1 ) 
     {
       representative_pid = pid;
@@ -368,12 +381,17 @@ int SingleTriggeredInput::FillEventVector()
   while (i < pooldepth)
   {
     Event* evt{nullptr};
+    bool skiptrace = false;
     if (this != Gl1Input())
     {
       auto* gl1 = dynamic_cast<SingleGl1TriggeredInput*>(Gl1Input());
       if (gl1)
       {
         int nskip = gl1->GetGl1SkipArray()[i];
+        if(nskip >0) 
+        {
+          skiptrace = true;
+        }
         
         while (nskip > 0)
         {
@@ -391,6 +409,7 @@ int SingleTriggeredInput::FillEventVector()
           
           if (skip_evt->getEvtType() != DATAEVENT)
           {
+            delete skip_evt;
             continue;
           }
 
@@ -412,13 +431,90 @@ int SingleTriggeredInput::FillEventVector()
           {
             if (Verbosity() > 0)
             {
-              std::cout << Name() << ": Early stop of SEB skip after " << (gl1->GetGl1SkipArray()[i] - nskip) << " from intial " << gl1->GetGl1SkipArray()[i] << " events." << std::endl;
+              std::cout << Name() << ": Early stop in pool " << i << " of SEB skip after " << (gl1->GetGl1SkipArray()[i] - nskip) << " from intial " << gl1->GetGl1SkipArray()[i] << " events. gl1diff vs sebdiff : " << gl1_diff << " vs " << seb_diff << std::endl;
             }
             evt = skip_evt;
+            skiptrace = false;
             break;
           }
           delete skip_evt;
           nskip--;
+        }
+
+        if(skiptrace)
+        {
+          evt = GetEventIterator()->getNextEvent();
+          while (!evt)
+          {
+            fileclose();
+            if (OpenNextFile() == InputFileHandlerReturnCodes::FAILURE)
+            {
+              FilesDone(1);
+              return -1;
+            }
+            evt = GetEventIterator()->getNextEvent();
+          }
+          if (evt->getEvtType() != DATAEVENT)
+          {
+            if (Verbosity() > 0)
+            {
+              std::cout << Name() << " dropping non data event: " << evt->getEvtSequence() << std::endl;
+            }
+            delete evt;
+            continue;
+          }
+
+          Packet* pkt = evt->getPacket(representative_pid);
+          if (!pkt)
+          {
+            std::cout << "representative packet invalid inside skiptrace.. continuing.." << std::endl;
+            continue;
+          }
+          FillPacketClock(evt, pkt, i);
+          uint64_t seb_diff = m_bclkdiffarray_map[representative_pid][i];
+          int gl1pid = Gl1Input()->m_bclkdiffarray_map.begin()->first;
+          uint64_t gl1_diff = gl1->m_bclkdiffarray_map[gl1pid][i];
+
+          bool clockconsistency=true;
+          if (seb_diff != gl1_diff)
+          {
+            clockconsistency=false;
+            int clockconstcount = 0;
+            while(!clockconsistency && clockconstcount<5)
+            {
+              std::cout << Name() << ": Still inconsistent clock diff after Gl1 drop. gl1diff vs sebdiff : " << gl1_diff << " vs " << seb_diff << std::endl;
+              delete pkt;
+              delete evt;
+              evt = GetEventIterator()->getNextEvent();
+              while (!evt)
+              {
+                fileclose();
+                if (OpenNextFile() == InputFileHandlerReturnCodes::FAILURE)
+                {
+                  FilesDone(1);
+                  return -1;
+                }
+                evt = GetEventIterator()->getNextEvent();
+              }
+              pkt = evt->getPacket(representative_pid);
+              if (!pkt)
+              {
+                std::cout << "representative packet invalid inside skiptrace.. continuing.." << std::endl;
+                continue;
+              }
+
+              FillPacketClock(evt, pkt, i);
+              uint64_t seb_diff_next = m_bclkdiffarray_map[representative_pid][i];
+              uint64_t gl1_diff_next = gl1->m_bclkdiffarray_map[gl1pid][i];
+              std::cout << "seb_diff_next : " << seb_diff_next << " , gl1_diff_next : " << gl1_diff_next << std::endl;
+              if(seb_diff_next == gl1_diff_next)
+              {
+                clockconsistency=true;
+                std::cout << Name() << " : recovered by additional skip in skiptrace" << std::endl;
+              }
+              clockconstcount++;
+            }
+          }
         }
       }
     }
@@ -485,14 +581,16 @@ int SingleTriggeredInput::FillEventVector()
       }
       FillPacketClock(thisevt, pkt, i);
       m_PacketEventDeque[pid].push_back(thisevt);
+
       delete pkt;
-    
+
       if (representative_pid == -1 && m_PacketShiftOffset[pid] == 0)
       {
         representative_pid = pid;
       }
     }
     i++;
+    eventcounter++;
   }
 
   size_t minSize = pooldepth;
@@ -1079,6 +1177,24 @@ void SingleTriggeredInput::dumpdeque()
   return;
 }
 
+/**
+ * @brief Assemble and output the next combined event from per-packet deques into DST structures.
+ *
+ * Populates CaloPacket nodes for the next reference event by combining one Event per configured packet ID:
+ * - Validates per-packet deques are non-empty and selects the front Event from the first deque as reference.
+ * - Updates run and event counters and clears the internal FEM event-number set.
+ * - For each packet that is not flagged as misaligned, validates packet identity, applies ditch/override rules,
+ *   copies BCO/FEM metadata, samples, suppression flags, and module/channel counts into the corresponding CaloPacket
+ *   DST node, and performs FEM event-number/clock consistency checks.
+ * - Deletes per-event Packet and Event objects as appropriate, advances per-packet deques by one entry,
+ *   and decrements stored ditch indices to reflect the removed leading entry.
+ *
+ * The method modifies internal state (run number, FEM event-number set, ditch indices, per-packet deques)
+ * and may mark an alignment problem when inconsistencies are detected.
+ *
+ * @returns int `Fun4AllReturnCodes::EVENT_OK` on successful assembly of an output event;
+ *          `-1` if processing cannot proceed (e.g., any packet deque is empty, or a packet ID mismatch is detected).
+ */
 int SingleTriggeredInput::ReadEvent()
 {
   for (const auto& [pid, dq] : m_PacketEventDeque)
@@ -1116,16 +1232,15 @@ int SingleTriggeredInput::ReadEvent()
       [](const std::pair<int, int>& p) { return p.second == 0; });
 
   std::set<Event*> events_to_delete;
-
   for (auto& [pid, dq] : m_PacketEventDeque)
   {
     if(m_PacketAlignmentProblem[pid]) 
     {
       continue;
     }
+
     Event* evt = dq.front();
     Packet* packet = evt->getPacket(pid);
-
     int packet_id = packet->getIdentifier();
     if (packet_id != pid)
     {
@@ -1137,7 +1252,6 @@ int SingleTriggeredInput::ReadEvent()
 
     CaloPacket *newhit = findNode::getClass<CaloPacket>(m_topNode, packet_id);
     newhit->Reset();
-
     if (m_DitchPackets.contains(packet_id) && m_DitchPackets[packet_id].contains(0))
     {
       newhit->setStatus(OfflinePacket::PACKET_DROPPED);
